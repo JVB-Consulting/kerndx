@@ -10,7 +10,7 @@
  *
  * @group Async Processing
  *
- * @date September 2025, October 2026
+ * @date September 2025, November 2026
  *
  * @since 1.0
  *
@@ -31,6 +31,12 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 	private static final Integer MAX_DELAY_MINUTES = 10;
 
 	/**
+	 * @description The words the delayed-dispatch error entry uses in place of an item count when the job was built from
+	 * a query, which has no list of items yet.
+	 */
+	private static final String ITEMS_FROM_A_QUERY = 'a query';
+
+	/**
 	 * @description Starts an adaptive asynchronous job with automatic execution strategy selection.
 	 * The framework chooses between Queueable and Batch Apex for you. If the code already runs inside an
 	 * asynchronous job (a Queueable, Batch or future method), it starts a chain of Queueables, whatever the
@@ -42,6 +48,9 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 	 * @param processor An instance of a class that implements Processable.
 	 *
 	 * @return The ID of the started asynchronous job.
+	 *
+	 * @throws Exception Salesforce refused to start a job. Catch it as Exception. For a queueable job, getCause() returns
+	 * the error Salesforce raised.
 	 *
 	 * @since 1.0
 	 *
@@ -69,6 +78,9 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 	 *
 	 * @return The ID of the started asynchronous job.
 	 *
+	 * @throws Exception Salesforce refused to start a job. Catch it as Exception. For a queueable job, getCause() returns
+	 * the error Salesforce raised.
+	 *
 	 * @since 1.0
 	 *
 	 * @example
@@ -95,11 +107,17 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 	 * @description Starts an adaptive asynchronous job with full configuration control via a request object.
 	 * This method provides maximum flexibility, allowing you to configure batch size, queueable job size,
 	 * execution strategy, and other advanced settings through the DTO_AsynchronousJobRequest object.
+	 * A processor that implements IF_Async.Finishable cannot be forced to run as PARALLEL_QUEUEABLES: its finish step
+	 * would run once for every job. That request is refused before any job is started.
 	 *
 	 * @param request The AsynchronousJobRequest containing the data and configuration.
 	 * @param processor An instance of a class that implements Processable.
 	 *
 	 * @return The ID of the started asynchronous job.
+	 *
+	 * @throws Exception Salesforce refused to start a job. Catch it as Exception. For a queueable job, getCause() returns
+	 * the error Salesforce raised.
+	 * @throws IllegalArgumentException The request forces PARALLEL_QUEUEABLES and the processor implements IF_Async.Finishable.
 	 *
 	 * @since 1.0
 	 *
@@ -118,6 +136,11 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 	 */
 	global static Id process(DTO_AsynchronousJobRequest request, IF_Async.Processable processor)
 	{
+		if(request.executionStrategy == IF_Async.AsynchronousExecutionStrategy.PARALLEL_QUEUEABLES && processor instanceof IF_Async.Finishable)
+		{
+			throw new IllegalArgumentException(System.Label.AsyncProcessor_ParallelRefusedForFinishable);
+		}
+
 		Integer totalDelay = request.delayMinutes != null ? request.delayMinutes : 0;
 
 		// If delay > 0, use the delay handler (with chaining for delays > 10 min)
@@ -138,16 +161,30 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 	 * @param totalDelayMinutes The total delay before processing starts.
 	 *
 	 * @return The job ID of the enqueued delay handler.
+	 *
+	 * @throws UTIL_Exceptions.LaunchRefusedException Salesforce refused to queue the delayed handler. The exception has
+	 * the error Salesforce raised as its cause and names every item of the request (none for a request built from a
+	 * query). One error entry is written before it is thrown, unless the request says the caller handles a refused start.
 	 */
 	private static Id enqueueWithDelay(DTO_AsynchronousJobRequest request, IF_Async.Processable processor, Integer totalDelayMinutes)
 	{
 		Integer initialDelay = Math.min(totalDelayMinutes, MAX_DELAY_MINUTES);
 		Integer remainingMinutes = totalDelayMinutes - initialDelay;
 
-		return System.enqueueJob(
-				new DelayedDispatchHandler(request, processor, remainingMinutes),
-				initialDelay
-		);
+		try
+		{
+			return System.enqueueJob(new DelayedDispatchHandler(request, processor, remainingMinutes), initialDelay);
+		}
+		catch(Exception error)
+		{
+			List<Object> unsentItems = request.itemsToProcess != null ? new List<Object>(request.itemsToProcess) : new List<Object>();
+			UTIL_Exceptions.LaunchRefusedException refused = new UTIL_Exceptions.LaunchRefusedException(error, unsentItems);
+			if(!request.isLaunchRefusalHandledByCaller)
+			{
+				LOG_Builder.build().error(refused).at(UTIL_AsynchronousJobLauncher.class.getName() + '/enqueueWithDelay').emit();
+			}
+			throw refused;
+		}
 	}
 
 	/**
@@ -170,6 +207,7 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 		settings.executionStrategy = request.executionStrategy;
 		settings.limitAtWhichToBatch = request.limitAtWhichToBatch;
 		settings.queueableJobSize = request.queueableJobSize;
+		settings.isLaunchRefusalHandledByCaller = request.isLaunchRefusalHandledByCaller;
 
 		adaptiveProcessor.configure(settings);
 
@@ -293,6 +331,23 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 		 * ```
 		 */
 		global Integer delayMinutes {get; private set;}
+
+		/**
+		 * @description True when the code that starts the job catches a refused start itself and keeps its own record of
+		 * it. Salesforce can refuse to start a job, for example when the org has used its daily allowance of background
+		 * jobs.
+		 *
+		 * When this is true, the framework writes no error log entry for a refused start, and still throws the refusal to
+		 * that code. Any other failure still writes its error entry. False until withLaunchRefusalHandledByCaller is called.
+		 */
+		public Boolean isLaunchRefusalHandledByCaller
+		{
+			get
+			{
+				return isLaunchRefusalHandledByCaller ?? false;
+			}
+			private set;
+		}
 
 		/**
 		 * @description Constructor for processing a predefined list of objects.
@@ -474,6 +529,22 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 			delayMinutes = minutes;
 			return this;
 		}
+
+		/**
+		 * @description Says that the code starting the job catches a refused start itself and keeps its own record of it.
+		 * The framework then writes no error log entry for a refused start. The refusal is still thrown to that code, and
+		 * any other failure still writes its error entry.
+		 *
+		 * When the code cannot keep the work for a later try, its own record must be an error entry, so lost work is never
+		 * logged below the error level.
+		 *
+		 * @return The AsynchronousJobRequest instance for method chaining.
+		 */
+		public DTO_AsynchronousJobRequest withLaunchRefusalHandledByCaller()
+		{
+			isLaunchRefusalHandledByCaller = true;
+			return this;
+		}
 	}
 
 	/**
@@ -535,7 +606,7 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 			}
 			else
 			{
-				dispatchProcessing();
+				dispatchProcessing(context.getJobId());
 			}
 		}
 
@@ -554,12 +625,61 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 		}
 
 		/**
-		 * @description Dispatches the actual processing now that delay has expired.
+		 * @description Starts the real job now that the delay has ended. When Salesforce refuses to start it, the work is
+		 * not done, and nothing starts it again. The handler then writes one error entry (see logRefusedLaunch) and ends
+		 * normally.
+		 *
+		 * The handler says that it handles a refused start, so the processor writes no error entry of its own. The
+		 * Finalizer has nothing to log, because the handler did not crash. Any other failure still writes its error entry.
+		 *
+		 * @param jobId The id of this handler's own job, which the error entry is linked to.
 		 */
-		private void dispatchProcessing()
+		private void dispatchProcessing(Id jobId)
 		{
-			// Clear the dispatch delay and process immediately
-			processImmediately(request, processor);
+			try
+			{
+				processImmediately(request.withLaunchRefusalHandledByCaller(), processor);
+			}
+			catch(UTIL_Exceptions.LaunchRefusedException refused)
+			{
+				logRefusedLaunch(jobId, refused);
+			}
+		}
+
+		/**
+		 * @description Writes the error entry for a job Salesforce refused to start after the delay. The work is lost, so
+		 * the entry is an error, not a warning: it shows at any log level setting.
+		 *
+		 * The entry names the processor's class, the number of items (or "a query" for a job built from a query), the
+		 * delay that was asked for and the error Salesforce gave. It is linked to this handler's job and lists the items
+		 * (the job scope).
+		 *
+		 * @param jobId The id of this handler's own job.
+		 * @param refused The exception that says Salesforce refused to start the job.
+		 */
+		private void logRefusedLaunch(Id jobId, UTIL_Exceptions.LaunchRefusedException refused)
+		{
+			String itemCount = request.itemsToProcess != null ? String.valueOf(request.itemsToProcess.size()) : ITEMS_FROM_A_QUERY;
+
+			String message = String.format
+					(
+							System.Label.AsyncLauncher_DelayedDispatchRefused,
+							new List<Object>
+							{
+									UTIL_System.getRuntimeTypeName(processor),
+									itemCount,
+									String.valueOf(request.delayMinutes),
+									refused.getCause().getMessage()
+							}
+					);
+
+			LOG_Builder.LogEntry entry = LOG_Builder.build()
+					.error(message)
+					.at(UTIL_System.getRuntimeTypeName(this) + '/dispatchProcessing')
+					.forRecord(jobId);
+
+			addJobScope(entry);
+			entry.emit();
 		}
 
 		/**
@@ -590,12 +710,22 @@ global inherited sharing class UTIL_AsynchronousJobLauncher
 					.at(UTIL_System.getRuntimeTypeName(this) + '/logUnhandledException')
 					.forRecord(context.getAsyncApexJobId());
 
+			addJobScope(entry);
+			entry.emit();
+		}
+
+		/**
+		 * @description Adds the job scope to a log entry when the request was given a list of items. A request built
+		 * from a query has no list yet, so its entry gets no job scope.
+		 *
+		 * @param entry The log entry to add the job scope to.
+		 */
+		private void addJobScope(LOG_Builder.LogEntry entry)
+		{
 			if(request.itemsToProcess != null)
 			{
 				entry.withContext(LOG_Engine.CONTEXT_JOB_SCOPE, buildJobScope(request.itemsToProcess));
 			}
-
-			entry.emit();
 		}
 
 		/**

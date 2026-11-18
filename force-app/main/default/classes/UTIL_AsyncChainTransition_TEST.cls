@@ -25,7 +25,7 @@
  *
  * @group Async
  *
- * @date October 2026
+ * @date October 2026, November 2026
  */
 @IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ExcessiveParameterList,PMD.ApexUnitTestClassShouldHaveAsserts,PMD.NcssTypeCount')
@@ -160,6 +160,38 @@ private class UTIL_AsyncChainTransition_TEST
 	 * @description LogLevel__c literal of a warning entry.
 	 */
 	private static final String LOG_LEVEL_WARN = LoggingLevel.WARN.name();
+
+	/**
+	 * @description LogLevel__c literal of a debug entry. With this log level every performance entry may be saved.
+	 */
+	private static final String LOG_LEVEL_DEBUG = LoggingLevel.DEBUG.name();
+
+	/**
+	 * @description A threshold in milliseconds that every run reaches, because a run always takes 0 ms or longer.
+	 */
+	private static final Integer THRESHOLD_ALWAYS_REACHED_MS = 0;
+
+	/**
+	 * @description A threshold in milliseconds that no test run reaches. A test run ends in far less than this time.
+	 */
+	private static final Integer THRESHOLD_NEVER_REACHED_MS = 999999;
+
+	/**
+	 * @description The ClassMethod__c value of the performance entry for a whole chain run. Only that entry is logged with
+	 * this exact value.
+	 */
+	private static final String CHAIN_SUMMARY_CLASS_METHOD = UTIL_AsyncChain.class.getName() + '.ChainExecutor';
+
+	/**
+	 * @description How many seconds ago the run started, in the test that checks that the run's real duration reaches the
+	 * chain threshold.
+	 */
+	private static final Integer RUN_AGE_SECONDS = 60;
+
+	/**
+	 * @description The number of milliseconds in one second.
+	 */
+	private static final Integer MILLISECONDS_PER_SECOND = 1000;
 
 	/**
 	 * @description Fragment of the warning the transition function writes when the run's fresh key is not the one the
@@ -299,6 +331,12 @@ private class UTIL_AsyncChainTransition_TEST
 	private static final String RUNNING_WITH_END_TIME_REASON = 'a Running run must have no end time and no failure category';
 
 	/**
+	 * @description The refusal reason the function writes when a write would leave a Stalled run without a stall time, or
+	 * with an end time or a duration. The test checks that no error log carries it.
+	 */
+	private static final String STALLED_RUN_REASON = 'a Stalled run must have a stall time, no end time and no duration';
+
+	/**
 	 * @description The start of the error log the Finalizer writes when its handler note fails to save for a reason other
 	 * than a refused transition, in place of throwing.
 	 */
@@ -373,6 +411,12 @@ private class UTIL_AsyncChainTransition_TEST
 	private static final String FINALIZER_DML_FAILED_FRAGMENT = 'Finalizer DML failed';
 
 	/**
+	 * @description Start of the error log the Finalizer writes when its stall write fails for a reason the transition
+	 * function does not handle itself.
+	 */
+	private static final String FINALIZER_STALL_DML_FAILED_FRAGMENT = 'Finalizer stall DML failed';
+
+	/**
 	 * @description How many rows the hand-written (from, to) table carries: six statuses times six statuses.
 	 */
 	private static final Integer STATUS_PAIR_COUNT = 36;
@@ -391,6 +435,24 @@ private class UTIL_AsyncChainTransition_TEST
 	 * @description How many minutes later than the stored end time a refused second end time sits.
 	 */
 	private static final Integer LATER_END_TIME_OFFSET_MINUTES = 5;
+
+	/**
+	 * @description How many days in the past an old stall time sits. A stall time this old cannot have been written by
+	 * the test's own sweep.
+	 */
+	private static final Integer OLD_STALL_TIME_AGE_DAYS = 2;
+
+	/**
+	 * @description How many seconds before the test's own clock reading a stored stall time may sit. A stored time keeps
+	 * whole seconds only, so it can read up to one second earlier than the moment it was written.
+	 */
+	private static final Integer STORED_TIME_TOLERANCE_SECONDS = 1;
+
+	/**
+	 * @description The message a seeded Stalled row carries before the sweep, so a test can see that the sweep wrote the
+	 * row again.
+	 */
+	private static final String MESSAGE_BEFORE_SWEEP = 'A message the sweep replaces';
 
 	/**
 	 * @description The three statuses of a run that has finished. A row in one of them has an end time.
@@ -1216,6 +1278,72 @@ private class UTIL_AsyncChainTransition_TEST
 	}
 
 	/**
+	 * @description A run that ends Aborted because the AsyncChain feature flag is off follows the same performance settings
+	 * as a completed run. With the chain threshold blank, the general settings decide: the run is shorter than the general
+	 * threshold, so no performance entry is saved for the whole run.
+	 */
+	@IsTest
+	private static void shouldNotLogTheAbortedChainSummaryBelowTheGeneralThreshold()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(true, THRESHOLD_NEVER_REACHED_MS, null);
+
+			String executionId = abortRunningRunThroughMarkAborted(Datetime.now());
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_ABORTED, queryExecution(executionId).Status__c, 'Expected the run to be Aborted');
+			Assert.areEqual(0, countChainSummaryEntries(),
+					'Expected no performance entry for the aborted run, because the run is shorter than the general threshold');
+		}
+	}
+
+	/**
+	 * @description A run that ends Aborted because the AsyncChain feature flag is off follows the chain threshold when it is
+	 * set. The run reaches the chain threshold, so one performance entry is saved for the whole run, even with Enable
+	 * Performance Logging off and a general threshold the run does not reach.
+	 */
+	@IsTest
+	private static void shouldLogTheAbortedChainSummaryAtOrAboveTheChainThreshold()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(false, THRESHOLD_NEVER_REACHED_MS, THRESHOLD_ALWAYS_REACHED_MS);
+
+			String executionId = abortRunningRunThroughMarkAborted(Datetime.now());
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_ABORTED, queryExecution(executionId).Status__c, 'Expected the run to be Aborted');
+			Assert.areEqual(1, countChainSummaryEntries(),
+					'Expected one performance entry for the aborted run, because the run reached the chain threshold');
+		}
+	}
+
+	/**
+	 * @description The real length of the run is what is compared with the chain threshold, and it is the duration the
+	 * entry shows. The run started RUN_AGE_SECONDS ago and the chain threshold is half of that, so one entry is saved, and
+	 * its duration is at least the chain threshold.
+	 */
+	@IsTest
+	private static void shouldLogTheRealRunDurationAgainstTheChainThreshold()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			Integer chainThresholdMs = RUN_AGE_SECONDS * MILLISECONDS_PER_SECOND / 2;
+			overridePerformanceSettings(false, THRESHOLD_NEVER_REACHED_MS, chainThresholdMs);
+
+			String executionId = abortRunningRunThroughMarkAborted(Datetime.now().addSeconds(-RUN_AGE_SECONDS));
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_ABORTED, queryExecution(executionId).Status__c, 'Expected the run to be Aborted');
+			List<LogEntry__c> summaryEntries = new SEL_LogEntry().findAllByMethod(CHAIN_SUMMARY_CLASS_METHOD);
+			Assert.areEqual(1, summaryEntries.size(), 'Expected one performance entry for the aborted run, because the run took longer than the chain threshold');
+			Assert.isTrue(summaryEntries[0].DurationMs__c >= chainThresholdMs,
+					'Expected the entry to show the real duration of the run, at least the chain threshold, but it shows ' + summaryEntries[0].DurationMs__c);
+		}
+	}
+
+	/**
 	 * @description A watchdog re-drive puts the run back to Running, and a Running run carries no failure category
 	 * and no end time: WATCHDOG_REDRIVEN from a Stalled run carrying the Stalled category clears the category in the same
 	 * write that gives the run a new run key and leaves the end time unset. The run is a dead stalled candidate as the sweep
@@ -1280,6 +1408,157 @@ private class UTIL_AsyncChainTransition_TEST
 			Assert.isNotNull(completed.CompletedAt__c, 'Expected the completion to stamp the end time');
 			Assert.areEqual(runKey, completed.RunKey__c, 'Expected the executor\'s completion to keep the run key');
 			Assert.areEqual(SINGLE_STEP_TOTAL_STEPS, completed.CompletedSteps__c, 'Expected the one step to be counted');
+		}
+	}
+
+	/**
+	 * @description A run that moves into Stalled gets the time it stalled (StalledAt__c), so the purge of old chain runs
+	 * can later delete it. The sweep marks an unstamped Running run Stalled. The run carries an old stall time left from
+	 * an earlier stall, and the move into Stalled replaces it with the time of this stall. The function's own check of
+	 * the rules a Stalled run must meet passes, so no error log names that rule.
+	 */
+	@IsTest
+	private static void shouldStampTheStallTimeWhenTheWatchdogStallsARunningRun()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+			AsyncChainExecution__c execution = seedUnstampedRun(SEL_AsyncChainExecution.STATUS_RUNNING, Datetime.now().addDays(-OLD_STALL_TIME_AGE_DAYS));
+			Datetime earliestStallTime = Datetime.now().addSeconds(-STORED_TIME_TOLERANCE_SECONDS);
+
+			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
+
+			Assert.isFalse(hasLogEntryAtLevelContaining(LOG_LEVEL_ERROR, STALLED_RUN_REASON), 'Expected no error log naming the rule a Stalled run must meet');
+			AsyncChainExecution__c stalled = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, stalled.Status__c, 'Expected the sweep to mark the unstamped run Stalled, got ' + stalled.Status__c);
+			Assert.isTrue(stalled.StalledAt__c >= earliestStallTime, 'Expected the stall time of this stall, got ' + stalled.StalledAt__c);
+		}
+	}
+
+	/**
+	 * @description The watchdog writes a Stalled run again on every sweep. That write must not move the stall time, or
+	 * a run that stays Stalled would never grow old enough to be purged. The sweep marks a Stalled run again: the write
+	 * lands (the message is replaced), the run stays Stalled and keeps its old stall time.
+	 */
+	@IsTest
+	private static void shouldKeepTheStallTimeWhenTheWatchdogMarksAStalledRunAgain()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c seeded = seedUnstampedRun(SEL_AsyncChainExecution.STATUS_STALLED, Datetime.now().addDays(-OLD_STALL_TIME_AGE_DAYS));
+			Datetime seededStallTime = queryExecution(seeded.Id).StalledAt__c;
+
+			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
+
+			AsyncChainExecution__c markedAgain = queryExecution(seeded.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, markedAgain.Status__c, 'Expected the run to stay Stalled, got ' + markedAgain.Status__c);
+			Assert.areNotEqual(MESSAGE_BEFORE_SWEEP, markedAgain.ErrorMessage__c, 'Expected the sweep to write the Stalled run again');
+			Assert.areEqual(seededStallTime, markedAgain.StalledAt__c, 'Expected the sweep to keep the stall time the run had');
+		}
+	}
+
+	/**
+	 * @description A run that was already Stalled when the package was upgraded has no stall time, because the field did
+	 * not exist then. The next sweep that marks it Stalled again gives it the time now, so a later purge can delete it.
+	 * The function's own check of the rules a Stalled run must meet passes, so no error log names that rule.
+	 */
+	@IsTest
+	private static void shouldStampTheStallTimeOfAStalledRunThatHasNone()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+			AsyncChainExecution__c seeded = seedUnstampedRun(SEL_AsyncChainExecution.STATUS_STALLED, null);
+			Datetime earliestStallTime = Datetime.now().addSeconds(-STORED_TIME_TOLERANCE_SECONDS);
+
+			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
+
+			Assert.isFalse(hasLogEntryAtLevelContaining(LOG_LEVEL_ERROR, STALLED_RUN_REASON), 'Expected no error log naming the rule a Stalled run must meet');
+			AsyncChainExecution__c markedAgain = queryExecution(seeded.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, markedAgain.Status__c, 'Expected the run to stay Stalled, got ' + markedAgain.Status__c);
+			Assert.isNotNull(markedAgain.StalledAt__c, 'Expected the sweep to give the Stalled run a stall time');
+			Assert.isTrue(markedAgain.StalledAt__c >= earliestStallTime, 'Expected the stall time of this sweep, got ' + markedAgain.StalledAt__c);
+		}
+	}
+
+	/**
+	 * @description A run the watchdog re-drives is Running again and no longer stalled, so its stall time is cleared.
+	 * The sweep re-drives a dead Stalled candidate that carries a stall time, and the run reads Running with no stall time.
+	 */
+	@IsTest
+	private static void shouldClearTheStallTimeWhenTheWatchdogRedrivesAStalledRun()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			AsyncChainExecution__c stalled = seedDeadRedriveCandidate(SEL_AsyncChainExecution.STATUS_STALLED, UTIL_Random.randomUUID(), buildMidChainStepLogWithErrorHandler());
+			writeStallTime(stalled.Id, Datetime.now().addDays(-OLD_STALL_TIME_AGE_DAYS));
+			Assert.isNotNull(queryExecution(stalled.Id).StalledAt__c, 'Fixture guard: expected the candidate to carry a stall time');
+
+			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
+
+			AsyncChainExecution__c redriven = queryExecution(stalled.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_RUNNING, redriven.Status__c, 'Expected the sweep to re-drive the dead candidate, got ' + redriven.Status__c);
+			Assert.isNull(redriven.StalledAt__c, 'Expected the re-drive to clear the stall time, got ' + redriven.StalledAt__c);
+		}
+	}
+
+	/**
+	 * @description A Stalled run that ends keeps the time it stalled; its end time takes over from there. The sweep marks
+	 * an unstamped Running run Stalled, then its slow executor finishes the last step, and the Completed run carries the
+	 * same stall time the sweep gave it.
+	 */
+	@IsTest
+	private static void shouldKeepTheStallTimeWhenAStalledRunEnds()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			String runKey = UTIL_Random.randomUUID();
+			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+			{
+					AsyncChainExecution__c.TotalSteps__c => SINGLE_STEP_TOTAL_STEPS,
+					AsyncChainExecution__c.CompletedSteps__c => 0,
+					AsyncChainExecution__c.StartedAt__c => Datetime.now(),
+					AsyncChainExecution__c.RunKey__c => runKey,
+					AsyncChainExecution__c.StepLog__c => buildSingleStepLogWithErrorHandler(),
+					AsyncChainExecution__c.ContextData__c => EMPTY_CONTEXT_JSON
+			});
+			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
+			AsyncChainExecution__c marked = queryExecution(execution.Id);
+			Assert.isNotNull(marked.StalledAt__c, 'Fixture guard: expected the sweep to give the Stalled run a stall time');
+
+			Test.startTest();
+			System.enqueueJob(buildExecutorWithoutHandlers(execution.Id, runKey), createAsyncOptions(2));
+			Test.stopTest();
+
+			AsyncChainExecution__c completed = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, completed.Status__c, 'Expected the slow executor to finish the stalled run, got ' + completed.Status__c);
+			Assert.areEqual(marked.StalledAt__c, completed.StalledAt__c, 'Expected the finished run to keep the time it stalled');
+		}
+	}
+
+	/**
+	 * @description A new run has never stalled, so it starts with no stall time. A chain is launched and its run is read
+	 * before its first step runs.
+	 */
+	@IsTest
+	private static void shouldStartANewRunWithNoStallTime()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+					.then(new UTIL_AsyncChainTransition_TEST.SuccessStep())
+					.execute();
+
+			AsyncChainExecution__c launched = queryExecution(executionId);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_RUNNING, launched.Status__c, 'Expected the new run to be Running, got ' + launched.Status__c);
+			Assert.isNull(launched.StalledAt__c, 'Expected a new run to have no stall time, got ' + launched.StalledAt__c);
 		}
 	}
 
@@ -1751,6 +2030,45 @@ private class UTIL_AsyncChainTransition_TEST
 					'Expected the category to read as before the refused write');
 			Assert.isTrue(hasLogEntryAtLevelContaining(LOG_LEVEL_ERROR, BACKSTOP_REFUSAL_LOG_FRAGMENT), 'Expected an error log that starts with the backstop phrase');
 			Assert.isFalse(hasLogEntryAtLevelContaining(LOG_LEVEL_ERROR, FINALIZER_DML_FAILED_FRAGMENT), 'Expected the function, not the Finalizer, to handle the refusal');
+		}
+	}
+
+	/**
+	 * @description The Finalizer's stall write loses a race. Its fresh read finds a Stalled run that already has a stall
+	 * time, so the write leaves that time out. But another writer has moved the run back to Running and cleared the stall
+	 * time first. The trigger backstop then refuses the move with the message that asks for Stalled At.
+	 *
+	 * The transition function knows both backstop messages: it writes an error log that starts with the backstop phrase
+	 * and answers false. The row stays Running, and the Finalizer's own catch, which is for every other write failure,
+	 * never runs.
+	 */
+	@IsTest
+	private static void shouldLogAndReturnFalseWhenTheBackstopAsksForTheStallTime()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			LOG_Builder.ignoreTestMode = true;
+
+			String runKey = UTIL_Random.randomUUID();
+			AsyncChainExecution__c execution = persistRunningExecutionWithKey(runKey);
+			AsyncChainExecution__c before = queryExecution(execution.Id);
+			AsyncChainExecution__c freshRead = buildFreshReadMock(execution.Id, runKey, SEL_AsyncChainExecution.STATUS_STALLED, null,
+					SEL_AsyncChainExecution.FAILURE_CATEGORY_STALLED, null);
+			freshRead.StalledAt__c = Datetime.now().addDays(-OLD_STALL_TIME_AGE_DAYS);
+			TST_Mock.registerNext(AsyncChainExecution__c.SObjectType, freshRead);
+			UTIL_AsyncChain.ChainExecutor executor = buildExecutorWithCountingErrorHandler(execution.Id, runKey);
+
+			Test.startTest();
+			executor.markChainStalledFromFinalizer(execution.Id, TRANSIENT_ENQUEUE_FAILURE, null);
+			Test.stopTest();
+			Test.getEventBus().deliver();
+
+			assertRowUnchanged(before, SEL_AsyncChainExecution.STATUS_RUNNING);
+			Assert.isNull(queryExecution(execution.Id).StalledAt__c, 'Expected the run to keep no stall time after the refused write');
+			Assert.isTrue(hasLogEntryAtLevelContaining(LOG_LEVEL_ERROR, BACKSTOP_REFUSAL_LOG_FRAGMENT), 'Expected an error log that starts with the backstop phrase');
+			Assert.isFalse(hasLogEntryAtLevelContaining(LOG_LEVEL_ERROR, FINALIZER_STALL_DML_FAILED_FRAGMENT),
+					'Expected the function, not the Finalizer, to handle the refusal');
 		}
 	}
 
@@ -2413,7 +2731,7 @@ private class UTIL_AsyncChainTransition_TEST
 
 	/**
 	 * @description Inserts a Running execution row carrying the given run key and holding the given deduplication key,
-	 * for the handler tests that prove a refused write-back leaves the held key in place.
+	 * for the handler tests that prove a refused write-back leaves the held key in place. The run starts now.
 	 *
 	 * @param runKey The run key to stamp on the record.
 	 * @param deduplicationKey The active deduplication key the row holds, or null.
@@ -2422,9 +2740,24 @@ private class UTIL_AsyncChainTransition_TEST
 	 */
 	private static AsyncChainExecution__c persistRunningExecutionHoldingKey(String runKey, String deduplicationKey)
 	{
+		return persistRunningExecutionStartedAt(runKey, deduplicationKey, Datetime.now());
+	}
+
+	/**
+	 * @description Inserts a Running execution row that started at the given time, carrying the given run key and holding
+	 * the given deduplication key.
+	 *
+	 * @param runKey The run key to stamp on the record.
+	 * @param deduplicationKey The active deduplication key the row holds, or null.
+	 * @param startedAt The start time saved on the run. The run's duration is measured from it.
+	 *
+	 * @return The persisted record with its Id populated.
+	 */
+	private static AsyncChainExecution__c persistRunningExecutionStartedAt(String runKey, String deduplicationKey, Datetime startedAt)
+	{
 		return TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
 		{
-				AsyncChainExecution__c.StartedAt__c => Datetime.now(),
+				AsyncChainExecution__c.StartedAt__c => startedAt,
 				AsyncChainExecution__c.RunKey__c => runKey,
 				AsyncChainExecution__c.ActiveDeduplicationKey__c => deduplicationKey
 		});
@@ -2523,6 +2856,46 @@ private class UTIL_AsyncChainTransition_TEST
 				AsyncChainExecution__c.StepLog__c => stepLogJson,
 				AsyncChainExecution__c.ContextData__c => EMPTY_CONTEXT_JSON
 		});
+	}
+
+	/**
+	 * @description Seeds a one-step run with no recorded executor job, so the sweep cannot check its job and only marks it
+	 * Stalled. The run carries MESSAGE_BEFORE_SWEEP as its message and, when Stalled, the Stalled category.
+	 *
+	 * @param status The status the run reads: Running or Stalled.
+	 * @param stalledAt The stall time the run carries, or null for none.
+	 *
+	 * @return The seeded record.
+	 */
+	private static AsyncChainExecution__c seedUnstampedRun(String status, Datetime stalledAt)
+	{
+		Boolean stalled = status == SEL_AsyncChainExecution.STATUS_STALLED;
+		return TST_Factory.newChainExecution(status, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+		{
+				AsyncChainExecution__c.TotalSteps__c => SINGLE_STEP_TOTAL_STEPS,
+				AsyncChainExecution__c.CompletedSteps__c => 0,
+				AsyncChainExecution__c.StartedAt__c => Datetime.now(),
+				AsyncChainExecution__c.RunKey__c => UTIL_Random.randomUUID(),
+				AsyncChainExecution__c.FailureCategory__c => stalled ? SEL_AsyncChainExecution.FAILURE_CATEGORY_STALLED : null,
+				AsyncChainExecution__c.ErrorMessage__c => MESSAGE_BEFORE_SWEEP,
+				AsyncChainExecution__c.StalledAt__c => stalledAt,
+				AsyncChainExecution__c.StepLog__c => buildSingleStepLogWithErrorHandler(),
+				AsyncChainExecution__c.ContextData__c => EMPTY_CONTEXT_JSON
+		});
+	}
+
+	/**
+	 * @description Writes the given stall time on a Stalled row, through a sparse system-mode update that keeps the row
+	 * Stalled with the Stalled category. The status does not change, so the trigger backstop lets the write through.
+	 *
+	 * @param executionId The Stalled row to write.
+	 * @param stalledAt The stall time to write.
+	 */
+	private static void writeStallTime(Id executionId, Datetime stalledAt)
+	{
+		AsyncChainExecution__c write = buildStatusWrite(executionId, SEL_AsyncChainExecution.STATUS_STALLED, null, SEL_AsyncChainExecution.FAILURE_CATEGORY_STALLED);
+		write.StalledAt__c = stalledAt;
+		DML_Builder.newTransaction().systemModeInternal().doUpdate(write).execute();
 	}
 
 	/**
@@ -2637,7 +3010,8 @@ private class UTIL_AsyncChainTransition_TEST
 	/**
 	 * @description Builds a sparse write of the given status, end time and failure category for the record, leaving
 	 * every other field as it is. A Completed, Failed or Aborted status also clears the active deduplication key, as
-	 * every write into a finished status does. The write is built, not executed.
+	 * every write into a finished status does. A Stalled status also carries the stall time now, as every move into
+	 * Stalled must. The write is built, not executed.
 	 *
 	 * @param executionId The execution record Id to write.
 	 * @param status The status to write.
@@ -2659,6 +3033,10 @@ private class UTIL_AsyncChainTransition_TEST
 		if(status != SEL_AsyncChainExecution.STATUS_RUNNING && status != SEL_AsyncChainExecution.STATUS_STALLED)
 		{
 			row.ActiveDeduplicationKey__c = null;
+		}
+		if(status == SEL_AsyncChainExecution.STATUS_STALLED)
+		{
+			row.StalledAt__c = Datetime.now();
 		}
 		return row;
 	}
@@ -2798,6 +3176,58 @@ private class UTIL_AsyncChainTransition_TEST
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * @description Counts saved performance entries for a whole chain run: entries whose ClassMethod__c is
+	 * CHAIN_SUMMARY_CLASS_METHOD. The other entries of a run (its warning when it is aborted, for example) have a longer
+	 * method name, such as .ChainExecutor.markAborted, so they are not counted.
+	 *
+	 * @return The number of matching log entries.
+	 */
+	private static Integer countChainSummaryEntries()
+	{
+		return new SEL_LogEntry().findAllByMethod(CHAIN_SUMMARY_CLASS_METHOD).size();
+	}
+
+	/**
+	 * @description Replaces the log settings for this test with the given performance values. Logging is on at DEBUG
+	 * level, and the logger is told to save entries during a test (LOG_Builder.ignoreTestMode = true).
+	 *
+	 * @param performanceLoggingEnabled The value of EnablePerformanceLogging__c.
+	 * @param generalThresholdMs The value of PerformanceThresholdMs__c, or null for blank.
+	 * @param chainThresholdMs The value of AsyncChainPerformanceThresholdMs__c, or null for blank.
+	 */
+	private static void overridePerformanceSettings(Boolean performanceLoggingEnabled, Decimal generalThresholdMs, Decimal chainThresholdMs)
+	{
+		LOG_Engine.logSettingOverride = new LogSetting__c(
+				IsEnabled__c = true,
+				LogLevelThreshold__c = LOG_LEVEL_DEBUG,
+				EnablePerformanceLogging__c = performanceLoggingEnabled,
+				PerformanceThresholdMs__c = generalThresholdMs,
+				AsyncChainPerformanceThresholdMs__c = chainThresholdMs);
+		LOG_Builder.ignoreTestMode = true;
+	}
+
+	/**
+	 * @description Saves a Running run that started at the given time and ends it Aborted through markAborted, the method
+	 * the executor calls when the AsyncChain feature flag is off. Then it delivers the log events so the entries are saved.
+	 *
+	 * @param startedAt The start time saved on the run. The run's duration is measured from it.
+	 *
+	 * @return The record id of the aborted run.
+	 */
+	private static String abortRunningRunThroughMarkAborted(Datetime startedAt)
+	{
+		String runKey = UTIL_Random.randomUUID();
+		AsyncChainExecution__c execution = persistRunningExecutionStartedAt(runKey, null, startedAt);
+		UTIL_AsyncChain.ChainExecutor executor = buildExecutorWithCountingErrorHandler(execution.Id, runKey);
+
+		Test.startTest();
+		executor.markAborted(queryExecution(execution.Id), KILL_SWITCH_ABORT_REASON);
+		Test.stopTest();
+		Test.getEventBus().deliver();
+		return execution.Id;
 	}
 
 	/**

@@ -15,7 +15,7 @@
  *
  * @group Async
  *
- * @date April 2026, October 2026
+ * @date April 2026, November 2026
  */
 @IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.NcssCount')
@@ -395,6 +395,48 @@ private class UTIL_AsyncChain_TEST
 	 * The trigger framework creates the action from this name.
 	 */
 	private static final String CHAIN_LAUNCHING_TRIGGER_ACTION_CLASS = ChainLaunchingTriggerAction.class.getName();
+
+	/**
+	 * @description A threshold in milliseconds that every run reaches, because a run always takes 0 ms or longer.
+	 */
+	private static final Integer THRESHOLD_ALWAYS_REACHED_MS = 0;
+
+	/**
+	 * @description A threshold in milliseconds that no test run reaches. A test chain ends in far less than this time.
+	 */
+	private static final Integer THRESHOLD_NEVER_REACHED_MS = 999999;
+
+	/**
+	 * @description LogLevel__c literal of a debug entry. With this log level every performance entry may be saved.
+	 */
+	private static final String LOG_LEVEL_DEBUG = LoggingLevel.DEBUG.name();
+
+	/**
+	 * @description LogLevel__c literal of a warning entry. With this log level no performance entry is saved, because a
+	 * performance entry is a debug entry.
+	 */
+	private static final String LOG_LEVEL_WARN = LoggingLevel.WARN.name();
+
+	/**
+	 * @description The end of the ClassMethod__c value of the performance entry for a whole chain run.
+	 */
+	private static final String CHAIN_SUMMARY_SITE = '.ChainExecutor';
+
+	/**
+	 * @description Text in the short message (ShortMessage__c) of the performance entry for a whole chain run. It tells this entry apart from other
+	 * entries logged by the same class.
+	 */
+	private static final String CHAIN_SUMMARY_MESSAGE_FRAGMENT = 'wall-clock';
+
+	/**
+	 * @description The end of the ClassMethod__c value of the performance entry for one chain step.
+	 */
+	private static final String STEP_ENTRY_SITE = '.ChainExecutor.execute';
+
+	/**
+	 * @description Text at the start of the short message (ShortMessage__c) of the performance entry for one chain step.
+	 */
+	private static final String STEP_ENTRY_MESSAGE_FRAGMENT = 'Chain step:';
 
 	/**
 	 * @description Creates a test admin user of its own, so System.runAs in each test starts with fresh permission
@@ -4359,6 +4401,229 @@ private class UTIL_AsyncChain_TEST
 	}
 
 	/**
+	 * @description With the chain threshold blank, the performance entry for the whole run follows the general settings.
+	 * Performance logging is on and the run reaches the general threshold, so exactly one entry is saved.
+	 */
+	@IsTest
+	private static void shouldLogTheChainSummaryAtOrAboveTheGeneralThreshold()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(LOG_LEVEL_DEBUG, true, THRESHOLD_ALWAYS_REACHED_MS, null);
+
+			String executionId = runOneStepChainAndDeliverLogs();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c, 'Expected the chain to complete');
+			Assert.areEqual(1, countPerformanceEntries(CHAIN_SUMMARY_SITE, CHAIN_SUMMARY_MESSAGE_FRAGMENT),
+					'Expected one performance entry for the whole run, because the run reached the general threshold');
+		}
+	}
+
+	/**
+	 * @description With the chain threshold blank, a run shorter than the general threshold saves no performance entry for
+	 * the whole run, even with performance logging on.
+	 */
+	@IsTest
+	private static void shouldNotLogTheChainSummaryBelowTheGeneralThreshold()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(LOG_LEVEL_DEBUG, true, THRESHOLD_NEVER_REACHED_MS, null);
+
+			String executionId = runOneStepChainAndDeliverLogs();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c, 'Expected the chain to complete');
+			Assert.areEqual(0, countPerformanceEntries(CHAIN_SUMMARY_SITE, CHAIN_SUMMARY_MESSAGE_FRAGMENT),
+					'Expected no performance entry for the whole run, because the run is shorter than the general threshold');
+		}
+	}
+
+	/**
+	 * @description With the chain threshold blank and Enable Performance Logging off, no performance entry is saved for the
+	 * whole run, even when the run reaches the general threshold.
+	 */
+	@IsTest
+	private static void shouldNotLogTheChainSummaryWithGeneralPerformanceLoggingOff()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(LOG_LEVEL_DEBUG, false, THRESHOLD_ALWAYS_REACHED_MS, null);
+
+			String executionId = runOneStepChainAndDeliverLogs();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c, 'Expected the chain to complete');
+			Assert.areEqual(0, countPerformanceEntries(CHAIN_SUMMARY_SITE, CHAIN_SUMMARY_MESSAGE_FRAGMENT),
+					'Expected no performance entry for the whole run, because Enable Performance Logging is off');
+		}
+	}
+
+	/**
+	 * @description A performance entry is a debug entry. With the chain threshold blank and the log level set to WARN, no
+	 * performance entry is saved for the whole run, even when the general settings would log it.
+	 */
+	@IsTest
+	private static void shouldNotLogTheChainSummaryAboveDebugLevel()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(LOG_LEVEL_WARN, true, THRESHOLD_ALWAYS_REACHED_MS, null);
+
+			String executionId = runOneStepChainAndDeliverLogs();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c, 'Expected the chain to complete');
+			Assert.areEqual(0, countPerformanceEntries(CHAIN_SUMMARY_SITE, CHAIN_SUMMARY_MESSAGE_FRAGMENT),
+					'Expected no performance entry for the whole run, because the log level is above DEBUG');
+		}
+	}
+
+	/**
+	 * @description With the chain threshold blank and the general threshold blank too, no performance entry is saved for
+	 * the whole run. A blank general threshold logs nothing, for the chain run as for every other timer.
+	 */
+	@IsTest
+	private static void shouldNotLogTheChainSummaryWithABlankGeneralThreshold()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(LOG_LEVEL_DEBUG, true, null, null);
+
+			String executionId = runOneStepChainAndDeliverLogs();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c, 'Expected the chain to complete');
+			Assert.areEqual(0, countPerformanceEntries(CHAIN_SUMMARY_SITE, CHAIN_SUMMARY_MESSAGE_FRAGMENT),
+					'Expected no performance entry for the whole run, because the general threshold is blank');
+		}
+	}
+
+	/**
+	 * @description When the chain threshold is set, it decides alone. The run reaches the chain threshold, so one
+	 * performance entry is saved for the whole run, even with Enable Performance Logging off and a general threshold the
+	 * run does not reach.
+	 */
+	@IsTest
+	private static void shouldLogTheChainSummaryAtOrAboveTheChainThresholdWithGeneralLoggingOff()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(LOG_LEVEL_DEBUG, false, THRESHOLD_NEVER_REACHED_MS, THRESHOLD_ALWAYS_REACHED_MS);
+
+			String executionId = runOneStepChainAndDeliverLogs();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c, 'Expected the chain to complete');
+			Assert.areEqual(1, countPerformanceEntries(CHAIN_SUMMARY_SITE, CHAIN_SUMMARY_MESSAGE_FRAGMENT),
+					'Expected one performance entry for the whole run, because the run reached the chain threshold');
+		}
+	}
+
+	/**
+	 * @description When the chain threshold is set, the general threshold is not used for the whole run. The run reaches
+	 * the general threshold but not the chain threshold, so no performance entry is saved for it.
+	 */
+	@IsTest
+	private static void shouldUseTheChainThresholdOverTheGeneralThreshold()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(LOG_LEVEL_DEBUG, true, THRESHOLD_ALWAYS_REACHED_MS, THRESHOLD_NEVER_REACHED_MS);
+
+			String executionId = runOneStepChainAndDeliverLogs();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c, 'Expected the chain to complete');
+			Assert.areEqual(0, countPerformanceEntries(CHAIN_SUMMARY_SITE, CHAIN_SUMMARY_MESSAGE_FRAGMENT),
+					'Expected no performance entry for the whole run, because the run is shorter than the chain threshold');
+		}
+	}
+
+	/**
+	 * @description A performance entry is a debug entry. With the chain threshold set and the log level set to WARN, no
+	 * performance entry is saved for the whole run, even when the run reaches the chain threshold.
+	 */
+	@IsTest
+	private static void shouldNotLogTheChainSummaryAboveDebugLevelWithAChainThreshold()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(LOG_LEVEL_WARN, false, THRESHOLD_ALWAYS_REACHED_MS, THRESHOLD_ALWAYS_REACHED_MS);
+
+			String executionId = runOneStepChainAndDeliverLogs();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c, 'Expected the chain to complete');
+			Assert.areEqual(0, countPerformanceEntries(CHAIN_SUMMARY_SITE, CHAIN_SUMMARY_MESSAGE_FRAGMENT),
+					'Expected no performance entry for the whole run, because the log level is above DEBUG');
+		}
+	}
+
+	/**
+	 * @description The chain threshold is only for the whole run. The performance entry for each step keeps following the
+	 * general settings: with Enable Performance Logging off, no step entry is saved, even though the chain threshold is 0.
+	 */
+	@IsTest
+	private static void shouldKeepTheStepEntryOnTheGeneralSettings()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(LOG_LEVEL_DEBUG, false, THRESHOLD_ALWAYS_REACHED_MS, THRESHOLD_ALWAYS_REACHED_MS);
+
+			String executionId = runOneStepChainAndDeliverLogs();
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_COMPLETED, queryExecution(executionId).Status__c, 'Expected the chain to complete');
+			Assert.areEqual(0, countPerformanceEntries(STEP_ENTRY_SITE, STEP_ENTRY_MESSAGE_FRAGMENT),
+					'Expected no performance entry for the step, because Enable Performance Logging is off');
+		}
+	}
+
+	/**
+	 * @description A run that fails because a step throws also gets a performance entry for the whole run. The chain
+	 * threshold is set and the run reaches it, so one entry is saved, even with Enable Performance Logging off and a general
+	 * threshold the run does not reach.
+	 */
+	@IsTest
+	private static void shouldLogTheStepFailedChainSummaryAtOrAboveTheChainThreshold()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(LOG_LEVEL_DEBUG, false, THRESHOLD_NEVER_REACHED_MS, THRESHOLD_ALWAYS_REACHED_MS);
+
+			String executionId = runOneStepChainAndDeliverLogs(new UTIL_AsyncChain_TEST.ExceptionStep());
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(executionId).Status__c, 'Expected the chain to fail');
+			Assert.areEqual(1, countPerformanceEntries(CHAIN_SUMMARY_SITE, CHAIN_SUMMARY_MESSAGE_FRAGMENT),
+					'Expected one performance entry for the failed run, because the run reached the chain threshold');
+		}
+	}
+
+	/**
+	 * @description A run that fails because a step throws follows the general settings when the chain threshold is blank.
+	 * The run is shorter than the general threshold, so no performance entry is saved for the whole run, even with
+	 * performance logging on.
+	 */
+	@IsTest
+	private static void shouldNotLogTheStepFailedChainSummaryBelowTheGeneralThreshold()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+			overridePerformanceSettings(LOG_LEVEL_DEBUG, true, THRESHOLD_NEVER_REACHED_MS, null);
+
+			String executionId = runOneStepChainAndDeliverLogs(new UTIL_AsyncChain_TEST.ExceptionStep());
+
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_FAILED, queryExecution(executionId).Status__c, 'Expected the chain to fail');
+			Assert.areEqual(0, countPerformanceEntries(CHAIN_SUMMARY_SITE, CHAIN_SUMMARY_MESSAGE_FRAGMENT),
+					'Expected no performance entry for the failed run, because the run is shorter than the general threshold');
+		}
+	}
+
+	/**
 	 * @description With the log threshold configured at ERROR, a failed chain still emits its
 	 * ERROR log entry for its end. An ERROR entry always passes this threshold.
 	 */
@@ -5178,6 +5443,77 @@ private class UTIL_AsyncChain_TEST
 			}
 		}
 		return matches;
+	}
+
+	/**
+	 * @description Counts saved performance entries whose ClassMethod__c ends with the given text and whose short message
+	 * contains the given text. A performance entry names no record, so the count looks at every saved entry.
+	 *
+	 * @param siteMethodSuffix The end of the ClassMethod__c value (for example '.ChainExecutor').
+	 * @param messageFragment Text the message must contain.
+	 *
+	 * @return The number of matching log entries.
+	 */
+	private static Integer countPerformanceEntries(String siteMethodSuffix, String messageFragment)
+	{
+		Integer matches = 0;
+		for(LogEntry__c logEntry : new SEL_LogEntry().getAll())
+		{
+			if(logEntry.ClassMethod__c?.endsWith(siteMethodSuffix) == true && logEntry.ShortMessage__c?.contains(messageFragment) == true)
+			{
+				matches++;
+			}
+		}
+		return matches;
+	}
+
+	/**
+	 * @description Replaces the log settings for this test with the given values. Logging is on, and the logger is told
+	 * to save entries during a test (LOG_Builder.ignoreTestMode = true).
+	 *
+	 * @param logLevel The value of LogSetting__c.LogLevelThreshold__c.
+	 * @param performanceLoggingEnabled The value of EnablePerformanceLogging__c.
+	 * @param generalThresholdMs The value of PerformanceThresholdMs__c, or null for blank.
+	 * @param chainThresholdMs The value of AsyncChainPerformanceThresholdMs__c, or null for blank.
+	 */
+	private static void overridePerformanceSettings(String logLevel, Boolean performanceLoggingEnabled, Decimal generalThresholdMs, Decimal chainThresholdMs)
+	{
+		LOG_Engine.logSettingOverride = new LogSetting__c(
+				IsEnabled__c = true,
+				LogLevelThreshold__c = logLevel,
+				EnablePerformanceLogging__c = performanceLoggingEnabled,
+				PerformanceThresholdMs__c = generalThresholdMs,
+				AsyncChainPerformanceThresholdMs__c = chainThresholdMs);
+		LOG_Builder.ignoreTestMode = true;
+	}
+
+	/**
+	 * @description Runs a chain with one step to its end, then delivers the log events so the entries are saved.
+	 *
+	 * @return The record id of the chain run.
+	 */
+	private static String runOneStepChainAndDeliverLogs()
+	{
+		return runOneStepChainAndDeliverLogs(new UTIL_AsyncChain_TEST.SuccessStep());
+	}
+
+	/**
+	 * @description Runs a chain with the given step as its only step, to its end, then delivers the log events so the
+	 * entries are saved.
+	 *
+	 * @param step The only step of the chain.
+	 *
+	 * @return The record id of the chain run.
+	 */
+	private static String runOneStepChainAndDeliverLogs(IF_Chain.Step step)
+	{
+		Test.startTest();
+		String executionId = UTIL_AsyncChain.newChain(TEST_CHAIN_NAME)
+				.then(step)
+				.execute();
+		Test.stopTest();
+		Test.getEventBus().deliver();
+		return executionId;
 	}
 
 	/**

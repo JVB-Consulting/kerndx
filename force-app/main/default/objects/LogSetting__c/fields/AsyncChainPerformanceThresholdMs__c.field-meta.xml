@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
+    <fullName>AsyncChainPerformanceThresholdMs__c</fullName>
+    <description>Minimum duration in milliseconds before a whole async chain run is logged as a performance entry. Leave this field blank to use Enable Performance Logging and Performance Threshold (ms) instead. When you set a number, a run that took that long or longer is logged, even with Enable Performance Logging turned off. The time runs from the start of the run to its end, waits in the queue included. Only four endings get this entry: a run that finishes all its steps, a run that stops because a step failed and is not retried, a run that fails because the data its steps share grew past its limit, and a run stopped because the AsyncChain feature flag is off. No other run gets it, for example a chain started with no steps, a run an operator aborts, a stalled run, or a run whose background job crashes. Set 0 to log every such run, or a very high number to log none. A negative number works like 0. The entry is a DEBUG log entry: it is saved only when logging is on and the log level allows DEBUG.</description>
+    <externalId>false</externalId>
+    <inlineHelpText>Blank: use Enable Performance Logging and Performance Threshold (ms). A number: log a chain run that took that long or longer, from start to end, even with Enable Performance Logging off. 0 logs every such run; a very high number logs none. An entry is written only for runs that finish all their steps, stop on a failed step that is not retried, fail because their shared data grew too large, or stop because the AsyncChain flag is off. It is a DEBUG entry, so logging must be on and allow DEBUG.</inlineHelpText>
+    <label>Async Chain Performance Threshold (ms)</label>
+    <precision>18</precision>
+    <required>false</required>
+    <scale>0</scale>
+    <trackTrending>false</trackTrending>
+    <type>Number</type>
+    <unique>false</unique>
+</CustomField>

@@ -2,9 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>PerformanceThresholdMs__c</fullName>
     <defaultValue>10000</defaultValue>
-    <description>Minimum duration in milliseconds before a webservice/API operation is logged as a performance entry.</description>
+    <description>Minimum duration in milliseconds before a web service or API operation, or an async chain step, is logged as a performance entry. It also applies to a whole async chain run when Async Chain Performance Threshold (ms) is blank. Used only when Enable Performance Logging is on. When this field is blank, none of these entries is logged.</description>
     <externalId>false</externalId>
-    <inlineHelpText>Operations faster than this threshold are not logged. Default: 10000ms (10 seconds).</inlineHelpText>
+    <inlineHelpText>Operations and async chain steps faster than this threshold are not logged. Whole async chain runs use it too while Async Chain Performance Threshold (ms) is blank. Default: 10000ms (10 seconds).</inlineHelpText>
     <label>Performance Threshold (ms)</label>
     <precision>18</precision>
     <required>false</required>

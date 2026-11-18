@@ -10,7 +10,7 @@
  *
  * @group Async
  *
- * @date April 2026, October 2026
+ * @date April 2026, November 2026
  *
  * @since 1.0
  *
@@ -536,12 +536,6 @@ global inherited sharing class UTIL_AsyncChain
 	private static final String WATCHDOG_PARKED_REASON = 'Parked: no async budget';
 
 	/**
-	 * @description Stall reason the sweep's query-budget check records when it parks the remaining
-	 * candidates because the transaction is nearly out of database queries.
-	 */
-	private static final String WATCHDOG_PARKED_QUERY_BUDGET_REASON = 'Parked: no query budget';
-
-	/**
 	 * @description Terminal failure reason recorded when a re-drive candidate's persisted step log
 	 * cannot be rebuilt into a chain that can run. Terminal on purpose: an unreadable step log never
 	 * repairs itself, so the chain needs human attention, not another sweep.
@@ -551,28 +545,30 @@ global inherited sharing class UTIL_AsyncChain
 
 	/**
 	 * @description Upper limit on the number of chains one watchdog sweep may process. Each stale row
-	 * costs the sweep up to two queries and one update, plus a notification or an executor enqueue.
+	 * costs the sweep up to three queries and two updates, plus a notification or an executor enqueue.
 	 * A batch with no limit would use up a per-transaction governor limit in the middle of the sweep.
 	 * That raises a LimitException, which cannot be caught: it rolls back the whole sweep, and the same
 	 * thing happens every time the sweep runs. It would happen exactly when many chains stall at once,
 	 * which is the case the watchdog exists for. runWatchdogSweep lowers the configured batch size to
 	 * this value. Two checks run for each candidate: the async-budget check in sweepCandidate and the
-	 * query-budget check in the sweep loop. As soon as either budget runs short, they park the rest of
-	 * the batch. The limit and the checks together keep the worst-case sweep inside its transaction
-	 * budget. Chains beyond the limit stay where they are for the next sweep.
+	 * query-budget check in the sweep loop. When the async budget runs short, the first check parks the
+	 * candidate. When the query budget runs short, the second check stops the sweep and leaves the rest
+	 * of the batch untouched. The limit and the checks together keep the worst-case sweep inside its
+	 * transaction budget. Chains beyond the limit, or not reached, stay where they are for the next sweep.
 	 */
 	private static final Integer WATCHDOG_SWEEP_BATCH_CEILING = 50;
 
 	/**
 	 * @description The number of synchronous queries that must still be free before the sweep decides what to do
-	 * with a candidate. A candidate costs at most two queries: the check that its executor job is still
-	 * alive, and one fresh read of the row by the branch that acts on it. One more query is held back as a
-	 * margin. So if the check stops the sweep at a later candidate, the sweep can still pay for that
-	 * candidate's park write (a park's own fresh read costs one query). When the remaining budget drops
-	 * below this reserve, the sweep parks all the remaining candidates (see parkRemainingCandidates). It
-	 * does not run a branch into a LimitException, which cannot be caught.
+	 * with a candidate. A candidate costs at most three queries, on the path that starts it again: the check
+	 * that its executor job is still alive, the fresh read of the row before the restart, and the fresh read
+	 * inside the status change. The path that ends a run Failed because it cannot be recovered costs the same
+	 * three; a mark costs one. One more query is held back, so the sweep never spends the transaction's
+	 * last query on its own work. When the remaining budget drops below this reserve, the sweep stops and
+	 * leaves the remaining candidates untouched for a later sweep. It does not run a branch into a
+	 * LimitException, which cannot be caught.
 	 */
-	private static final Integer WATCHDOG_CANDIDATE_QUERY_RESERVE = 3;
+	private static final Integer WATCHDOG_CANDIDATE_QUERY_RESERVE = 4;
 
 	/**
 	 * @description Upper limit on the candidates one operator clear-stalled call looks at.
@@ -602,7 +598,9 @@ global inherited sharing class UTIL_AsyncChain
 	 * each candidate: the watchdog's per-candidate reserve plus one more query. So the single read that counts
 	 * the outcome after the sweep can always be paid for, even when this check stops the sweep. That
 	 * count turns the sweep's work into the true numbers the operator sees, so it must never be the call
-	 * that fails for lack of the budget the check was protecting.
+	 * that fails for lack of the budget the check was protecting. When this check stops the sweep, the
+	 * remaining candidates are left untouched; the only park the operator sweep shares with the watchdog
+	 * is the one for a transaction with no queueable job slot left.
 	 */
 	private static final Integer OPERATOR_CANDIDATE_QUERY_RESERVE = WATCHDOG_CANDIDATE_QUERY_RESERVE + 1;
 
@@ -776,6 +774,12 @@ global inherited sharing class UTIL_AsyncChain
 	private static final String TRANSITION_REFUSED_PREFIX = 'Chain run transition refused: ';
 
 	/**
+	 * @description The rule a Stalled run breaks, named in the refusal reason when a write would leave a Stalled run
+	 * without the time it stalled, or with an end time or a duration.
+	 */
+	private static final String STALLED_RUN_RULE = 'a Stalled run must have a stall time, no end time and no duration';
+
+	/**
 	 * @description The fixed words that start the ERROR log applyRunTransition writes when the trigger backstop refuses
 	 * the function's own write, so those refusals can be counted by the start of the log's short message.
 	 */
@@ -788,8 +792,9 @@ global inherited sharing class UTIL_AsyncChain
 	private static final String BACKSTOP_REFUSED_REASON = '; the row changed before the write';
 
 	/**
-	 * @description Matches the two placeholders of the AsyncChain_TransitionRefused label. The text around them is what
-	 * the function looks for in a refused write's message.
+	 * @description Matches the two placeholders of the backstop's two update messages, the AsyncChain_TransitionRefused
+	 * and AsyncChain_StallTimeRequired labels. The text around them is what the function looks for in a refused write's
+	 * message.
 	 */
 	private static final String LABEL_PLACEHOLDER_PATTERN = '\\{[01]\\}';
 
@@ -4943,8 +4948,9 @@ global inherited sharing class UTIL_AsyncChain
 		/**
 		 * @description Handles a step failure: ends the run Failed through applyRunTransition with the STEP_FAILED run event,
 		 * fenced by this executor's captured run key, carrying the failed step's name, the context and the step log as
-		 * caller fields and the given failure category. After a write that went through, it emits the terminal log and
-		 * queues the error handler. A refused write (a stale key, or a run other code already ended) does nothing.
+		 * caller fields and the given failure category. After a write that went through, it emits the terminal log and the
+		 * performance log and queues the error handler. A refused write (a stale key, or a run other code already ended) does
+		 * nothing.
 		 *
 		 * @param execution The AsyncChainExecution__c record to update.
 		 * @param context The current chain context.
@@ -4988,6 +4994,7 @@ global inherited sharing class UTIL_AsyncChain
 			}
 
 			emitTerminalLog(LoggingLevel.ERROR, 'Chain failed: ' + result.message, CLASS_NAME + '.ChainExecutor.handleStepFailure', execution.Id);
+			logChainPerformance(request.record);
 
 			if(errorHandler != null)
 			{
@@ -5194,26 +5201,50 @@ global inherited sharing class UTIL_AsyncChain
 		}
 
 		/**
-		 * @description Emits a chain-level performance log if performance logging is enabled and the
-		 * total chain duration exceeds the configured threshold. Uses LOG_Engine.logPerformance()
-		 * which respects LogSetting__c.EnablePerformanceLogging__c and PerformanceThresholdMs__c.
+		 * @description Writes the performance entry for the whole run, from its start to its end, when the log settings
+		 * ask for it. The setting AsyncChainPerformanceThresholdMs__c on LogSetting__c decides:
+		 * - When it is blank, the general performance settings decide, through UTIL_PerformanceTimer.logIfThresholdReached:
+		 * the entry is written only when EnablePerformanceLogging__c is on and the run took PerformanceThresholdMs__c or
+		 * longer.
+		 * - When it holds a number, the entry is written when the run took that long or longer, even with
+		 * EnablePerformanceLogging__c off. A negative number works like 0.
+		 *
+		 * In both cases the entry is a debug entry, so it is saved only when the log level allows debug entries.
+		 *
+		 * Only four endings of a run call this method, each after its save went through:
+		 * - a run that finishes all its steps (handleChainCompletion);
+		 * - a run that stops because a step failed and is not retried (handleStepFailure);
+		 * - a run that fails because the data its steps share grew past its limit (markFailed);
+		 * - a run stopped because the AsyncChain feature flag is off (markAborted).
+		 *
+		 * No other ending writes this entry. These write none:
+		 * - a chain started with no steps;
+		 * - a run an operator aborts;
+		 * - a stalled run;
+		 * - a run whose background job crashes;
+		 * - a run that fails during recovery;
+		 * - a completion or error handler that fails. Its run already got its entry, if any, when it ended.
 		 *
 		 * @param execution The execution record with DurationMs__c set.
 		 */
 		private void logChainPerformance(AsyncChainExecution__c execution)
 		{
-			Long duration = execution.DurationMs__c != null ? execution.DurationMs__c.longValue() : 0;
+			Long duration = execution.DurationMs__c?.longValue() ?? 0L;
 
 			String summary = 'Chain ' + execution.ChainName__c + ' ' + execution.Status__c
 					+ ': ' + (Integer)execution.CompletedSteps__c + '/' + (Integer)execution.TotalSteps__c
 					+ ' steps in ' + duration + 'ms (wall-clock)';
+			String classMethod = CLASS_NAME + '.ChainExecutor';
+			Decimal chainThreshold = LOG_Engine.getLogSetting().AsyncChainPerformanceThresholdMs__c;
 
-			LOG_Engine.logPerformance(
-					summary,
-					null,
-					CLASS_NAME + '.ChainExecutor',
-					duration
-			);
+			if(chainThreshold == null)
+			{
+				UTIL_PerformanceTimer.logIfThresholdReached(summary, null, classMethod, duration);
+			}
+			else if(duration >= chainThreshold)
+			{
+				LOG_Engine.logPerformance(summary, null, classMethod, duration);
+			}
 		}
 
 		/**
@@ -5522,10 +5553,11 @@ global inherited sharing class UTIL_AsyncChain
 	 *
 	 * The batch is lowered to WATCHDOG_SWEEP_BATCH_CEILING before the selector runs. Before each
 	 * candidate, the loop checks that the per-candidate query reserve is still left. A candidate costs
-	 * up to two queries, so a batch within the limit can still use up the transaction's query budget.
-	 * When the reserve is not there, the remaining candidates are parked (see parkRemainingCandidates)
-	 * and the sweep stops. Parked candidates and candidates beyond the limit both stay where they are
-	 * for a later sweep.
+	 * up to three queries, so a batch within the limit can still use up the transaction's query budget.
+	 * When the reserve is not there, the sweep stops and writes nothing more: the candidates it did not
+	 * reach keep their status, their error text and the time of their last change. They stay where
+	 * they are for a later sweep, like candidates beyond the limit, and the queries left stay free for
+	 * the rest of the transaction.
 	 *
 	 * @param thresholdMinutes Minutes since the last modification before a chain becomes a candidate.
 	 * @param batchSize Maximum number of chains inspected per sweep; values above 50 are clamped to 50.
@@ -5534,36 +5566,13 @@ global inherited sharing class UTIL_AsyncChain
 	{
 		Integer effectiveBatchSize = batchSize == null ? null : Math.min(batchSize, WATCHDOG_SWEEP_BATCH_CEILING);
 		List<AsyncChainExecution__c> staleCandidates = new SEL_AsyncChainExecution().findStaleRunning(thresholdMinutes, effectiveBatchSize);
-		for(Integer index = 0; index < staleCandidates.size(); index++)
+		for(AsyncChainExecution__c staleCandidate : staleCandidates)
 		{
 			if(UTIL_Limits.soqlQueries().remaining() < WATCHDOG_CANDIDATE_QUERY_RESERVE)
 			{
-				parkRemainingCandidates(staleCandidates, index);
 				return;
 			}
-			sweepCandidate(staleCandidates[index]);
-		}
-	}
-
-	/**
-	 * @description Parks the sweep's remaining candidates when the per-candidate query-budget check
-	 * stops the sweep. Each remaining candidate is parked with the query-budget reason (one fresh
-	 * read and one update each) for as long as the query budget lasts. Any candidates after that are
-	 * left completely untouched, still stale and still candidates, for a later sweep, exactly like
-	 * chains beyond the batch limit.
-	 *
-	 * @param staleCandidates The sweep's full candidate list.
-	 * @param firstParkedIndex The index of the first candidate the query-budget check stopped at.
-	 */
-	private static void parkRemainingCandidates(List<AsyncChainExecution__c> staleCandidates, Integer firstParkedIndex)
-	{
-		for(Integer index = firstParkedIndex; index < staleCandidates.size(); index++)
-		{
-			if(UTIL_Limits.soqlQueries().isExhausted())
-			{
-				return;
-			}
-			parkWithReason(staleCandidates[index], WATCHDOG_PARKED_QUERY_BUDGET_REASON);
+			sweepCandidate(staleCandidate);
 		}
 	}
 
@@ -5572,7 +5581,7 @@ global inherited sharing class UTIL_AsyncChain
 	 * async-budget check, the check for a run that has already ended, then the decision based on
 	 * whether the executor job is alive. (Before this method runs, the sweep loop has already checked
 	 * that the per-candidate query reserve is left; see runWatchdogSweep. So the branches below can
-	 * pay for their job check and their fresh read.)
+	 * pay for their job check and their fresh reads, and still leave one query free.)
 	 *
 	 * The async-budget check runs first, before any other decision. Every action the sweep can take
 	 * other than parking uses a queueable slot: a stall notification, a re-drive's executor enqueue,
@@ -5600,9 +5609,9 @@ global inherited sharing class UTIL_AsyncChain
 	 *   re-drives a run it cannot prove dead.
 	 * - A live job means the run is slow but alive. Once the budget checks have passed, the sweep
 	 *   leaves the row completely untouched (no second executor, no mark). Running a live chain twice
-	 *   would be a worse fault than the stall it would fix. When the budget is used up, even a live
-	 *   candidate is parked: checking the job and notifying both use the very resources the checks
-	 *   just found missing.
+	 *   would be a worse fault than the stall it would fix. When no queueable job slot is left, even a
+	 *   live candidate is parked: the check above runs before the job check, so the sweep never learns
+	 *   that the job is alive.
 	 * - A dead job, with the budget already checked, leads to an automatic re-drive through
 	 *   redriveStalledChain. The whole check-and-re-drive branch runs inside the same per-chain
 	 *   try/catch and logging as the mark branch (see redriveWhenProvablyDead), so one broken row
@@ -5634,11 +5643,12 @@ global inherited sharing class UTIL_AsyncChain
 	}
 
 	/**
-	 * @description Parks a candidate that a budget check stopped. The row goes through the shared
-	 * mark sequence with the given parked reason and, on purpose, NO onError notification.
-	 * Notifying uses a queueable slot, and the async check just found none left (and with the query
-	 * budget this low, any extra work only makes the shortage worse). For the same budget reason, the
-	 * park also leaves out the unhandled-stall signal. That signal is the ERROR-level stall entry
+	 * @description Parks a candidate that the async-budget check stopped, because the transaction has
+	 * no queueable job slot left. (When queries run short, the sweep parks nothing: it stops and leaves
+	 * the remaining candidates untouched.) The row goes through the shared mark sequence with the given
+	 * parked reason and, on purpose, NO onError notification. Notifying uses a queueable slot, and the
+	 * async check just found none left. For the same budget reason, the park also leaves out the
+	 * unhandled-stall signal. That signal is the ERROR-level stall entry
 	 * markStalledAndNotify records when a chain stalls with no handler. A handler skipped because of
 	 * the budget must never look like a chain that has no handler, so the park's stall entry stays
 	 * at WARN even for a chain without a handler. Parking is not a dead end: the row stays Stalled,
@@ -5653,7 +5663,7 @@ global inherited sharing class UTIL_AsyncChain
 	 * stall reason, and a successful re-drive replaces it with the final state. Do not treat the field
 	 * as a history: the log entries keep the sequence.
 	 *
-	 * @param stale The stale candidate a budget check parked.
+	 * @param stale The stale candidate the async-budget check parked.
 	 * @param reason The plain-language parked reason naming the exhausted budget.
 	 */
 	private static void parkWithReason(AsyncChainExecution__c stale, String reason)
@@ -5740,7 +5750,7 @@ global inherited sharing class UTIL_AsyncChain
 	 * markStalledAndNotify sequence, with the WATCHDOG_STALLED run event and no run key check. (The
 	 * sweep is the part of the framework that decides recovery. The transition table refuses a run
 	 * that ended between the sweep's read and the write.) The given reason and notification handler
-	 * are passed on unchanged. A budget check parks with the parked reason and no handler. The mark
+	 * are passed on unchanged. A park for lack of a job slot passes the parked reason and no handler. The mark
 	 * path stalls with the sweep reason and the handler read from the candidate's saved step log.
 	 * Failures are logged and dropped for that chain only, so an exception that can be caught on one
 	 * broken row cannot stop the rest of the sweep. Governor limits cannot be caught, so the sweep's
@@ -5754,9 +5764,9 @@ global inherited sharing class UTIL_AsyncChain
 	 * @param reason The stall reason to record on the candidate.
 	 * @param notificationHandler The onError handler to notify once per stall transition, or null for none.
 	 * @param notificationWithheld True when the caller passed null for notificationHandler on
-	 * purpose rather than because none exists. A budget park skips the notification to save the
-	 * async budget even when the chain has a registered handler. Only a false value can produce
-	 * the unhandled-stall ERROR: a park must never be logged as a chain with no handler.
+	 * purpose rather than because none exists. A park for lack of a job slot skips the notification
+	 * to save the async budget even when the chain has a registered handler. Only a false value can
+	 * produce the unhandled-stall ERROR: a park must never be logged as a chain with no handler.
 	 */
 	private static void markStalledFromWatchdog(AsyncChainExecution__c stale, String reason, DTO_StepDefinition notificationHandler, Boolean notificationWithheld)
 	{
@@ -6694,16 +6704,17 @@ global inherited sharing class UTIL_AsyncChain
 	/**
 	 * @description Runs the watchdog sweep's decision for each candidate over every chain that is
 	 * Stalled now, when an operator asks for it from the Chain Monitor. Every check the scheduled
-	 * sweep makes is made here too: the same proof that the executor is dead, the same budget parks,
-	 * the same handling of a run that cannot be recovered. That is because every candidate goes
-	 * through the same method (sweepCandidate), never a second place that decides. Limits that apply
-	 * only to the operator wrap that shared path:
+	 * sweep makes is made here too: the same proof that the executor is dead, the same park when no
+	 * queueable job slot is left, the same handling of a run that cannot be recovered. That is because
+	 * every candidate goes through the same method (sweepCandidate), never a second place that decides.
+	 * Limits that apply only to the operator wrap that shared path:
 	 * - the candidate limit (MAX_OPERATOR_SWEEP_CANDIDATES);
 	 * - a check at the start that returns true zero counts when the transaction cannot pay even for
 	 *   the sweep's own two reads;
 	 * - the per-candidate query and DML reserves. They leave the remaining candidates completely
 	 *   untouched, still Stalled and still candidates for the next call or the next scheduled sweep,
-	 *   rather than spending park writes from a budget already found to be short.
+	 *   rather than spending writes from a budget already found to be short. The scheduled sweep
+	 *   does the same when its own query reserve is not left.
 	 * When a reserve stops the sweep early, the summary log entry says so, and after how many
 	 * candidates. The counts alone cannot tell a budget stop from a sweep that found only live
 	 * chains or chains whose job could not be checked.
@@ -6758,8 +6769,8 @@ global inherited sharing class UTIL_AsyncChain
 	 * @description Sorts what the sweep did with each candidate, from a single read of their
 	 * current statuses after the sweep. Running means a re-drive went through. Failed means the run
 	 * could not be recovered and was ended Failed. Everything else, including rows the read no
-	 * longer returns, still waits for recovery. A status read after the sweep cannot tell a budget
-	 * park from a plain mark (both leave the row Stalled), so both count as remaining, and the log
+	 * longer returns, still waits for recovery. A status read after the sweep cannot tell a park for
+	 * lack of a job slot from a plain mark (both leave the row Stalled), so both count as remaining, and the log
 	 * entry for each candidate gives the reason. The read selects Status__c only and respects
 	 * sharing (findByIdsForSweepTally explains both choices). The sorting reads nothing else, and a
 	 * row this read cannot see is always a row no acting branch touched. Either way, the
@@ -7125,17 +7136,20 @@ global inherited sharing class UTIL_AsyncChain
 	 * 3. Decides the run event against the fresh status. A refusal is an ERROR and false, never a throw.
 	 * 4. Sets on the fresh row the status-owned fields the run event's column names, copies the caller's fields from
 	 *    the request's record, and builds the sparse write (a record that carries only the fields in the write set)
-	 *    from both through buildSparseUpdate.
+	 *    from both through buildSparseUpdate. It also sets or clears the time the run became Stalled
+	 *    (recordStallTime), from the status the write gives the run.
 	 * 5. Checks the four rules a row must meet in its status, on the row as it will read after the write: a Stalled run
-	 *    has no end time and no duration; a finished run has an end time and no active deduplication key; a Running run
-	 *    has no end time and no failure category; a Failed or Aborted run has a failure category. A broken rule is an
-	 *    ERROR and false.
+	 *    has a stall time, no end time and no duration; a finished run has an end time and no active deduplication key;
+	 *    a Running run has no end time and no failure category; a Failed or Aborted run has a failure category. A broken
+	 *    rule is an ERROR and false, logged here with the rule named. The trigger backstop (TRG_AsyncChainRunTransition)
+	 *    checks the same rules a second time, when the row is saved.
 	 * 6. Writes in system mode and returns true, with the fresh row left on the request.
 	 *
-	 * The write can still fail at the trigger backstop (TRG_AsyncChainRunTransition) in one case: another writer moved the
-	 * run between the fresh read and the write, and the move from the status the row has now is not one the engine
-	 * makes. That one failure is caught here: an ERROR log that starts with BACKSTOP_REFUSED_PREFIX, then false, as for
-	 * every other refusal. Every other DmlException the write raises propagates to the caller, whose own try/catch owns it.
+	 * The write can still fail at the trigger backstop in one case: another writer moved the run between the fresh read
+	 * and the write. The backstop then refuses with one of its two update messages (see isBackstopRefusal).
+	 *
+	 * That one failure is caught here: an ERROR log that starts with BACKSTOP_REFUSED_PREFIX, then false, as for every
+	 * other refusal. Every other DmlException the write raises goes up to the caller, whose own try/catch handles it.
 	 *
 	 * @param request The run, the run event, the fence, the caller fields and the message.
 	 *
@@ -7172,6 +7186,7 @@ global inherited sharing class UTIL_AsyncChain
 		List<SObjectField> writeSet = new List<SObjectField> {AsyncChainExecution__c.Status__c};
 		fresh.Status__c = decision.targetStatus;
 		applyRunEventColumn(request, fresh, writeSet);
+		recordStallTime(fresh, statusBeforeTransition, writeSet);
 		for(SObjectField callerField : request.callerFields)
 		{
 			fresh.put(callerField, request.record.get(callerField));
@@ -7202,10 +7217,14 @@ global inherited sharing class UTIL_AsyncChain
 
 	/**
 	 * @description Tells whether a failed write is the trigger backstop's refusal, as opposed to any other write failure.
-	 * The backstop refuses with a validation error (status code FIELD_CUSTOM_VALIDATION_EXCEPTION) whose message is the
-	 * AsyncChain_TransitionRefused label. The label's two placeholders carry the statuses the trigger saw, which are not
-	 * the ones the function read when the row moved in between, so the check matches the label's fixed text with any
-	 * text in place of each placeholder, rather than the whole formatted message.
+	 * The backstop refuses an update with a validation error (status code FIELD_CUSTOM_VALIDATION_EXCEPTION) whose message
+	 * is one of two labels:
+	 * - AsyncChain_TransitionRefused when the move is not allowed.
+	 * - AsyncChain_StallTimeRequired when a move into Stalled has no stall time. A write can meet this one too: the
+	 *   function leaves the stall time of a run it read as Stalled out of its write, and another writer may have moved
+	 *   the run to Running and cleared that time in between.
+	 *
+	 * The check accepts either message.
 	 *
 	 * @param dmlError The failure the write raised.
 	 *
@@ -7217,12 +7236,28 @@ global inherited sharing class UTIL_AsyncChain
 		{
 			return false;
 		}
+		String message = dmlError.getMessage();
+		return isMessageFromLabel(message, System.Label.AsyncChain_TransitionRefused) || isMessageFromLabel(message, System.Label.AsyncChain_StallTimeRequired);
+	}
+
+	/**
+	 * @description Tells whether a message was made from a label with two placeholders. The placeholders carry the
+	 * statuses the trigger saw, which are not the ones the function read when the row moved in between. So the check
+	 * matches the label's fixed text, with any text in place of each placeholder, rather than the whole formatted message.
+	 *
+	 * @param message The message of the failed write.
+	 * @param label The text of the label, with its placeholders {0} and {1}.
+	 *
+	 * @return True when the message holds the label's fixed text, in order.
+	 */
+	private static Boolean isMessageFromLabel(String message, String label)
+	{
 		List<String> labelFragments = new List<String>();
-		for(String fragment : System.Label.AsyncChain_TransitionRefused.split(LABEL_PLACEHOLDER_PATTERN))
+		for(String fragment : label.split(LABEL_PLACEHOLDER_PATTERN))
 		{
 			labelFragments.add(Pattern.quote(fragment));
 		}
-		return Pattern.compile(String.join(labelFragments, ANY_TEXT_PATTERN)).matcher(dmlError.getMessage()).find();
+		return Pattern.compile(String.join(labelFragments, ANY_TEXT_PATTERN)).matcher(message).find();
 	}
 
 	/**
@@ -7348,6 +7383,36 @@ global inherited sharing class UTIL_AsyncChain
 	}
 
 	/**
+	 * @description Keeps StalledAt__c, the time a run last became Stalled, in step with the status the write gives the
+	 * run. The purge of old chain runs reads this time to delete a run that stays Stalled, because such a run never gets
+	 * an end time. The rules, on the row as it will read after the write:
+	 * - A run that moves into Stalled from another status gets the time now.
+	 * - A run that was already Stalled keeps its time, so the watchdog, which writes a stalled run again on every sweep,
+	 *   never moves it. When such a run has no time yet (it stalled before this field existed), it gets the time now.
+	 * - A run that moves to Running has its time cleared, because it is no longer stalled.
+	 * - A run that ends (Completed, Failed or Aborted) keeps the time it had. The end time takes over from there.
+	 * StalledAt__c joins the write set only when this method sets or clears it.
+	 *
+	 * @param fresh The freshly read row, with Status__c already set to the status the write gives it.
+	 * @param statusBeforeTransition The status the row had before the write.
+	 * @param writeSet The fields the sparse write carries; this method adds to it.
+	 */
+	private static void recordStallTime(AsyncChainExecution__c fresh, String statusBeforeTransition, List<SObjectField> writeSet)
+	{
+		if(fresh.Status__c == SEL_AsyncChainExecution.STATUS_RUNNING)
+		{
+			fresh.StalledAt__c = null;
+			writeSet.add(AsyncChainExecution__c.StalledAt__c);
+		}
+		else if(fresh.Status__c == SEL_AsyncChainExecution.STATUS_STALLED
+				&& (statusBeforeTransition != SEL_AsyncChainExecution.STATUS_STALLED || fresh.StalledAt__c == null))
+		{
+			fresh.StalledAt__c = Datetime.now();
+			writeSet.add(AsyncChainExecution__c.StalledAt__c);
+		}
+	}
+
+	/**
 	 * @description Aborts the run on the fresh row, for the kill switch and the operator abort: records the outcome
 	 * (recordRunOutcome) with the given category, and records the end (stampRunEnd) only when the run has no end time
 	 * yet. So a run already Aborted keeps the end time and the duration its abort set, and the kill switch writes only
@@ -7451,7 +7516,8 @@ global inherited sharing class UTIL_AsyncChain
 
 	/**
 	 * @description Checks the rules a row must meet in its status, on the row as it will read after the write:
-	 * - a Stalled run has no CompletedAt__c and no DurationMs__c;
+	 * - a Stalled run has StalledAt__c set, and no CompletedAt__c and no DurationMs__c (recordStallTime sets the stall
+	 *   time on every write that leaves a run Stalled, so only an edit that broke it would leave a Stalled run without one);
 	 * - a Completed, Failed or Aborted run has CompletedAt__c set and no ActiveDeduplicationKey__c;
 	 * - a Running run has no CompletedAt__c and no FailureCategory__c;
 	 * - a Failed or Aborted run has FailureCategory__c set.
@@ -7464,9 +7530,9 @@ global inherited sharing class UTIL_AsyncChain
 	private static String findRunInvariantBreach(AsyncChainExecution__c freshRow)
 	{
 		String status = freshRow.Status__c;
-		if(status == SEL_AsyncChainExecution.STATUS_STALLED && (freshRow.CompletedAt__c != null || freshRow.DurationMs__c != null))
+		if(status == SEL_AsyncChainExecution.STATUS_STALLED && (freshRow.StalledAt__c == null || freshRow.CompletedAt__c != null || freshRow.DurationMs__c != null))
 		{
-			return 'a Stalled run must have no end time and no duration';
+			return STALLED_RUN_RULE;
 		}
 		if(isTerminalStatus(status) && (freshRow.CompletedAt__c == null || freshRow.ActiveDeduplicationKey__c != null))
 		{
@@ -7513,8 +7579,9 @@ global inherited sharing class UTIL_AsyncChain
 	 * (markStalledFromWatchdog, the WATCHDOG_STALLED run event, with no run key check): the request goes through applyRunTransition,
 	 * which reads the run fresh, refuses a run that has ended (the transition table allows a stall from Running and
 	 * Stalled only) and writes Status__c, FailureCategory__c and ErrorMessage__c, with StepLog__c when the request
-	 * carries it as a caller field. After a write that went through, the stall is logged (emitStallLog) and the
-	 * notification runs. A refused write skips both, and a DmlException passes up to the caller, which logs the failure.
+	 * carries it as a caller field. The same write sets StalledAt__c when the run becomes Stalled, or when a Stalled run
+	 * has no stall time yet (see recordStallTime). After a write that went through, the stall is logged (emitStallLog)
+	 * and the notification runs. A refused write skips both, and a DmlException passes up to the caller, which logs the failure.
 	 *
 	 * The notification guard is per-transition, not per-chain: it fires only on an actual change
 	 * into Stalled, read from the status the run had before the write. A chain already Stalled that is marked
@@ -7533,9 +7600,9 @@ global inherited sharing class UTIL_AsyncChain
 	 * stall reason as the message and StepLog__c as a caller field when the caller hands one.
 	 * @param notificationHandler The onError handler definition to notify once per transition, or null for none.
 	 * @param notificationWithheld True when the caller passed null for notificationHandler on
-	 * purpose rather than because none exists. A budget park skips the notification to save the
-	 * async budget even when the chain has a registered handler. Only a false value can produce
-	 * the unhandled-stall ERROR: a park must never be logged as a chain with no handler.
+	 * purpose rather than because none exists. A park for lack of a job slot skips the notification
+	 * to save the async budget even when the chain has a registered handler. Only a false value can
+	 * produce the unhandled-stall ERROR: a park must never be logged as a chain with no handler.
 	 */
 	private static void markStalledAndNotify(RunTransitionRequest request, DTO_StepDefinition notificationHandler, Boolean notificationWithheld)
 	{

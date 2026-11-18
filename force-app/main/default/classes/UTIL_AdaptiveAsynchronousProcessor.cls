@@ -9,15 +9,16 @@
  *
  * @see UTIL_AsynchronousJobLauncher
  * @see IF_Async
+ * @see UTIL_StatefulAsynchronousBatch
  * @see UTIL_AsynchronousJobLauncher_TEST
  *
  * @author Jason van Beukering
  *
  * @group Async Processing
  *
- * @date September 2025, October 2026
+ * @date September 2025, November 2026
  */
-@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength')
 public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 				Database.AllowsCallouts,
 				Database.Batchable<Object>,
@@ -242,7 +243,9 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	}
 
 	/**
-	 * @description Determines which execution strategy to use based on configuration and context.
+	 * @description Determines which execution strategy to use based on configuration and context. A strategy set by the
+	 * caller is kept. Under AUTO, logic with a finish step never gets PARALLEL_QUEUEABLES: parallel jobs would each call
+	 * finish, and finish must run once, after the last item, so CHAINABLE is used in its place.
 	 */
 	private void determineCorrectExecutionStrategy()
 	{
@@ -251,6 +254,25 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 			return;
 		}
 
+		resolveAutomaticExecutionStrategy();
+
+		if
+		(
+				processorLogic instanceof IF_Async.Finishable &&
+				processSettings.executionStrategy == IF_Async.AsynchronousExecutionStrategy.PARALLEL_QUEUEABLES
+		)
+		{
+			processSettings.executionStrategy = IF_Async.AsynchronousExecutionStrategy.CHAINABLE;
+		}
+	}
+
+	/**
+	 * @description Chooses the strategy for AUTO from the context and the limits: BATCH by default, CHAINABLE inside a
+	 * running asynchronous job, and in a synchronous transaction PARALLEL_QUEUEABLES or CHAINABLE when the items fit
+	 * under the batch threshold.
+	 */
+	private void resolveAutomaticExecutionStrategy()
+	{
 		//Default to batch unless additional parameters allow queueable
 		processSettings.executionStrategy = IF_Async.AsynchronousExecutionStrategy.BATCH;
 
@@ -306,7 +328,13 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	}
 
 	/**
-	 * @description Starts the asynchronous processing based on the strategy determined during initialization.
+	 * @description Starts the asynchronous processing based on the strategy determined during initialization. Under
+	 * BATCH, logic with a finish step runs inside UTIL_StatefulAsynchronousBatch, which keeps its values between chunks;
+	 * other logic runs as this processor.
+	 *
+	 * When the start fails, run writes an error log entry and throws the exception again. It writes no entry when
+	 * Salesforce refused the start and the settings say the caller handles a refused start: the caller keeps its own
+	 * record of it. Any other failure always writes its entry.
 	 *
 	 * @return The ID of the first started asynchronous job.
 	 */
@@ -327,13 +355,18 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 				when else
 				{
 					warnWhenScopeSizeDoesNotFit(processSettings.batchJobSize);
-					return Database.executeBatch(this, processSettings.batchJobSize);
+					Database.Batchable<Object> batch = processorLogic instanceof IF_Async.Finishable ? (Database.Batchable<Object>)new UTIL_StatefulAsynchronousBatch(this) : this;
+					return Database.executeBatch(batch, processSettings.batchJobSize);
 				}
 			}
 		}
 		catch(Exception error)
 		{
-			LOG_Builder.build().error(error).at(UTIL_System.getRuntimeTypeName(this) + '/run').emit();
+			Boolean isRefusalHandledByCaller = error instanceof UTIL_Exceptions.LaunchRefusedException && processSettings.isLaunchRefusalHandledByCaller;
+			if(!isRefusalHandledByCaller)
+			{
+				LOG_Builder.build().error(error).at(UTIL_System.getRuntimeTypeName(this) + '/run').emit();
+			}
 			throw error;
 		}
 	}
@@ -456,26 +489,40 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	}
 
 	/**
-	 * @description Executes parallel queueable strategy - enqueues multiple queueables simultaneously.
+	 * @description Executes parallel queueable strategy - enqueues multiple queueables simultaneously. When Salesforce
+	 * refuses to start one of the jobs, the exception names the items of the refused job and of every job after it, in
+	 * list order. The jobs queued before it run only if the caller catches the exception and its transaction goes on.
 	 *
 	 * @return The ID of the first enqueued queueable.
+	 *
+	 * @throws UTIL_Exceptions.LaunchRefusedException Salesforce refused to start a job; the exception names the items that
+	 * were not started.
 	 */
 	@SuppressWarnings('PMD.OperationWithLimitsInLoop')
 	private Id executeParallelQueueables()
 	{
 		String firstJobId;
 
-		for(List<Object> chunk : UTIL_List.partition(itemsToProcess, getQueueableJobSize()))
+		List<List<Object>> chunks = UTIL_List.partition(itemsToProcess, getQueueableJobSize());
+		for(Integer chunkIndex = 0; chunkIndex < chunks.size(); chunkIndex++)
 		{
 			UTIL_AdaptiveAsynchronousProcessor clonedProcessor = (UTIL_AdaptiveAsynchronousProcessor)UTIL_System.getRuntimeType(this).newInstance();
 			clonedProcessor.onClone(this);
 
-			clonedProcessor.itemsToProcess = chunk;
+			clonedProcessor.itemsToProcess = chunks[chunkIndex];
 			clonedProcessor.processSettings = processSettings;
 			clonedProcessor.queueable = new AsyncProcessorQueueable(clonedProcessor);
 			queueable.configure(processSettings);
 
-			Id jobId = enqueueWithOptionalDelay(clonedProcessor.queueable);
+			Id jobId;
+			try
+			{
+				jobId = enqueueWithOptionalDelay(clonedProcessor.queueable);
+			}
+			catch(Exception error)
+			{
+				throw new UTIL_Exceptions.LaunchRefusedException(error, collectItemsFromChunk(chunks, chunkIndex));
+			}
 
 			if(firstJobId == null)
 			{
@@ -487,13 +534,43 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	}
 
 	/**
-	 * @description Executes chainable queueable strategy - enqueues single parent with chaining.
+	 * @description Puts the items of one chunk and of every chunk after it into one list, in list order. These are the
+	 * items that were not started when Salesforce refused the job for that chunk.
+	 *
+	 * @param chunks The chunks the items were split into, one per job.
+	 * @param firstChunkIndex The position of the chunk whose job was refused.
+	 *
+	 * @return The items of that chunk and of every later chunk.
+	 */
+	private static List<Object> collectItemsFromChunk(List<List<Object>> chunks, Integer firstChunkIndex)
+	{
+		List<Object> unsentItems = new List<Object>();
+		for(Integer chunkIndex = firstChunkIndex; chunkIndex < chunks.size(); chunkIndex++)
+		{
+			unsentItems.addAll(chunks[chunkIndex]);
+		}
+		return unsentItems;
+	}
+
+	/**
+	 * @description Executes chainable queueable strategy - enqueues single parent with chaining. When Salesforce refuses
+	 * to start the job, the exception names every item.
 	 *
 	 * @return The ID of the parent queueable.
+	 *
+	 * @throws UTIL_Exceptions.LaunchRefusedException Salesforce refused to start the job; the exception names the items
+	 * that were not started.
 	 */
 	private Id executeChainableQueueable()
 	{
-		return enqueueWithOptionalDelay(queueable);
+		try
+		{
+			return enqueueWithOptionalDelay(queueable);
+		}
+		catch(Exception error)
+		{
+			throw new UTIL_Exceptions.LaunchRefusedException(error, new List<Object>(itemsToProcess));
+		}
 	}
 
 	/**
@@ -533,6 +610,16 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 	public Iterable<Object> start(Database.BatchableContext context)
 	{
 		return queryable != null ? queryable.toQueryLocator() : (Iterable<Object>)itemsToProcess;
+	}
+
+	/**
+	 * @description Gives the processor a new, empty list of items. UTIL_StatefulAsynchronousBatch calls it once start has
+	 * handed the items to the platform, so the items are not saved again after every chunk. The list start returned is
+	 * not changed.
+	 */
+	public void clearItemsToProcess()
+	{
+		itemsToProcess = new List<Object>();
 	}
 
 	/**
@@ -658,7 +745,8 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 		}
 
 		/**
-		 * @description Finalizer method that handles errors and re-queues the job if necessary.
+		 * @description Finalizer method that handles errors and re-queues the job if necessary. When the platform refuses the next job,
+		 * for example at the daily limit, it writes one ERROR log entry that lists the unprocessed items, and does not try again.
 		 *
 		 * @param context The FinalizerContext provided by the platform.
 		 */
@@ -675,7 +763,17 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 			)
 			{
 				AsyncProcessorQueueable nextQueueable = new AsyncProcessorQueueable(processor);
-				processor.enqueueWithOptionalDelay(nextQueueable);
+
+				try
+				{
+					processor.enqueueWithOptionalDelay(nextQueueable);
+				}
+				// kern-coverage-exempt: in Apex test context the platform applies neither maximumQueueableStackDepth nor a duplicate signature to a hop a Finalizer enqueues
+				catch(Exception error)
+				{
+					// kern-coverage-exempt: a next hop that holds state the platform cannot serialise ends in an internal Salesforce error, not in a catchable refusal
+					logErrorWithJobScope(error, context.getAsyncApexJobId(), UTIL_System.getRuntimeTypeName(processor) + '/enqueueNextHop');
+				}
 			}
 		}
 
@@ -713,6 +811,34 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 		 */
 		private void logUnhandledException(FinalizerContext context)
 		{
+			logErrorWithJobScope(context.getException(), context.getAsyncApexJobId(), UTIL_System.getRuntimeTypeName(this) + '/logUnhandledException');
+		}
+
+		/**
+		 * @description Writes one ERROR log entry for an error in this job, naming the job and the items not processed yet.
+		 *
+		 * @param error The error to write.
+		 * @param jobId The Id of the job the entry is about.
+		 * @param location Where the error happened, as the class name and the method name.
+		 */
+		private void logErrorWithJobScope(Exception error, Id jobId, String location)
+		{
+			LOG_Builder.build()
+					.error(error)
+					.at(location)
+					.forRecord(jobId)
+					.withContext(LOG_Engine.CONTEXT_JOB_SCOPE, joinItemsInScope())
+					.emit();
+		}
+
+		/**
+		 * @description Lists the items this processor has not processed yet, as one text value for a log entry. A record
+		 * is listed by its Id. Any other item is listed as its text value. The values are separated by commas.
+		 *
+		 * @return The unprocessed items, separated by commas.
+		 */
+		private String joinItemsInScope()
+		{
 			List<String> itemsInScope = new List<String>();
 
 			for(Object item : processor.itemsToProcess)
@@ -720,12 +846,7 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 				itemsInScope.add(item instanceof SObject ? String.valueOf(((SObject)item).Id) : String.valueOf(item));
 			}
 
-			LOG_Builder.build()
-					.error(context.getException())
-					.at(UTIL_System.getRuntimeTypeName(this) + '/logUnhandledException')
-					.forRecord(context.getAsyncApexJobId())
-					.withContext(LOG_Engine.CONTEXT_JOB_SCOPE, String.join(itemsInScope, UTIL_String.COMMA))
-					.emit();
+			return String.join(itemsInScope, UTIL_String.COMMA);
 		}
 	}
 
@@ -870,6 +991,13 @@ public without sharing class UTIL_AdaptiveAsynchronousProcessor implements
 		 * When set, this will be passed to System.enqueueJob calls.
 		 */
 		public AsyncOptions asyncOptions {get; set;}
+
+		/**
+		 * @description True when the code that starts the job catches a refused start itself and keeps its own record of
+		 * it. When this is true, run writes no error log entry for a refused start, and still throws the refusal. Any
+		 * other failure still writes its error entry. Default: false.
+		 */
+		public Boolean isLaunchRefusalHandledByCaller = false;
 
 		/**
 		 * @description Creates settings with nothing set. The batch threshold, the batch size and the execution strategy

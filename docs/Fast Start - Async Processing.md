@@ -6,57 +6,30 @@ navOrder: 36
 
 **Framework:** KernDX | **Total time:** ~25 minutes
 
-**What this is:** A way to run a multi-step background job where each step runs in its own Salesforce transaction but they pass information to each other. **Why it exists:** Some work is too big or too slow to finish while a user waits, and a single background job can run out of Salesforce's per-transaction allowances (governor limits) or hit conflicts between calling an external system and saving records. Splitting the work into a sequence gives each step a fresh start, automatic recovery if one fails, and a record of how far it got, without you writing the wiring by hand. **Who should follow this:** developers building background processing, and the tech leads reviewing it. **When to use it:** any time you have several steps that should run after a user's request returns, and you want each step isolated and the whole run tracked. If you only need a single statement run in the background, the built-in `kern.DML_Builder.async()` is simpler; reach for a chain once there are multiple steps to sequence.
-
-What you'll build in one line: a one-step background job that enriches an Account you create first, in a transaction of its own.
+- **What this is:** A way to run a multi-step background job where each step runs in its own Salesforce transaction but they pass information to each other.
+- **Why it exists:** Some work is too big or too slow to finish while a user waits. A single background job can run out of Salesforce's per-transaction allowances (governor limits) or hit conflicts between calling an external system and saving records.
+- **What a chain gives you:** splitting the work into a sequence gives each step a fresh start, automatic recovery if one fails, and a record of how far it got, without you writing the wiring by hand.
+- **Who should follow this:** developers building background processing, and the tech leads reviewing it.
+- **When to use it:** any time you have several steps that should run after a user's request returns, and you want each step isolated and the whole run tracked. If you only need a single statement run in the background, the built-in `kern.DML_Builder.async()` is simpler; reach for a chain once there are multiple steps to sequence.
+- **What you'll build:** A one-step async chain (a sequence of background steps) that enriches an Account you
+  create first, in a transaction of its own, plus a paired test class with 100% coverage.
+- **Success looks like:** Your chain row appears in `kern__AsyncChainExecution__c` with `kern__Status__c = Completed`,
+  the enriched Account shows the stamped Description, and the test class passes both branches.
+- **In one line:** `kern.UTIL_AsyncChain.newChain('Foo').then(new MyStep()).execute();` runs your steps in
+  order, tracks their status as a record, and recovers from errors, all built in.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** A one-step async chain (a sequence of background steps) that enriches an Account you
-create first, in a transaction of its own, plus a paired test class with 100% coverage.
-
-**Success looks like:** Your chain row appears in `kern__AsyncChainExecution__c` with `kern__Status__c = Completed`,
-the enriched Account shows the stamped Description, and the test class passes both branches.
-
-**In one line:** `kern.UTIL_AsyncChain.newChain('Foo').then(new MyStep()).execute();` runs your steps in
-order, tracks their status as a record, and recovers from errors, all built in.
-
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [How It Works](#how-it-works)
-3. [Tier 1: See It Work](#tier-1-see-it-work)
-4. [Tier 2: Build Your Own (~15 minutes)](#tier-2-build-your-own-15-minutes)
-    - [Step 1: Create the chain step](#step-1-create-the-chain-step)
-    - [Step 2: Execute the chain](#step-2-execute-the-chain)
-    - [Step 3: Write and run the test](#step-3-write-and-run-the-test)
-5. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
-6. [Sensitive data is masked by default](#sensitive-data-is-masked-by-default)
-    - [Clean up](#clean-up)
-7. [Common Issues](#common-issues)
-    - [Step 1: Create the chain step](#step-1-create-the-chain-step-1)
-    - [Step 2: Execute the chain](#step-2-execute-the-chain-1)
-    - [Step 3: Write and run the test](#step-3-write-and-run-the-test-1)
-    - [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes-1)
-8. [What You Now Know](#what-you-now-know)
-9. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
@@ -77,20 +50,16 @@ Here are the pieces you'll work with:
 | `kern.UTIL_AsyncChain.StepResult`       | Return value: `succeeded()` / `failed()`                       |
 | `kern__AsyncChainExecution__c`          | Tracking row: status, step counts, error message, context data |
 
-**Why a chain instead of a single Queueable?** Because each step runs in its own transaction, you get
-three things a single job can't give you. A step that calls an external system and a step that saves
-records no longer conflict. Each step starts with its allowances reset. And the framework writes
-progress and any errors to a record you can query later.
-
 ---
 
 ## Tier 1: See It Work
 
 The quickest way to see a chain run is [Step 1](#step-1-create-the-chain-step) and
 [Step 2](#step-2-execute-the-chain) below: you save one small step class in your org, then start a one-step chain
-from the Developer Console and read back the Account it stamped. The step class has to be saved in your org first,
-because the chain creates each step again from its class name in a later background job, and a class you declare
-inside the Execute Anonymous window no longer exists by then.
+from the Developer Console and read back the Account it stamped.
+
+The step class has to be saved in your org first. The chain creates each step again from its class name in a later
+background job, and a class you declare inside the Execute Anonymous window no longer exists by then.
 
 If all you need is a single statement run in the background (no multiple steps to sequence), skip the
 chain entirely and use `kern.DML_Builder.newTransaction().doUpdate(records).async().execute();`. The
@@ -127,7 +96,9 @@ force-app/main/default/classes/EnrichAccountStep.cls
 ```
 
 > **Why `global`?** The framework finds your step class by name at runtime, and marking it `global` lets
-> it do that with no extra setup. If you prefer `public with sharing`, you'll instead point the framework
+> it do that with no extra setup.
+>
+> If you prefer `public with sharing`, you'll instead point the framework
 > at your classes with a Type Resolver class (how it finds the Apex classes in your namespace: you tell it
 > where to look). The Kern home page health check provides the code, or see
 > [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
@@ -373,11 +344,13 @@ kern.UTIL_AsyncChain.newChain('AccountEnrichment')
 	.execute();
 ```
 
-Registering `onError` also changes how loudly a stall reports itself. The first time a chain loses its
-background job with no `onError` handler registered, the framework records that stall at ERROR level so
-it surfaces in the Log Console on its own. Register a handler and the entry drops to WARN, because the
-handler is what raises the alarm. A chain the watchdog parks because your org has run out of
-background-job capacity stays at WARN whatever handlers it has.
+Registering `onError` also changes how loudly a stall reports itself:
+
+- The first time a chain loses its background job with no `onError` handler registered, the framework records that
+  stall at ERROR level so it surfaces in the Log Console on its own.
+- Register a handler and the entry drops to WARN, because the handler is what raises the alarm.
+- A chain the watchdog parks because your org has run out of background-job capacity stays at WARN whatever handlers
+  it has.
 
 **Continue past optional failures:** pass `true` to `.then()` to let the chain skip over a failed step
 and keep going.
@@ -426,8 +399,9 @@ kern.UTIL_AsyncChain.newChain('MultiStep')
 ```
 
 **Re-run a bulk step safely:** if a step loops over many records, derive a per-record key with
-`context.idempotencyKey(record.Id)` and store it on the external-id field you `upsert` against. A replay after a partial
-failure then only reprocesses the rows that did not finish the first time. See
+`context.idempotencyKey(record.Id)` and store it on the external-id field you `upsert` against.
+
+A replay after a partial failure then only reprocesses the rows that did not finish the first time. See
 [Safe to run twice (idempotency)](Async%20Processing%20-%20Guide.md#step-design-guidance) in the guide for the
 step-level and custom-grain forms too.
 
@@ -439,15 +413,15 @@ See the [Async Processing Guide](Async%20Processing%20-%20Guide.md) for delayed 
 
 Anything the chain saves to its tracking row (`kern__AsyncChainExecution__c`) is scrubbed of sensitive values
 before it is stored, so secrets don't end up sitting in a queryable record. The chain's context data,
-step logs, and error messages all pass through the data masking framework first. Out of the box,
-`MaskSecretKeys` blanks out common secret JSON keys (`password`, `token`, `apiKey`, etc.) and
-`MaskPaymentCard` blanks out card numbers that pass the standard card-number check (Luhn).
+step logs, and error messages all pass through the data masking framework first. Out of the box:
 
-There is one consequence to know about. Putting a secret in the context, such as
-`context.put('password', userPassword)`, is safe once stored, but the scrubbing is permanent: a later
-step that re-reads the saved row sees only the redacted value, not the original. So don't rely on the
-chain context to pass credentials between steps for an authenticated callout. Use a Named Credential
-instead.
+- `MaskSecretKeys` blanks out common secret JSON keys (`password`, `token`, `apiKey`, etc.);
+- `MaskPaymentCard` blanks out card numbers that pass the standard card-number check (Luhn).
+
+**Don't pass credentials between steps in the chain context; use a Named Credential instead.** Putting a secret in
+the context, such as `context.put('password', userPassword)`, is safe once stored, but the scrubbing is permanent: a
+later step that re-reads the saved row sees only the redacted value, not the original. So the context cannot carry
+credentials for an authenticated callout.
 
 ### Clean up
 
@@ -557,8 +531,8 @@ Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?templ
   none is declared (`public` is fine; a `global` class may declare a `global` constructor)
 - **`Test.startTest() / Test.stopTest()`** forces the queued background job to run; raise
   `AsyncOptions.maximumQueueableStackDepth` for chains of more than one step under test
-- **Use `kern.DML_Builder.async()`** for single-statement background work; use a chain only when you
-  need several steps in sequence, each with its allowances reset
+- **Use `kern.DML_Builder.async()`** for single-statement background work (see [Tier 1](#tier-1-see-it-work)); use
+  a chain only when you need several steps in sequence, each with its allowances reset
 
 ---
 

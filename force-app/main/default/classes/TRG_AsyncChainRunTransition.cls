@@ -10,15 +10,18 @@
  * First, the move itself: a status change is allowed only when UTIL_AsyncChain.isAllowedRunTransition says so.
  * Second, the shape of the row after the save: a Stalled run has no end time and no duration; a Completed, Failed or
  * Aborted run has an end time and no active deduplication key; an end time never changes once it is set; a Running run
- * has no end time and no failure category; a Failed or Aborted run has a failure category.
+ * has no end time and no failure category; a Failed or Aborted run has a failure category. A run that moves into
+ * Stalled from another status has the time it stalled (StalledAt__c).
  *
  * An update is checked only when its status or its end time changes. A row whose status stays the same can still have
- * its other fields edited, even when it already breaks one of the rules above. A new row is accepted in any of the five
- * statuses the engine writes, as long as its fields fit that status. Any other status, including Delayed, is refused.
+ * its other fields edited, even when it already breaks one of the rules above. So a Stalled row saved by an older
+ * release, with no stall time, can still be edited, and the engine fills its stall time the next time it writes the
+ * row as Stalled. A new row is accepted in any of the five statuses the engine writes, as long as its fields fit that
+ * status. Any other status, including Delayed, is refused.
  *
- * A refusal fails the save with the AsyncChain_TransitionRefused message (AsyncChain_BirthRefused for a new row) and
- * writes one ERROR log entry that starts with a fixed phrase, so refusals can be counted. The action works in memory
- * only: no query, no DML.
+ * A refusal fails the save with the AsyncChain_TransitionRefused message (AsyncChain_BirthRefused for a new row,
+ * AsyncChain_StallTimeRequired for a move into Stalled with no stall time) and writes one ERROR log entry that starts
+ * with a fixed phrase, so refusals can be counted. The action works in memory only: no query, no DML.
  *
  * @see UTIL_AsyncChain
  * @see TRG_AsyncChainRunTransition_TEST
@@ -27,7 +30,7 @@
  *
  * @group Triggers
  *
- * @date October 2026
+ * @date October 2026, November 2026
  */
 @SuppressWarnings('ApexUnusedDeclaration,RedundantSuppression')
 public inherited sharing class TRG_AsyncChainRunTransition extends TRG_Base implements IF_Trigger.BeforeInsert, IF_Trigger.BeforeUpdate
@@ -77,6 +80,11 @@ public inherited sharing class TRG_AsyncChainRunTransition extends TRG_Base impl
 	 * @description Logged when a Stalled row carries an end time or a duration.
 	 */
 	private static final String REASON_STALLED_FIELDS = 'a Stalled run cannot have an end time or a duration';
+
+	/**
+	 * @description Logged when a row moves into Stalled without the time it became Stalled.
+	 */
+	private static final String REASON_NO_STALL_TIME = 'a run that becomes Stalled must have the time it stalled';
 
 	/**
 	 * @description Logged when a Completed, Failed or Aborted row has no end time, or still holds an active deduplication key.
@@ -146,8 +154,8 @@ public inherited sharing class TRG_AsyncChainRunTransition extends TRG_Base impl
 
 	/**
 	 * @description Decides whether one update is refused. Nothing is checked unless the status or the end time changes.
-	 * A changed status must be a move the engine makes. An end time that was already set must not change. Then the row
-	 * must fit its status.
+	 * A changed status must be a move the engine makes. A run that moves into Stalled must have its stall time
+	 * (StalledAt__c). An end time that was already set must not change. Then the row must fit its status.
 	 *
 	 * @param newRecord The row with its new field values.
 	 * @param oldRecord The row as it read before the update.
@@ -165,6 +173,10 @@ public inherited sharing class TRG_AsyncChainRunTransition extends TRG_Base impl
 		if(statusChanged && !UTIL_AsyncChain.isAllowedRunTransition(oldRecord.Status__c, newRecord.Status__c))
 		{
 			return REASON_NOT_IN_TABLE;
+		}
+		if(statusChanged && newRecord.Status__c == SEL_AsyncChainExecution.STATUS_STALLED && newRecord.StalledAt__c == null)
+		{
+			return REASON_NO_STALL_TIME;
 		}
 		if(endTimeChanged && oldRecord.CompletedAt__c != null && newRecord.CompletedAt__c != null)
 		{
@@ -233,22 +245,28 @@ public inherited sharing class TRG_AsyncChainRunTransition extends TRG_Base impl
 	}
 
 	/**
-	 * @description Blocks the save of one row. An update gets the AsyncChain_TransitionRefused message, which names the
-	 * status the row has now and the status asked for. A new row gets the AsyncChain_BirthRefused message, which names
-	 * the status it was given. One ERROR log entry is written as well. It starts with the fixed words every refusal
-	 * shares, then names the statuses and the reason, and is placed at beforeUpdate or at beforeInsert.
+	 * @description Blocks the save of one row with a message:
+	 * - An update gets AsyncChain_TransitionRefused, which names the status the row has now and the status asked for.
+	 * - A move into Stalled without the stall time gets AsyncChain_StallTimeRequired instead, because the move itself is
+	 *   allowed.
+	 * - A new row gets AsyncChain_BirthRefused, which names the status it was given.
+	 *
+	 * One ERROR log entry is written as well. It starts with the fixed words every refusal shares, then names the
+	 * statuses and the reason, and is placed at beforeUpdate or at beforeInsert.
 	 *
 	 * @param newRecord The row being refused. Its Status__c is the status asked for.
 	 * @param oldRecord The row as it read before the update, or null for a new row.
-	 * @param reason Why the row is refused, in words, for the log.
+	 * @param reason Why the row is refused, in words, for the log. It also picks the message of an update: the missing
+	 * stall time gets AsyncChain_StallTimeRequired, every other reason gets AsyncChain_TransitionRefused.
 	 */
 	private static void refuse(AsyncChainExecution__c newRecord, AsyncChainExecution__c oldRecord, String reason)
 	{
 		String newStatus = newRecord.Status__c;
 		Boolean isNewRow = oldRecord == null;
+		String updateLabel = reason == REASON_NO_STALL_TIME ? System.Label.AsyncChain_StallTimeRequired : System.Label.AsyncChain_TransitionRefused;
 		String message = isNewRow
 				? String.format(System.Label.AsyncChain_BirthRefused, new List<String> {newStatus})
-				: String.format(System.Label.AsyncChain_TransitionRefused, new List<String> {oldRecord.Status__c, newStatus});
+				: String.format(updateLabel, new List<String> {oldRecord.Status__c, newStatus});
 		String statusMove = isNewRow ? NEW_ROW_STATUS_PREFIX + newStatus : oldRecord.Status__c + STATUS_MOVE_SEPARATOR + newStatus;
 		newRecord.addError(message);
 		LOG_Builder.build().error(REFUSAL_LOG_PREFIX + statusMove + REASON_SEPARATOR + reason)

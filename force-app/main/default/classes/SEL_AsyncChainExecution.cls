@@ -13,7 +13,7 @@
  *
  * @group Async
  *
- * @date April 2026, October 2026
+ * @date April 2026, November 2026
  *
  * @since 1.0
  *
@@ -167,6 +167,7 @@ public inherited sharing class SEL_AsyncChainExecution extends SEL_Base
 				AsyncChainExecution__c.RootCorrelationId__c,
 				AsyncChainExecution__c.RunKey__c,
 				AsyncChainExecution__c.SourceExecution__c,
+				AsyncChainExecution__c.StalledAt__c,
 				AsyncChainExecution__c.StartedAt__c,
 				AsyncChainExecution__c.Status__c,
 				AsyncChainExecution__c.StepLog__c,

@@ -2,10 +2,14 @@
 /**
  * @description Tests for TRG_AsyncChainRunTransition, the trigger action that blocks a save of a chain run the engine
  * would never make. Each test calls the action directly on rows built in memory, never inserted, and reads the result
- * from the row's own errors. The tests prove that a status change the engine never makes is refused with the
- * AsyncChain_TransitionRefused message and an allowed one is let through; that each rule about the row's fields is
- * refused on its own; that a row whose status and end time did not change is left alone; and that a new row is accepted
- * in any status the engine writes when its fields fit, and refused with the AsyncChain_BirthRefused message otherwise.
+ * from the row's own errors. The tests prove that:
+ * - a status change the engine never makes is refused with the AsyncChain_TransitionRefused message, and an allowed one
+ *   is let through;
+ * - each rule about the row's fields is refused on its own;
+ * - a move into Stalled without a stall time is refused with the AsyncChain_StallTimeRequired message;
+ * - a row whose status and end time did not change is left alone;
+ * - a new row is accepted in any status the engine writes when its fields fit, and refused with the
+ *   AsyncChain_BirthRefused message otherwise.
  *
  * @see TRG_AsyncChainRunTransition
  * @see UTIL_AsyncChain
@@ -14,7 +18,7 @@
  *
  * @group Triggers
  *
- * @date October 2026
+ * @date October 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ApexUnitTestClassShouldHaveAsserts')
 @IsTest(seeAllData=false isParallel=true)
@@ -92,6 +96,7 @@ private class TRG_AsyncChainRunTransition_TEST
 		AsyncChainExecution__c oldRecord = buildRow(SEL_AsyncChainExecution.STATUS_RUNNING, null, null);
 		AsyncChainExecution__c newRecord = buildRow(SEL_AsyncChainExecution.STATUS_STALLED, Datetime.now(), SEL_AsyncChainExecution.FAILURE_CATEGORY_STALLED);
 		newRecord.DurationMs__c = A_DURATION_MILLISECONDS;
+		newRecord.StalledAt__c = Datetime.now();
 
 		new TRG_AsyncChainRunTransition().beforeUpdate(new List<SObject> {newRecord}, new List<SObject> {oldRecord});
 
@@ -108,10 +113,74 @@ private class TRG_AsyncChainRunTransition_TEST
 		AsyncChainExecution__c oldRecord = buildRow(SEL_AsyncChainExecution.STATUS_RUNNING, null, null);
 		AsyncChainExecution__c newRecord = buildRow(SEL_AsyncChainExecution.STATUS_STALLED, null, SEL_AsyncChainExecution.FAILURE_CATEGORY_STALLED);
 		newRecord.DurationMs__c = A_DURATION_MILLISECONDS;
+		newRecord.StalledAt__c = Datetime.now();
 
 		new TRG_AsyncChainRunTransition().beforeUpdate(new List<SObject> {newRecord}, new List<SObject> {oldRecord});
 
 		assertRefused(newRecord, SEL_AsyncChainExecution.STATUS_RUNNING, SEL_AsyncChainExecution.STATUS_STALLED);
+	}
+
+	/**
+	 * @description A run that becomes Stalled must have the time it stalled (StalledAt__c), because the purge of old
+	 * chain runs reads that time to delete a run that stays Stalled. A Running row written Stalled with no stall time is
+	 * refused, even though Running to Stalled is a move the engine makes and the row has no end time.
+	 */
+	@IsTest
+	private static void shouldRefuseAMoveIntoStalledWithoutAStallTime()
+	{
+		AsyncChainExecution__c oldRecord = buildRow(SEL_AsyncChainExecution.STATUS_RUNNING, null, null);
+		AsyncChainExecution__c newRecord = buildRow(SEL_AsyncChainExecution.STATUS_STALLED, null, SEL_AsyncChainExecution.FAILURE_CATEGORY_STALLED);
+
+		new TRG_AsyncChainRunTransition().beforeUpdate(new List<SObject> {newRecord}, new List<SObject> {oldRecord});
+
+		assertStallTimeRequired(newRecord, SEL_AsyncChainExecution.STATUS_RUNNING, SEL_AsyncChainExecution.STATUS_STALLED);
+	}
+
+	/**
+	 * @description A Running row written Stalled with its stall time and no end time fits a Stalled run, so the action
+	 * adds no error.
+	 */
+	@IsTest
+	private static void shouldAcceptAMoveIntoStalledWithAStallTime()
+	{
+		AsyncChainExecution__c oldRecord = buildRow(SEL_AsyncChainExecution.STATUS_RUNNING, null, null);
+		AsyncChainExecution__c newRecord = buildRow(SEL_AsyncChainExecution.STATUS_STALLED, null, SEL_AsyncChainExecution.FAILURE_CATEGORY_STALLED);
+		newRecord.StalledAt__c = Datetime.now();
+
+		new TRG_AsyncChainRunTransition().beforeUpdate(new List<SObject> {newRecord}, new List<SObject> {oldRecord});
+
+		Assert.isFalse(newRecord.hasErrors(), 'Expected the move from Running to Stalled with a stall time to be accepted');
+	}
+
+	/**
+	 * @description A Stalled row saved by an older release has no stall time. Its message is changed and it stays
+	 * Stalled. The status did not change, so the action leaves the save alone: such a row stays editable until the
+	 * engine fills its stall time.
+	 */
+	@IsTest
+	private static void shouldLeaveAStalledRowWithoutAStallTimeEditable()
+	{
+		AsyncChainExecution__c oldRecord = buildRow(SEL_AsyncChainExecution.STATUS_STALLED, null, SEL_AsyncChainExecution.FAILURE_CATEGORY_STALLED);
+		AsyncChainExecution__c newRecord = buildRow(SEL_AsyncChainExecution.STATUS_STALLED, null, SEL_AsyncChainExecution.FAILURE_CATEGORY_STALLED);
+		newRecord.ErrorMessage__c = CHANGED_MESSAGE;
+
+		new TRG_AsyncChainRunTransition().beforeUpdate(new List<SObject> {newRecord}, new List<SObject> {oldRecord});
+
+		Assert.isFalse(newRecord.hasErrors(), 'Expected an edit of a Stalled row with no stall time, which keeps its status, to be accepted');
+	}
+
+	/**
+	 * @description A new row created already Stalled with no stall time and no end time is accepted. The rule about the
+	 * stall time applies to a move into Stalled, and a new row makes no move.
+	 */
+	@IsTest
+	private static void shouldAcceptAStalledBirthWithoutAStallTime()
+	{
+		AsyncChainExecution__c newRecord = buildRow(SEL_AsyncChainExecution.STATUS_STALLED, null, SEL_AsyncChainExecution.FAILURE_CATEGORY_STALLED);
+
+		new TRG_AsyncChainRunTransition().beforeInsert(new List<SObject> {newRecord});
+
+		Assert.isFalse(newRecord.hasErrors(), 'Expected a new Stalled row with no stall time and no end time to be accepted');
 	}
 
 	/**
@@ -356,6 +425,20 @@ private class TRG_AsyncChainRunTransition_TEST
 	{
 		String expectedMessage = String.format(System.Label.AsyncChain_TransitionRefused, new List<String> {fromStatus, toStatus});
 		assertOneError(record, expectedMessage, 'the update from ' + fromStatus + ' to ' + toStatus);
+	}
+
+	/**
+	 * @description Asserts the action refused an update with exactly one error carrying the AsyncChain_StallTimeRequired
+	 * message for the two statuses. This message is used when a row moves into Stalled without the time it stalled.
+	 *
+	 * @param record The row the action was given.
+	 * @param fromStatus The status the message names as the current one.
+	 * @param toStatus The status the message names as the one asked for.
+	 */
+	private static void assertStallTimeRequired(AsyncChainExecution__c record, String fromStatus, String toStatus)
+	{
+		String expectedMessage = String.format(System.Label.AsyncChain_StallTimeRequired, new List<String> {fromStatus, toStatus});
+		assertOneError(record, expectedMessage, 'the update from ' + fromStatus + ' to ' + toStatus + ' without a stall time');
 	}
 
 	/**

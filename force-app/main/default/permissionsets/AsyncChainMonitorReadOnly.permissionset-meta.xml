@@ -102,6 +102,11 @@
     </fieldPermissions>
     <fieldPermissions>
         <editable>false</editable>
+        <field>AsyncChainExecution__c.StalledAt__c</field>
+        <readable>true</readable>
+    </fieldPermissions>
+    <fieldPermissions>
+        <editable>false</editable>
         <field>AsyncChainExecution__c.StartedAt__c</field>
         <readable>true</readable>
     </fieldPermissions>

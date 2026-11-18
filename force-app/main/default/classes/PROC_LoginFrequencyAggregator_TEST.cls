@@ -8,15 +8,38 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
-@IsTest(seeAllData=false isParallel=true)
+@IsTest(seeAllData=false isParallel=false)
 private class PROC_LoginFrequencyAggregator_TEST
 {
+	/**
+	 * @description The number of chunks in the mocked batch job. The job has one chunk in all.
+	 */
+	private static final Integer ONE_CHUNK = 1;
+
+	/**
+	 * @description The end of the location the processor writes its skipped-finish warning from. The tests add it to
+	 * the processor's class name to find that entry.
+	 */
+	private static final String PROCESSOR_FINISH_LOG_METHOD = '/finish';
+
+	/**
+	 * @description The location the processor writes a failed chunk's error from: its class name, as the platform
+	 * resolves it, and the method execute.
+	 */
+	private static final String PROCESSOR_EXECUTE_LOG_LOCATION = PROC_LoginFrequencyAggregator.class.getName() + UTIL_String.DOT + 'execute';
+
 	/**
 	 * @description The current running user's ID used across all test methods.
 	 */
 	private static final Id RUNNING_USER_ID = UserInfo.getUserId();
+
+	/**
+	 * @description One login of the running user that has no login time. The processor cannot count it, so a chunk that
+	 * holds it fails.
+	 */
+	private static final String LOGIN_WITHOUT_TIME_JSON = '[{"UserId":"' + RUNNING_USER_ID + '"}]';
 
 	/**
 	 * @description Tests that finish() updates the LastSuccessfulRunTime watermark.
@@ -38,6 +61,71 @@ private class PROC_LoginFrequencyAggregator_TEST
 		ScheduleSetting__c settingAfter = SEL_ScheduleSetting.getScheduleSetting(PROC_LoginFrequencyAggregator.SETTING_NAME);
 
 		Assert.areNotEqual(previousRunTime, settingAfter.LastSuccessfulRunTime__c, 'Watermark should be updated after finish');
+	}
+
+	/**
+	 * @description Proves that the saved time of the last good run does not move when the job row says a chunk failed.
+	 * The batch skips the aggregator's finish step in that case and writes one warning instead. In a test the platform
+	 * does not run a batch's finish after a chunk threw, so the test calls finish itself, with a job row that reports
+	 * one failed chunk.
+	 */
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
+	@IsTest
+	private static void shouldLeaveTheWatermarkWhenAChunkFailed()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		Datetime previousRunTime = insertWatermark();
+		Id jobId = TST_Factory.mockBatchJob(ONE_CHUNK, ONE_CHUNK);
+
+		Test.startTest();
+		new UTIL_StatefulAsynchronousBatch(new UTIL_AdaptiveAsynchronousProcessor(new PROC_LoginFrequencyAggregator(Datetime.now())))
+				.finish(TST_Factory.newBatchableContext(jobId));
+		Test.stopTest();
+		Test.getEventBus().deliver();
+
+		Assert.areEqual
+				(
+						previousRunTime,
+						SEL_ScheduleSetting.getScheduleSetting(PROC_LoginFrequencyAggregator.SETTING_NAME).LastSuccessfulRunTime__c,
+						'Expected the saved time of the last good run to stay put when a chunk failed.'
+				);
+
+		List<LogEntry__c> finishLogs = new SEL_LogEntry().findAllByMethod(UTIL_System.getRuntimeTypeName(new UTIL_AdaptiveAsynchronousProcessor()) + PROCESSOR_FINISH_LOG_METHOD);
+		Assert.areEqual(1, finishLogs.size(), 'Expected one warning for the skipped finish.');
+		Assert.areEqual(LoggingLevel.WARN.name(), finishLogs[0].LogLevel__c, 'Expected the skipped finish to be logged as a warning.');
+	}
+
+	/**
+	 * @description Proves that the saved time of the last good run moves to the target time when the job row says no
+	 * chunk failed, and that no warning is written. This is the other half of the test that proves the time stays put.
+	 */
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
+	@IsTest
+	private static void shouldAdvanceTheWatermarkWhenEveryChunkSucceeded()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		insertWatermark();
+		Datetime targetTime = UTIL_Random.randomDateTime();
+		final Integer noFailedChunks = 0;
+		Id jobId = TST_Factory.mockBatchJob(noFailedChunks, ONE_CHUNK);
+
+		Test.startTest();
+		new UTIL_StatefulAsynchronousBatch(new UTIL_AdaptiveAsynchronousProcessor(new PROC_LoginFrequencyAggregator(targetTime)))
+				.finish(TST_Factory.newBatchableContext(jobId));
+		Test.stopTest();
+		Test.getEventBus().deliver();
+
+		Assert.areEqual
+				(
+						targetTime,
+						SEL_ScheduleSetting.getScheduleSetting(PROC_LoginFrequencyAggregator.SETTING_NAME).LastSuccessfulRunTime__c,
+						'Expected the saved time of the last good run to move to the target time when every chunk succeeded.'
+				);
+		Assert.isTrue
+				(
+						new SEL_LogEntry().findAllByMethod(UTIL_System.getRuntimeTypeName(new UTIL_AdaptiveAsynchronousProcessor()) + PROCESSOR_FINISH_LOG_METHOD).isEmpty(),
+						'Expected no warning when no chunk failed.'
+				);
 	}
 
 	/**
@@ -65,36 +153,73 @@ private class PROC_LoginFrequencyAggregator_TEST
 	}
 
 	/**
-	 * @description Tests that execute() logs errors and re-throws when processing fails, and that the error line is
-	 * labelled with the class name the platform resolves, so an install under a namespace stamps it as the framework's.
+	 * @description Tests that execute() logs the error and does not throw when a chunk fails, and that nothing of the
+	 * failed chunk is saved. The error line is labelled with the class name the platform resolves, so an install under a
+	 * namespace stamps it as the framework's.
 	 */
 	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 	@IsTest
-	private static void shouldLogErrorWhenProcessingFails()
+	private static void shouldLogAndNotThrowWhenAChunkFails()
 	{
 		LOG_Builder.ignoreTestMode = true;
 		TST_Factory.setupLoggerForTest();
-		List<LoginHistory> loginHistories = (List<LoginHistory>)JSON.deserialize
-				(
-						'[{"UserId":"' + RUNNING_USER_ID + '"}]',
-						List<LoginHistory>.class
-				);
+		List<LoginHistory> loginHistories = (List<LoginHistory>)JSON.deserialize(LOGIN_WITHOUT_TIME_JSON, List<LoginHistory>.class);
 
 		Test.startTest();
 		try
 		{
 			new PROC_LoginFrequencyAggregator(Datetime.now()).execute(loginHistories);
-			Assert.fail('Should throw exception for null LoginTime');
 		}
 		catch(Exception error)
 		{
-			Assert.isInstanceOfType(error, NullPointerException.class, 'Incorrect Exception Type');
+			Assert.fail('Expected a failed chunk to be logged and not thrown, but it threw: ' + error.getMessage());
 		}
 		Test.stopTest();
 
-		String expectedClassMethod = PROC_LoginFrequencyAggregator.class.getName() + UTIL_String.DOT + 'execute';
-		LogEntry__c errorRow = new SEL_LogEntry().findByMethod(expectedClassMethod);
-		Assert.isNotNull(errorRow, 'The failure was written under the class name the platform resolves, not a bare literal');
+		LogEntry__c errorRow = new SEL_LogEntry().findByMethod(PROCESSOR_EXECUTE_LOG_LOCATION);
+		Assert.isNotNull(errorRow, 'Expected the failure to be written under the class name the platform resolves, not a bare literal.');
+		Assert.areEqual(LoggingLevel.ERROR.name(), errorRow.LogLevel__c, 'Expected the failed chunk to be logged as an error.');
+		Assert.isTrue(new SEL_LoginFrequency().getAll().isEmpty(), 'Expected no login counts to be saved for a failed chunk.');
+	}
+
+	/**
+	 * @description Proves that a run with a failed chunk still saves the new time. The job runs as a real batch. Its one
+	 * chunk fails because a login has no time. The processor logs that failure and does not throw, so the batch ends well
+	 * and runs its finish step. The finish step then saves the time the job started.
+	 */
+	@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
+	@IsTest
+	private static void shouldMoveTheSavedTimeAfterARunWithAFailedChunk()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		insertWatermark();
+		Datetime targetTime = UTIL_Random.randomDateTime();
+		List<LoginHistory> loginHistories = (List<LoginHistory>)JSON.deserialize(LOGIN_WITHOUT_TIME_JSON, List<LoginHistory>.class);
+		UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest request = new UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest(loginHistories)
+				.withBatchSize(loginHistories.size())
+				.withExecutionStrategy(IF_Async.AsynchronousExecutionStrategy.BATCH);
+
+		Test.startTest();
+		UTIL_AsynchronousJobLauncher.process(request, new PROC_LoginFrequencyAggregator(targetTime));
+		try
+		{
+			Test.stopTest();
+		}
+		catch(Exception error)
+		{
+			Assert.fail('Expected the failed chunk to be logged and not thrown, but it threw: ' + error.getMessage());
+		}
+
+		LogEntry__c errorRow = new SEL_LogEntry().findByMethod(PROCESSOR_EXECUTE_LOG_LOCATION);
+		Assert.isNotNull(errorRow, 'Expected the failed chunk to be logged under the class name the platform resolves.');
+		Assert.areEqual(LoggingLevel.ERROR.name(), errorRow.LogLevel__c, 'Expected the failed chunk to be logged as an error.');
+		Assert.areEqual
+				(
+						targetTime,
+						SEL_ScheduleSetting.getScheduleSetting(PROC_LoginFrequencyAggregator.SETTING_NAME).LastSuccessfulRunTime__c,
+						'Expected the saved time to move to the time the job started after a run with a failed chunk.'
+				);
 	}
 
 	/**
@@ -387,6 +512,21 @@ private class PROC_LoginFrequencyAggregator_TEST
 		Assert.areEqual(1, results.size(), 'Should create one LoginFrequency record for same month');
 		Assert.areEqual(2, results[0].TotalLoginCount__c, 'Should count both logins');
 		Assert.areEqual(2, results[0].UniqueLoginCount__c, 'Logins spanning UTC midnight should be two unique days');
+	}
+
+	/**
+	 * @description Saves the aggregator's schedule setting with a random time of the last good run.
+	 *
+	 * @return The time of the last good run that was saved.
+	 */
+	private static Datetime insertWatermark()
+	{
+		Datetime previousRunTime = UTIL_Random.randomDateTime();
+		TST_Builder.of(ScheduleSetting__c.SObjectType)
+				.withOverride(ScheduleSetting__c.Name, PROC_LoginFrequencyAggregator.SETTING_NAME)
+				.withOverride(ScheduleSetting__c.LastSuccessfulRunTime__c, previousRunTime)
+				.build();
+		return SEL_ScheduleSetting.getScheduleSetting(PROC_LoginFrequencyAggregator.SETTING_NAME).LastSuccessfulRunTime__c;
 	}
 
 	/**

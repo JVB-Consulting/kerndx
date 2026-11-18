@@ -8,7 +8,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=false)
@@ -111,6 +111,23 @@ private class UTIL_PurgeRecords_TEST
 	private static final String API_ISSUE_READ_WITHOUT_API_CALL_PERMISSION_SET_NAME = 'PurgeRecordsTestApiIssueReadNoApiCall';
 
 	/**
+	 * @description Company name of the Minimum Access user who may delete chain runs and read their Status and Completed
+	 * At fields, but not their Stalled At field.
+	 */
+	private static final String CHAIN_RUN_DELETER_WITHOUT_STALL_TIME_ACCESS_COMPANY = 'UTIL_PurgeRecords_TEST-no-stall-time';
+
+	/**
+	 * @description Name of the permission set, saved in test setup, that grants read, edit and delete access to chain runs
+	 * and read access to their Status and Completed At fields only.
+	 */
+	private static final String CHAIN_RUN_DELETE_WITHOUT_STALL_TIME_PERMISSION_SET_NAME = 'PurgeRecordsTestChainRunNoStallTime';
+
+	/**
+	 * @description Chain name carried by every chain run a purge test saves.
+	 */
+	private static final String TEST_CHAIN_NAME = 'PurgeRecordsTestChain';
+
+	/**
 	 * @description Saves the test users in their own setup transaction, so a test can use System.runAs with any of them
 	 * without a MIXED_DML_OPERATION error. A User is a setup object, and a save of a User cannot share a transaction with
 	 * a save of other records. The users are: an administrator with the Kern Administrator permission set, a Minimum
@@ -119,7 +136,8 @@ private class UTIL_PurgeRecords_TEST
 	 * Administrator, because installing the package gives that profile every Kern permission. A Minimum Access user who
 	 * may delete API calls but cannot read API issues is saved too, and so is a Minimum Access user who may delete API
 	 * calls and can read API issues but not their Status field, and so is one who can read API issues but not their API
-	 * Call field. The builder fills no field of the permission sets built here on its own, so none of their many system
+	 * Call field. A Minimum Access user who may delete chain runs and read their Status and Completed At fields, but not
+	 * their Stalled At field, is saved as well. The builder fills no field of the permission sets built here on its own, so none of their many system
 	 * permissions is switched on at random. Tests that do not name a user run as the user who runs the tests.
 	 */
 	@TestSetup
@@ -167,6 +185,32 @@ private class UTIL_PurgeRecords_TEST
 						new List<User> {apiCallDeleterWithoutIssueApiCall},
 						insertApiIssueReadPermissionSetForOneField(API_ISSUE_READ_WITHOUT_API_CALL_PERMISSION_SET_NAME, ApiIssue__c.Status__c)
 				);
+
+		User chainRunDeleterWithoutStallTime = TST_Factory.newMinimumAccessUser(CHAIN_RUN_DELETER_WITHOUT_STALL_TIME_ACCESS_COMPANY);
+		TST_Factory.insertUsers(new List<User> {chainRunDeleterWithoutStallTime});
+		Id chainRunDeletePermissionSetId = insertDeleteOnlyPermissionSet(CHAIN_RUN_DELETE_WITHOUT_STALL_TIME_PERMISSION_SET_NAME, AsyncChainExecution__c.SObjectType);
+		grantChainRunFieldRead(chainRunDeletePermissionSetId, AsyncChainExecution__c.CompletedAt__c);
+		grantChainRunFieldRead(chainRunDeletePermissionSetId, AsyncChainExecution__c.Status__c);
+		TST_Factory.createPermissionSetAssignments(new List<User> {chainRunDeleterWithoutStallTime}, chainRunDeletePermissionSetId);
+	}
+
+	/**
+	 * @description Saves a field permission that lets the holders of a permission set read one field of a chain run.
+	 *
+	 * @param permissionSetId The permission set that gets the field permission.
+	 * @param readableField The chain run field the holders may read.
+	 */
+	private static void grantChainRunFieldRead(Id permissionSetId, SObjectField readableField)
+	{
+		SObjectType fieldPermissionsType = new FieldPermissions().getSObjectType();
+		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(AsyncChainExecution__c.SObjectType);
+		TST_Builder.of(fieldPermissionsType)
+				.withOptionalFields(new List<String>(UTIL_SObjectDescribe.getDescribe(fieldPermissionsType).getCreatableRequiredFields()))
+				.withOverride(FieldPermissions.ParentId, permissionSetId)
+				.withOverride(FieldPermissions.SobjectType, objectName)
+				.withOverride(FieldPermissions.Field, objectName + '.' + UTIL_SObjectDescribe.getCachedFieldName(readableField))
+				.withOverride(FieldPermissions.PermissionsRead, true)
+				.build();
 	}
 
 	/**
@@ -670,6 +714,163 @@ private class UTIL_PurgeRecords_TEST
 						warning.Message__c.contains(System.Label.DeleteApiCalls_ApiIssueReadAccessRequired),
 						'Expected the message that the user cannot read API issues, got ' + warning.Message__c
 				);
+	}
+
+	/**
+	 * @description A run that stays Stalled never gets an end time, so a purge of chain runs by their end time would keep
+	 * it forever. The purge of chain runs by CompletedAt__c also deletes a Stalled run whose stall time is old enough.
+	 * An administrator purges chain runs older than a number of days by CompletedAt__c. Deleted: a Completed run that
+	 * ended that long ago, and a Stalled run that stalled that long ago. Kept: a Completed run that ended now, a Stalled
+	 * run that stalled now, a Stalled run with no stall time, and a Running run that still carries an old stall time. The
+	 * administrator can read the fields the rule needs, so the purge logs no warning.
+	 *
+	 * @see UTIL_PurgeRecords.deleteOlderThanNDays
+	 */
+	@IsTest
+	private static void shouldPurgeChainRunsThatEndedOrStalledLongAgo()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		System.runAs(getTestAdmin())
+		{
+			Datetime oldTime = Datetime.now().addDays(-DELETE_AFTER_DAYS);
+			AsyncChainExecution__c oldCompleted = insertChainRun(SEL_AsyncChainExecution.STATUS_COMPLETED, oldTime, null);
+			AsyncChainExecution__c recentCompleted = insertChainRun(SEL_AsyncChainExecution.STATUS_COMPLETED, Datetime.now(), null);
+			AsyncChainExecution__c oldStalled = insertChainRun(SEL_AsyncChainExecution.STATUS_STALLED, null, oldTime);
+			AsyncChainExecution__c recentStalled = insertChainRun(SEL_AsyncChainExecution.STATUS_STALLED, null, Datetime.now());
+			AsyncChainExecution__c stalledWithoutStallTime = insertChainRun(SEL_AsyncChainExecution.STATUS_STALLED, null, null);
+			AsyncChainExecution__c runningWithOldStallTime = insertChainRun(SEL_AsyncChainExecution.STATUS_RUNNING, null, oldTime);
+
+			purgeChainRunsOlderThanTheThresholdByEndTime();
+
+			Assert.isNull(findChainRun(oldCompleted.Id), 'Expected the purge to delete the Completed run that ended long ago');
+			Assert.isNotNull(findChainRun(recentCompleted.Id), 'Expected the purge to keep the Completed run that ended now');
+			Assert.isNull(findChainRun(oldStalled.Id), 'Expected the purge to delete the Stalled run that stalled long ago');
+			Assert.isNotNull(findChainRun(recentStalled.Id), 'Expected the purge to keep the Stalled run that stalled now');
+			Assert.isNotNull(findChainRun(stalledWithoutStallTime.Id), 'Expected the purge to keep the Stalled run with no stall time');
+			Assert.isNotNull(findChainRun(runningWithOldStallTime.Id), 'Expected the purge to keep the Running run, whatever its stall time');
+		}
+		Assert.isNull(findPurgeOfOldRecordsLogEntry(), 'Expected no warning from a purge run by a user who can read the Status and Stalled At fields');
+	}
+
+	/**
+	 * @description The rule for Stalled runs belongs to the purge of chain runs by their end time only. An administrator
+	 * purges chain runs older than a number of days by CreatedDate. A Stalled run created now, that stalled long ago, is
+	 * kept, because it was created now.
+	 *
+	 * @see UTIL_PurgeRecords.deleteOlderThanNDays
+	 */
+	@IsTest
+	private static void shouldKeepAnOldStalledRunWhenThePurgeOfChainRunsIsByAnotherDate()
+	{
+		System.runAs(getTestAdmin())
+		{
+			AsyncChainExecution__c oldStalled = insertChainRun(SEL_AsyncChainExecution.STATUS_STALLED, null, Datetime.now().addDays(-DELETE_AFTER_DAYS));
+
+			Test.startTest();
+			UTIL_PurgeRecords.deleteOlderThanNDays(AsyncChainExecution__c.SObjectType, DELETE_AFTER_DAYS);
+			Test.stopTest();
+
+			Assert.isNotNull(findChainRun(oldStalled.Id), 'Expected the purge by created date to keep the Stalled run created now');
+		}
+	}
+
+	/**
+	 * @description The purge reads as the user who runs it, and a query cannot filter on a field the user cannot read. A
+	 * Minimum Access user who may delete chain runs and read their Status and Completed At fields, but not their Stalled
+	 * At field, purges chain runs by their end time. The purge works as it does for every other object: it deletes the
+	 * Completed run that ended long ago, keeps the Stalled run that stalled long ago, and does not fail. It logs one
+	 * warning at warn level that says stalled runs were kept and names the two fields the user needs to read.
+	 *
+	 * @see UTIL_PurgeRecords.deleteOlderThanNDays
+	 */
+	@IsTest
+	private static void shouldPurgeChainRunsByEndTimeOnlyForAUserWhoCannotReadTheStallTime()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		AsyncChainExecution__c oldCompleted;
+		AsyncChainExecution__c oldStalled;
+		System.runAs(new SEL_User().findByCompanyName(CHAIN_RUN_DELETER_WITHOUT_STALL_TIME_ACCESS_COMPANY))
+		{
+			Datetime oldTime = Datetime.now().addDays(-DELETE_AFTER_DAYS);
+			oldCompleted = insertChainRun(SEL_AsyncChainExecution.STATUS_COMPLETED, oldTime, null);
+			oldStalled = insertChainRun(SEL_AsyncChainExecution.STATUS_STALLED, null, oldTime);
+
+			purgeChainRunsOlderThanTheThresholdByEndTime();
+		}
+
+		Assert.isNull(findChainRun(oldCompleted.Id), 'Expected the purge to delete the Completed run that ended long ago');
+		Assert.isNotNull(findChainRun(oldStalled.Id), 'Expected the purge to keep the Stalled run, whose stall time the user cannot read');
+		LogEntry__c warning = findPurgeOfOldRecordsLogEntry();
+		Assert.isNotNull(warning, 'Expected a warning that says stalled runs were kept, got no log entry from the purge');
+		Assert.areEqual(LoggingLevel.WARN.name(), warning.LogLevel__c, 'Expected the purge to log at warn, got ' + warning.LogLevel__c + ': ' + warning.Message__c);
+		Assert.isTrue
+				(
+						warning.Message__c.contains(System.Label.PurgeChainRuns_StallTimeReadAccessRequired),
+						'Expected the message that the user cannot read the Status and Stalled At fields, got ' + warning.Message__c
+				);
+	}
+
+	/**
+	 * @description Reads the log entry a purge of old records writes at its entry point, deleteOlderThanNDays.
+	 *
+	 * @return The log entry, or null when the purge logged nothing there.
+	 */
+	private static LogEntry__c findPurgeOfOldRecordsLogEntry()
+	{
+		return new SEL_LogEntry().findByMethod(UTIL_PurgeRecords.class.getName() + '/deleteOlderThanNDays');
+	}
+
+	/**
+	 * @description Purges chain runs older than DELETE_AFTER_DAYS by their end time (CompletedAt__c), inside
+	 * Test.startTest and Test.stopTest, so the purge job runs before the test reads the result.
+	 */
+	private static void purgeChainRunsOlderThanTheThresholdByEndTime()
+	{
+		Test.startTest();
+		UTIL_PurgeRecords.deleteOlderThanNDays
+				(
+						UTIL_SObjectDescribe.getObjectNameFromType(AsyncChainExecution__c.SObjectType),
+						UTIL_SObjectDescribe.getCachedFieldName(AsyncChainExecution__c.CompletedAt__c),
+						DELETE_AFTER_DAYS
+				);
+		Test.stopTest();
+	}
+
+	/**
+	 * @description Saves one chain run in system mode, owned by the running user. A Stalled run carries the Stalled
+	 * category. The stall time is written straight to the row, as an older run or the engine leaves it.
+	 *
+	 * @param status The run status.
+	 * @param completedAt The end time, or null.
+	 * @param stalledAt The stall time, or null.
+	 *
+	 * @return The saved chain run.
+	 */
+	private static AsyncChainExecution__c insertChainRun(String status, Datetime completedAt, Datetime stalledAt)
+	{
+		AsyncChainExecution__c chainRun = (AsyncChainExecution__c)TST_Builder.of(AsyncChainExecution__c.SObjectType)
+				.withOverride(AsyncChainExecution__c.ChainName__c, TEST_CHAIN_NAME)
+				.withOverride(AsyncChainExecution__c.Status__c, status)
+				.withOverride(AsyncChainExecution__c.CorrelationId__c, UTIL_Random.randomUUID())
+				.withOverride(AsyncChainExecution__c.CompletedAt__c, completedAt)
+				.withOverride(AsyncChainExecution__c.StalledAt__c, stalledAt)
+				.withOverride(AsyncChainExecution__c.FailureCategory__c, status == SEL_AsyncChainExecution.STATUS_STALLED ? SEL_AsyncChainExecution.FAILURE_CATEGORY_STALLED : null)
+				.withoutInsertion()
+				.build();
+		insertInSystemMode(chainRun);
+		return chainRun;
+	}
+
+	/**
+	 * @description Reads one chain run by its Id, whoever owns it.
+	 *
+	 * @param chainRunId The chain run Id.
+	 *
+	 * @return The chain run, or null when the purge deleted it.
+	 */
+	private static AsyncChainExecution__c findChainRun(Id chainRunId)
+	{
+		return new SEL_AsyncChainExecution().findByIdForMonitoring(chainRunId);
 	}
 
 	/**

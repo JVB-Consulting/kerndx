@@ -1,9 +1,13 @@
 // SPDX-License-Identifier: Apache-2.0
 /**
  * @description Timer that extends UTIL_StopWatch with automatic governor-limit tracking and
- * threshold-based performance logging. When `stop()` is called the elapsed duration is
- * compared against the user's LogSetting__c threshold; if the threshold is met or
- * exceeded a structured log entry is emitted containing CPU, heap, SOQL and DML deltas.
+ * threshold-based performance logging. When `stop()` is called, the timer reads the user's
+ * LogSetting__c. If EnablePerformanceLogging__c is on and the elapsed duration is
+ * PerformanceThresholdMs__c or longer, it writes a log entry with the CPU, heap, SOQL and DML
+ * used while it ran.
+ *
+ * Code that measured a duration some other way uses the static `logIfThresholdReached` method,
+ * which applies the same check.
  *
  * For context-specific variants see {@link UTIL_QueryPerformanceTimer} (database queries) and
  * {@link UTIL_TriggerPerformanceTimer} (trigger actions).
@@ -17,7 +21,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 public inherited sharing class UTIL_PerformanceTimer extends UTIL_StopWatch
 {
@@ -120,30 +124,65 @@ public inherited sharing class UTIL_PerformanceTimer extends UTIL_StopWatch
 	 */
 	private void snapshotLimits()
 	{
-		this.cpuTimeAtStart = UTIL_Limits.cpuTime().used();
-		this.heapSizeAtStart = UTIL_Limits.heapSize().used();
-		this.soqlCountAtStart = UTIL_Limits.soqlQueries().used();
-		this.dmlCountAtStart = UTIL_Limits.dmlStatements().used();
-		this.dmlRowCountAtStart = UTIL_Limits.dmlRows().used();
+		cpuTimeAtStart = UTIL_Limits.cpuTime().used();
+		heapSizeAtStart = UTIL_Limits.heapSize().used();
+		soqlCountAtStart = UTIL_Limits.soqlQueries().used();
+		dmlCountAtStart = UTIL_Limits.dmlStatements().used();
+		dmlRowCountAtStart = UTIL_Limits.dmlRows().used();
 	}
 
 	/**
-	 * @description Checks the user's performance-logging filter and emits a log entry when
-	 * the elapsed time meets or exceeds the threshold.
+	 * @description Writes a performance entry for a duration that was measured somewhere else, when the general performance
+	 * settings ask for it. It reads LogSetting__c through LOG_Engine.getLogSetting(). It writes nothing when
+	 * EnablePerformanceLogging__c is off. Otherwise it writes the entry when the duration is PerformanceThresholdMs__c or
+	 * longer. A blank PerformanceThresholdMs__c writes nothing. stop() uses this same check.
+	 *
+	 * @param message The headline of the entry.
+	 * @param details More detail for the entry, or null.
+	 * @param classMethod The dot-separated class and method written to the entry.
+	 * @param elapsedMs The measured duration in milliseconds.
 	 */
-	private void emitIfThresholdReached()
+	public static void logIfThresholdReached(String message, String details, String classMethod, Long elapsedMs)
+	{
+		if(isThresholdReached(elapsedMs))
+		{
+			LOG_Engine.logPerformance(message, details, classMethod, elapsedMs);
+		}
+	}
+
+	/**
+	 * @description Checks the general performance settings for a duration. It reads LogSetting__c through
+	 * LOG_Engine.getLogSetting(). The answer is false when EnablePerformanceLogging__c is off or PerformanceThresholdMs__c
+	 * is blank. Otherwise it is true when the duration is PerformanceThresholdMs__c or longer.
+	 *
+	 * @param elapsedMs The measured duration in milliseconds.
+	 *
+	 * @return True when a performance entry should be written for this duration.
+	 */
+	private static Boolean isThresholdReached(Long elapsedMs)
 	{
 		LogSetting__c setting = LOG_Engine.getLogSetting();
 
 		if(setting.EnablePerformanceLogging__c != true)
 		{
-			return;
+			return false;
 		}
 
-		Long elapsed = getTime();
 		Long threshold = (Long)setting.PerformanceThresholdMs__c;
 
-		if(elapsed >= threshold)
+		return elapsedMs >= threshold;
+	}
+
+	/**
+	 * @description Writes the performance entry for this timer when the general performance settings ask for it. It builds
+	 * the headline and the governor-limit details only when the check passes, so a timer that logs nothing does not pay
+	 * for them.
+	 */
+	private void emitIfThresholdReached()
+	{
+		Long elapsed = getTime();
+
+		if(isThresholdReached(elapsed))
 		{
 			LOG_Engine.logPerformance(formatSummary(elapsed), formatLimitDeltas(), classMethod, elapsed);
 		}

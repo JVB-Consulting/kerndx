@@ -15,7 +15,7 @@
  *
  * @group Async
  *
- * @date July 2026, October 2026
+ * @date July 2026, November 2026
  */
 @IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -154,25 +154,49 @@ private class UTIL_AsyncChainRecovery_TEST
 	private static final String PARKED_NO_BUDGET_REASON = 'Parked: no async budget';
 
 	/**
-	 * @description The test's own copy of the reason the sweep records when it sets the remaining candidates aside,
-	 * because the transaction has almost no database queries left.
+	 * @description The test's own copy of the reason the sweep records when it marks a run Stalled because no running
+	 * job is working on it.
 	 */
-	private static final String PARKED_NO_QUERY_BUDGET_REASON = 'Parked: no query budget';
+	private static final String SWEEP_STALL_REASON = 'No live executor detected by watchdog sweep';
 
 	/**
 	 * @description Number of queries the sweep is left to start with, so that exactly one candidate can be handled:
-	 * 1. The selector's own read uses one. That leaves the three queries kept free for each candidate, so the
+	 * 1. The selector's own read uses one. That leaves the four queries kept free for each candidate, so the
 	 *    first candidate's decision steps run, and reading it again to mark it uses another.
-	 * 2. With two left, the check refuses the second candidate.
-	 * 3. The remaining candidates are set aside one per query left, until none are left.
+	 * 2. With three left, the check refuses the second candidate, and the sweep stops.
 	 */
-	private static final Integer QUERY_BUDGET_FOR_ONE_SWEPT_CANDIDATE = 4;
+	private static final Integer QUERY_BUDGET_FOR_ONE_SWEPT_CANDIDATE = 5;
 
 	/**
-	 * @description Seed count for the test that sets candidates aside when queries run low: one candidate handled
-	 * normally, two set aside (one per query left), and one left untouched when no queries are left.
+	 * @description Seed count for the test of a sweep that runs short of queries: one candidate handled normally, and
+	 * three left untouched, to prove that the sweep writes none of the runs it did not reach.
 	 */
-	private static final Integer QUERY_PARK_SEED_COUNT = 4;
+	private static final Integer SHORT_QUERY_BUDGET_SEED_COUNT = 4;
+
+	/**
+	 * @description Number of queries still free when the sweep's check stops it: one less than the four the sweep keeps
+	 * free for each candidate. The sweep stops instead of spending them, so the rest of the transaction keeps them.
+	 */
+	private static final Integer QUERIES_LEFT_WHEN_THE_RESERVE_STOPS_THE_SWEEP = 3;
+
+	/**
+	 * @description Number of queries the sweep is left to start with, so that exactly three are left after its candidate
+	 * read. Starting a run again costs three queries: the check that its job is alive, and two fresh reads of the run.
+	 * So three would be enough for the run, but the sweep also keeps one more free, and so it must not start the run.
+	 */
+	private static final Integer QUERY_BUDGET_ONE_SHORT_OF_THE_RESERVE = 4;
+
+	/**
+	 * @description Number of queries the sweep is left to start with, so that exactly four are left after its candidate
+	 * read: the three that starting a run again costs, and the one more the sweep keeps free.
+	 */
+	private static final Integer QUERY_BUDGET_FOR_ONE_RESTART = 5;
+
+	/**
+	 * @description Number of queries left after the sweep starts one run again with four queries free. The restart
+	 * costs three, so one is left.
+	 */
+	private static final Integer QUERIES_LEFT_AFTER_ONE_RESTART = 1;
 
 	/**
 	 * @description Seed count for the tests of the operator's Clear Stalled sweep when limits run low: every seeded
@@ -182,7 +206,7 @@ private class UTIL_AsyncChainRecovery_TEST
 
 	/**
 	 * @description Number of queries the operator's Clear Stalled sweep is left to start with, so its limit check
-	 * refuses every candidate. The candidate selector's own read uses one and leaves two. That is below the four
+	 * refuses every candidate. The candidate selector's own read uses one and leaves two. That is below the five
 	 * queries the operator sweep keeps free for each candidate. So the check stops before the first candidate, while
 	 * the one read that counts the results can still run.
 	 */
@@ -926,7 +950,7 @@ private class UTIL_AsyncChainRecovery_TEST
 
 			AsyncChainExecution__c result = queryExecution(execution.Id);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'The sweep must mark a stale Running chain Stalled');
-			Assert.isTrue(result.ErrorMessage__c.contains('No live executor detected by watchdog sweep'), 'The stall reason must name the watchdog sweep');
+			Assert.isTrue(result.ErrorMessage__c.contains(SWEEP_STALL_REASON), 'The stall reason must name the watchdog sweep');
 			Assert.isNull(result.CompletedAt__c, 'Stalled is non-terminal: CompletedAt must stay unset');
 			Assert.areEqual(0, errorHandlerRunCount, 'A step log without an error-handler entry must not produce a notification');
 		}
@@ -1061,7 +1085,7 @@ private class UTIL_AsyncChainRecovery_TEST
 			Assert.areEqual(1, errorHandlerRunCount, 'The sweep must fire the onError notification exactly once across repeat sweeps');
 			AsyncChainExecution__c result = queryExecution(execution.Id);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'The chain must remain Stalled after the notification lands');
-			Assert.isTrue(result.ErrorMessage__c.contains('No live executor detected by watchdog sweep'), 'Saving the notification\'s result must keep the sweep reason');
+			Assert.isTrue(result.ErrorMessage__c.contains(SWEEP_STALL_REASON), 'Saving the notification\'s result must keep the sweep reason');
 			Assert.isNull(result.CompletedAt__c, 'Stalled is non-terminal: CompletedAt must stay unset');
 		}
 	}
@@ -1275,7 +1299,7 @@ private class UTIL_AsyncChainRecovery_TEST
 			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
 			{
 					AsyncChainExecution__c.StepLog__c => buildStepLogJsonWithErrorHandler(),
-					AsyncChainExecution__c.ErrorMessage__c => 'No live executor detected by watchdog sweep'
+					AsyncChainExecution__c.ErrorMessage__c => SWEEP_STALL_REASON
 			});
 
 			consumeAllQueueableBudget();
@@ -1291,40 +1315,104 @@ private class UTIL_AsyncChainRecovery_TEST
 	}
 
 	/**
-	 * @description Verifies, from start to end, the sweep's check on the query limit when almost no queries are left:
+	 * @description Verifies, from start to end, the sweep's check on the query limit when few queries are left:
 	 * 1. The first candidate is still handled normally, because the queries kept free for it are there.
-	 * 2. The check then refuses the next candidate.
-	 * 3. The remaining candidates are set aside, with their own no-queries-left reason, while queries last.
-	 * 4. The candidate after that is left completely untouched.
-	 * Nothing throws, even with no queries left. The sweep runs outside Test.startTest, on purpose: startTest starts
-	 * fresh governor limits, which would give the sweep a full query limit again. The checks run inside startTest
-	 * instead, because the sweep ends, on purpose, with no queries left to read with.
+	 * 2. The check then refuses the next candidate, and the sweep stops with the queries it did not spend.
+	 * 3. The candidates after that are left completely untouched: each keeps its status and its error text.
+	 * The sweep runs outside Test.startTest, on purpose: startTest starts fresh governor limits, which would give the
+	 * sweep a full query limit again. The test reads the queries left right after the sweep, before its own reads.
 	 */
 	@IsTest
-	private static void shouldSetAsideTheRestOfTheSweepWhenQueriesRunShort()
+	private static void shouldLeaveTheRestUntouchedWhenQueriesRunShort()
 	{
 		System.runAs(getTestAdmin())
 		{
 			setupEnabledFeatureFlag();
 
-			TST_Factory.newChainExecutions(QUERY_PARK_SEED_COUNT, SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME);
+			List<AsyncChainExecution__c> seededChains =
+					TST_Factory.newChainExecutions(SHORT_QUERY_BUDGET_SEED_COUNT, SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME);
 			consumeSoqlBudgetDownTo(QUERY_BUDGET_FOR_ONE_SWEPT_CANDIDATE);
 
 			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
+			Integer queriesLeftAfterSweep = UTIL_Limits.soqlQueries().remaining();
+
+			Assert.areEqual(QUERIES_LEFT_WHEN_THE_RESERVE_STOPS_THE_SWEEP, queriesLeftAfterSweep,
+					'Expected the sweep to stop and keep the queries it did not need, got ' + queriesLeftAfterSweep + ' left');
+			List<AsyncChainExecution__c> stalledChains = new SEL_AsyncChainExecution().findByStatus(SEL_AsyncChainExecution.STATUS_STALLED);
+			Assert.areEqual(1, stalledChains.size(), 'Expected exactly one candidate handled normally, got ' + stalledChains.size());
+			Assert.areEqual(SWEEP_STALL_REASON, stalledChains[0].ErrorMessage__c,
+					'Expected the handled candidate to carry the ordinary sweep stall reason, got ' + stalledChains[0].ErrorMessage__c);
+
+			Map<Id, AsyncChainExecution__c> seededChainsById = new Map<Id, AsyncChainExecution__c>(seededChains);
+			List<AsyncChainExecution__c> untouchedChains = new SEL_AsyncChainExecution().findByStatus(SEL_AsyncChainExecution.STATUS_RUNNING);
+			Assert.areEqual(SHORT_QUERY_BUDGET_SEED_COUNT - 1, untouchedChains.size(),
+					'Expected every candidate the sweep did not reach to stay Running, got ' + untouchedChains.size());
+			for(AsyncChainExecution__c untouchedChain : untouchedChains)
+			{
+				Assert.areEqual(seededChainsById.get(untouchedChain.Id).ErrorMessage__c, untouchedChain.ErrorMessage__c,
+						'Expected a candidate the sweep did not reach to keep its error text, got ' + untouchedChain.ErrorMessage__c);
+			}
+		}
+	}
+
+	/**
+	 * @description Verifies that the sweep does not start a run again when that would spend the last query. Starting a
+	 * run again costs three queries, and exactly three are left after the candidate read. The sweep keeps one more free,
+	 * so it leaves the run untouched for a later sweep: the run keeps its status, its run key and the time of its last
+	 * change, and the three queries stay free. The run is stored before Test.startTest, and the transaction's queries
+	 * are used up after it, because startTest starts fresh governor limits.
+	 */
+	@IsTest
+	private static void shouldNotStartARunThatWouldSpendTheLastQuery()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			AsyncChainExecution__c execution = seedMidChainCandidateWithJob(buildStartedIdempotentStepLog(), UTIL_Random.randomId(AsyncApexJob.SObjectType));
+			AsyncChainExecution__c beforeSweep = queryExecution(execution.Id);
 
 			Test.startTest();
-			List<String> stalledReasons = new List<String>();
-			for(AsyncChainExecution__c chain : new SEL_AsyncChainExecution().findByStatus(SEL_AsyncChainExecution.STATUS_STALLED))
-			{
-				stalledReasons.add(chain.ErrorMessage__c);
-			}
-			stalledReasons.sort();
+			consumeSoqlBudgetDownTo(QUERY_BUDGET_ONE_SHORT_OF_THE_RESERVE);
+			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
+			Integer queriesLeftAfterSweep = UTIL_Limits.soqlQueries().remaining();
 
-			List<String> expectedReasons = new List<String> {'No live executor detected by watchdog sweep', PARKED_NO_QUERY_BUDGET_REASON, PARKED_NO_QUERY_BUDGET_REASON};
-			Assert.areEqual(expectedReasons, stalledReasons, 'One candidate must be handled normally, and two set aside with the no-queries-left reason, in any order');
-			Integer untouchedCount = new SEL_AsyncChainExecution().findByStatus(SEL_AsyncChainExecution.STATUS_RUNNING).size();
-			Assert.areEqual(1, untouchedCount, 'The candidate after the last one there were queries for must stay Running, untouched, for a later sweep');
-			Assert.areEqual(0, errorHandlerRunCount, 'Setting chains aside must fire no notification');
+			Assert.areEqual(QUERIES_LEFT_WHEN_THE_RESERVE_STOPS_THE_SWEEP, queriesLeftAfterSweep,
+					'Expected the sweep to keep the queries a restart would spend, got ' + queriesLeftAfterSweep + ' left');
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(beforeSweep.Status__c, result.Status__c, 'Expected the run the sweep did not start to keep its status, got ' + result.Status__c);
+			Assert.areEqual(beforeSweep.RunKey__c, result.RunKey__c, 'Expected the run the sweep did not start to keep its run key, got ' + result.RunKey__c);
+			Assert.areEqual(beforeSweep.LastModifiedDate, result.LastModifiedDate,
+					'Expected the run the sweep did not start to be left unsaved, got a change at ' + result.LastModifiedDate);
+			Test.stopTest();
+		}
+	}
+
+	/**
+	 * @description Verifies that the sweep still starts a run again when exactly the queries it keeps free for a candidate
+	 * are left after the candidate read: the three the restart costs, and one more. The run goes back to Running under a
+	 * new run key, and one query is left. The counts and the run are read before Test.stopTest, because the executor
+	 * the restart queues runs at stopTest.
+	 */
+	@IsTest
+	private static void shouldRestartARunWhenTheReserveIsLeft()
+	{
+		System.runAs(getTestAdmin())
+		{
+			setupEnabledFeatureFlag();
+
+			AsyncChainExecution__c execution = seedMidChainCandidateWithJob(buildStartedIdempotentStepLog(), UTIL_Random.randomId(AsyncApexJob.SObjectType));
+
+			Test.startTest();
+			consumeSoqlBudgetDownTo(QUERY_BUDGET_FOR_ONE_RESTART);
+			UTIL_AsyncChain.runWatchdogSweep(SWEEP_EVERYTHING_THRESHOLD_MINUTES, WATCHDOG_BATCH_SIZE);
+			Integer queriesLeftAfterSweep = UTIL_Limits.soqlQueries().remaining();
+
+			Assert.areEqual(QUERIES_LEFT_AFTER_ONE_RESTART, queriesLeftAfterSweep,
+					'Expected the restart to leave the one query the sweep keeps beyond its cost, got ' + queriesLeftAfterSweep + ' left');
+			AsyncChainExecution__c result = queryExecution(execution.Id);
+			Assert.areEqual(SEL_AsyncChainExecution.STATUS_RUNNING, result.Status__c, 'Expected the restarted run to be Running, got ' + result.Status__c);
+			Assert.areNotEqual(execution.RunKey__c, result.RunKey__c, 'Expected the restart to set a new run key, got the same key');
 			Test.stopTest();
 		}
 	}
@@ -1344,14 +1432,11 @@ private class UTIL_AsyncChainRecovery_TEST
 			setupEnabledFeatureFlag();
 			LOG_Builder.ignoreTestMode = true;
 
-			AsyncApexJob deadJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
-					.withOverride(AsyncApexJob.Status, 'Aborted')
-					.build();
 			String runKey = UTIL_Random.randomUUID();
 			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
 			{
 					AsyncChainExecution__c.RunKey__c => runKey,
-					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(deadJob.Id),
+					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(buildDeadJobId()),
 					AsyncChainExecution__c.StepLog__c => buildStepLogJson()
 			});
 			AsyncChainExecution__c sweepView = queryExecution(execution.Id);
@@ -1394,15 +1479,13 @@ private class UTIL_AsyncChainRecovery_TEST
 			setupEnabledFeatureFlag();
 			LOG_Builder.ignoreTestMode = true;
 
-			AsyncApexJob probedJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
-					.withOverride(AsyncApexJob.Status, 'Processing')
-					.build();
+			Id probedJobId = buildLiveJobId();
 			TST_Mock.throwsException(AsyncApexJob.SObjectType, new QueryException('Simulated liveness probe failure'));
 			String probedRunKey = UTIL_Random.randomUUID();
 			AsyncChainExecution__c brokenCandidate = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
 			{
 					AsyncChainExecution__c.RunKey__c => probedRunKey,
-					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(probedJob.Id),
+					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(probedJobId),
 					AsyncChainExecution__c.StepLog__c => buildStepLogJson()
 			});
 			AsyncChainExecution__c healthyCandidate = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME);
@@ -1417,7 +1500,7 @@ private class UTIL_AsyncChainRecovery_TEST
 			Assert.areEqual(probedRunKey, broken.RunKey__c, 'No new run key may be saved when the re-drive fails before it decides');
 			AsyncChainExecution__c healthy = queryExecution(healthyCandidate.Id);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, healthy.Status__c, 'The sweep must keep handling candidates after one re-drive fails');
-			Assert.isTrue(healthy.ErrorMessage__c.contains('No live executor detected by watchdog sweep'), 'The surviving candidate must carry the ordinary sweep stall reason');
+			Assert.isTrue(healthy.ErrorMessage__c.contains(SWEEP_STALL_REASON), 'The surviving candidate must carry the ordinary sweep stall reason');
 			Assert.isTrue(anyLogMessageContains('Watchdog re-drive failed'), 'The failed re-drive must be logged with its own message');
 		}
 	}
@@ -1543,7 +1626,7 @@ private class UTIL_AsyncChainRecovery_TEST
 			Assert.areEqual(1, errorHandlerRunCount, 'The sweep must resolve the builder-persisted onError handler and notify exactly once');
 			AsyncChainExecution__c result = queryExecution(executionId);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'The sweep marks the stale chain Stalled');
-			Assert.isTrue(result.ErrorMessage__c.contains('No live executor detected by watchdog sweep'), 'Saving the notification\'s result must keep the sweep reason');
+			Assert.isTrue(result.ErrorMessage__c.contains(SWEEP_STALL_REASON), 'Saving the notification\'s result must keep the sweep reason');
 		}
 	}
 
@@ -1880,9 +1963,6 @@ private class UTIL_AsyncChainRecovery_TEST
 		{
 			setupEnabledFeatureFlag();
 
-			AsyncApexJob deadJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
-					.withOverride(AsyncApexJob.Status, 'Aborted')
-					.build();
 			String staleRunKey = UTIL_Random.randomUUID();
 			String truncatedStepLog = buildTruncatedLegacyStepLog();
 			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
@@ -1891,7 +1971,7 @@ private class UTIL_AsyncChainRecovery_TEST
 					AsyncChainExecution__c.CompletedSteps__c => 1,
 					AsyncChainExecution__c.StartedAt__c => Datetime.now(),
 					AsyncChainExecution__c.RunKey__c => staleRunKey,
-					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(deadJob.Id),
+					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(buildDeadJobId()),
 					AsyncChainExecution__c.StepLog__c => truncatedStepLog
 			});
 
@@ -1960,14 +2040,12 @@ private class UTIL_AsyncChainRecovery_TEST
 		{
 			setupEnabledFeatureFlag();
 
-			AsyncApexJob liveJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
-					.withOverride(AsyncApexJob.Status, 'Processing')
-					.build();
+			Id liveJobId = buildLiveJobId();
 			String runKey = UTIL_Random.randomUUID();
 			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
 			{
 					AsyncChainExecution__c.RunKey__c => runKey,
-					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(liveJob.Id),
+					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(liveJobId),
 					AsyncChainExecution__c.StepLog__c => buildStepLogJsonWithErrorHandler()
 			});
 
@@ -2317,9 +2395,6 @@ private class UTIL_AsyncChainRecovery_TEST
 		{
 			setupEnabledFeatureFlag();
 
-			AsyncApexJob deadJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
-					.withOverride(AsyncApexJob.Status, 'Aborted')
-					.build();
 			String staleRunKey = UTIL_Random.randomUUID();
 			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
 			{
@@ -2327,7 +2402,7 @@ private class UTIL_AsyncChainRecovery_TEST
 					AsyncChainExecution__c.CompletedSteps__c => 1,
 					AsyncChainExecution__c.StartedAt__c => Datetime.now(),
 					AsyncChainExecution__c.RunKey__c => staleRunKey,
-					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(deadJob.Id),
+					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(buildDeadJobId()),
 					AsyncChainExecution__c.StepLog__c => buildRetryPendingStepLog(),
 					AsyncChainExecution__c.ContextData__c => JSON.serialize(new Map<String, Object> {'stepCount' => 1})
 			});
@@ -2688,16 +2763,13 @@ private class UTIL_AsyncChainRecovery_TEST
 		{
 			setupEnabledFeatureFlag();
 
-			AsyncApexJob deadJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
-					.withOverride(AsyncApexJob.Status, 'Aborted')
-					.build();
 			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
 			{
 					AsyncChainExecution__c.TotalSteps__c => 1,
 					AsyncChainExecution__c.CompletedSteps__c => 0,
 					AsyncChainExecution__c.StartedAt__c => Datetime.now(),
 					AsyncChainExecution__c.RunKey__c => UTIL_Random.randomUUID(),
-					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(deadJob.Id),
+					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(buildDeadJobId()),
 					AsyncChainExecution__c.StepLog__c => buildLegacyFailingStepLog()
 			});
 
@@ -3474,11 +3546,7 @@ private class UTIL_AsyncChainRecovery_TEST
 	{
 		System.runAs(getTestAdmin())
 		{
-			AsyncApexJob deadJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
-					.withOverride(AsyncApexJob.Status, 'Aborted')
-					.build();
-
-			Assert.isFalse(UTIL_AsyncChain.isExecutorLive(deadJob.Id), 'A job in a final status must not prove the job is alive');
+			Assert.isFalse(UTIL_AsyncChain.isExecutorLive(buildDeadJobId()), 'A job in a final status must not prove the job is alive');
 		}
 	}
 
@@ -5516,16 +5584,7 @@ private class UTIL_AsyncChainRecovery_TEST
 		{
 			setupEnabledFeatureFlag();
 
-			AsyncApexJob deadJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
-					.withOverride(AsyncApexJob.Status, 'Aborted')
-					.build();
-			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
-			{
-					AsyncChainExecution__c.StartedAt__c => Datetime.now(),
-					AsyncChainExecution__c.RunKey__c => UTIL_Random.randomUUID(),
-					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(deadJob.Id),
-					AsyncChainExecution__c.StepLog__c => buildStepLogJson()
-			});
+			AsyncChainExecution__c execution = seedDeadStalledCandidate(buildStepLogJson());
 
 			Test.startTest();
 			UTIL_AsyncChain.ClearStalledResult counts = UTIL_AsyncChain.clearStalledChains();
@@ -5572,7 +5631,7 @@ private class UTIL_AsyncChainRecovery_TEST
 			Assert.areEqual(1, counts.remainingStalled, 'A candidate that was only marked must count as remaining');
 			AsyncChainExecution__c result = queryExecution(execution.Id);
 			Assert.areEqual(SEL_AsyncChainExecution.STATUS_STALLED, result.Status__c, 'A candidate that cannot be proven dead must stay Stalled');
-			Assert.areEqual('No live executor detected by watchdog sweep', result.ErrorMessage__c,
+			Assert.areEqual(SWEEP_STALL_REASON, result.ErrorMessage__c,
 					'The detect-mark leg must record the sweep stall reason, proving the candidate was processed rather than skipped');
 		}
 	}
@@ -5589,16 +5648,7 @@ private class UTIL_AsyncChainRecovery_TEST
 		{
 			setupEnabledFeatureFlag();
 
-			AsyncApexJob deadJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
-					.withOverride(AsyncApexJob.Status, 'Aborted')
-					.build();
-			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
-			{
-					AsyncChainExecution__c.StartedAt__c => Datetime.now(),
-					AsyncChainExecution__c.RunKey__c => UTIL_Random.randomUUID(),
-					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(deadJob.Id),
-					AsyncChainExecution__c.StepLog__c => MALFORMED_STEP_LOG_JSON
-			});
+			AsyncChainExecution__c execution = seedDeadStalledCandidate(MALFORMED_STEP_LOG_JSON);
 
 			Test.startTest();
 			UTIL_AsyncChain.ClearStalledResult counts = UTIL_AsyncChain.clearStalledChains();
@@ -5758,14 +5808,12 @@ private class UTIL_AsyncChainRecovery_TEST
 		{
 			setupEnabledFeatureFlag();
 
-			AsyncApexJob liveJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
-					.withOverride(AsyncApexJob.Status, 'Processing')
-					.build();
+			Id liveJobId = buildLiveJobId();
 			String runKey = UTIL_Random.randomUUID();
 			AsyncChainExecution__c execution = TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
 			{
 					AsyncChainExecution__c.RunKey__c => runKey,
-					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(liveJob.Id),
+					AsyncChainExecution__c.CurrentJobId__c => String.valueOf(liveJobId),
 					AsyncChainExecution__c.StepLog__c => buildStepLogJson()
 			});
 
@@ -6280,20 +6328,7 @@ private class UTIL_AsyncChainRecovery_TEST
 	 */
 	private static AsyncChainExecution__c seedMidChainDeadRedriveCandidate(String staleRunKey)
 	{
-		AsyncApexJob deadJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
-				.withOverride(AsyncApexJob.Status, 'Aborted')
-				.build();
-
-		return TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
-		{
-				AsyncChainExecution__c.TotalSteps__c => 2,
-				AsyncChainExecution__c.CompletedSteps__c => 1,
-				AsyncChainExecution__c.StartedAt__c => Datetime.now(),
-				AsyncChainExecution__c.RunKey__c => staleRunKey,
-				AsyncChainExecution__c.CurrentJobId__c => String.valueOf(deadJob.Id),
-				AsyncChainExecution__c.StepLog__c => buildMidChainStepLogWithHandlers(),
-				AsyncChainExecution__c.ContextData__c => JSON.serialize(new Map<String, Object> {'stepCount' => 1})
-		});
+		return seedMidChainCandidateWithRunKey(buildMidChainStepLogWithHandlers(), String.valueOf(buildDeadJobId()), staleRunKey);
 	}
 
 	/**
@@ -6307,17 +6342,87 @@ private class UTIL_AsyncChainRecovery_TEST
 	 */
 	private static AsyncChainExecution__c seedDeadMidChainCandidate(String stepLogJson)
 	{
-		AsyncApexJob deadJob = (AsyncApexJob)TST_Mock.of(AsyncApexJob.SObjectType)
-				.withOverride(AsyncApexJob.Status, 'Aborted')
-				.build();
+		return seedMidChainCandidateWithJob(stepLogJson, String.valueOf(buildDeadJobId()));
+	}
 
+	/**
+	 * @description Seeds a Stalled run for the Clear Stalled tests: a start time, a new run key, a mocked Aborted
+	 * AsyncApexJob as its current job, proven dead, and the given step log.
+	 *
+	 * @param stepLogJson The saved step log to give the run.
+	 *
+	 * @return The seeded AsyncChainExecution__c record.
+	 */
+	private static AsyncChainExecution__c seedDeadStalledCandidate(String stepLogJson)
+	{
+		return TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_STALLED, TEST_CHAIN_NAME, new Map<SObjectField, Object>
+		{
+				AsyncChainExecution__c.StartedAt__c => Datetime.now(),
+				AsyncChainExecution__c.RunKey__c => UTIL_Random.randomUUID(),
+				AsyncChainExecution__c.CurrentJobId__c => String.valueOf(buildDeadJobId()),
+				AsyncChainExecution__c.StepLog__c => stepLogJson
+		});
+	}
+
+	/**
+	 * @description Builds a mocked AsyncApexJob in the Aborted status and returns its id. The mock layer answers the
+	 * job read for this id with the Aborted job, so the watchdog sees a job that has stopped for good and treats the
+	 * run's executor as dead. No query is spent on it.
+	 *
+	 * @return The id of the mocked Aborted job.
+	 */
+	private static Id buildDeadJobId()
+	{
+		return TST_Mock.of(AsyncApexJob.SObjectType).withOverride(AsyncApexJob.Status, 'Aborted').build().Id;
+	}
+
+	/**
+	 * @description Builds a mocked AsyncApexJob in the Processing status and returns its id. The mock layer answers the
+	 * job read for this id with the Processing job, so the watchdog sees a job that is still running and treats the
+	 * run's executor as alive. No query is spent on it.
+	 *
+	 * @return The id of the mocked Processing job.
+	 */
+	private static Id buildLiveJobId()
+	{
+		return TST_Mock.of(AsyncApexJob.SObjectType).withOverride(AsyncApexJob.Status, 'Processing').build().Id;
+	}
+
+	/**
+	 * @description Seeds a stale Running row in the middle of its chain (two steps, one completed) around the given
+	 * hand-built step log, with the given job id as its current job, and the saved context.
+	 *
+	 * @param stepLogJson The hand-built saved step log.
+	 * @param currentJobId The job id to record as the run's current job; the caller makes sure that job is dead. A
+	 * generated id matches no job, so the sweep reads the job for real (a mocked job would cost no query), finds no
+	 * row, and treats the run's executor as dead.
+	 *
+	 * @return The seeded AsyncChainExecution__c record.
+	 */
+	private static AsyncChainExecution__c seedMidChainCandidateWithJob(String stepLogJson, String currentJobId)
+	{
+		return seedMidChainCandidateWithRunKey(stepLogJson, currentJobId, UTIL_Random.randomUUID());
+	}
+
+	/**
+	 * @description Seeds a stale Running row in the middle of its chain (two steps, one completed) with the given step
+	 * log, current job id and run key, and the saved context. The other mid-chain seeding helpers build on it.
+	 *
+	 * @param stepLogJson The saved step log.
+	 * @param currentJobId The job id to record as the run's current job.
+	 * @param runKey The run key to give the run.
+	 *
+	 * @return The seeded AsyncChainExecution__c record.
+	 */
+	private static AsyncChainExecution__c seedMidChainCandidateWithRunKey(String stepLogJson, String currentJobId, String runKey)
+	{
 		return TST_Factory.newChainExecution(SEL_AsyncChainExecution.STATUS_RUNNING, TEST_CHAIN_NAME, new Map<SObjectField, Object>
 		{
 				AsyncChainExecution__c.TotalSteps__c => 2,
 				AsyncChainExecution__c.CompletedSteps__c => 1,
 				AsyncChainExecution__c.StartedAt__c => Datetime.now(),
-				AsyncChainExecution__c.RunKey__c => UTIL_Random.randomUUID(),
-				AsyncChainExecution__c.CurrentJobId__c => String.valueOf(deadJob.Id),
+				AsyncChainExecution__c.RunKey__c => runKey,
+				AsyncChainExecution__c.CurrentJobId__c => currentJobId,
 				AsyncChainExecution__c.StepLog__c => stepLogJson,
 				AsyncChainExecution__c.ContextData__c => JSON.serialize(new Map<String, Object> {STEP_COUNT_KEY => 1})
 		});
@@ -6851,10 +6956,10 @@ private class UTIL_AsyncChainRecovery_TEST
 
 	/**
 	 * @description Runs selector reads until the transaction has only the given number of synchronous queries left, so
-	 * the query limit test can run the watchdog sweep with a known, small number of queries left. It must run outside
-	 * Test.startTest: startTest starts fresh governor limits, which would give the sweep a full query limit again.
-	 * Querying inside a loop is done on purpose and stops by itself, because reaching the target ends the loop. That is
-	 * why the PMD rule is turned off for this method.
+	 * the query limit tests can run a sweep with a known, small number of queries left. No Test.startTest may run
+	 * between this call and the code under test: startTest starts fresh governor limits, which would give the sweep a
+	 * full query limit again. Calling it after startTest is fine. Querying inside a loop is done on purpose and stops
+	 * by itself, because reaching the target ends the loop. That is why the PMD rule is turned off for this method.
 	 *
 	 * @param targetRemaining The number of queries to leave for the code under test.
 	 */

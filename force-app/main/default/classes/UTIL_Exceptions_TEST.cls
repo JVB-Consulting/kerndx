@@ -8,7 +8,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=true)
@@ -18,6 +18,11 @@ private class UTIL_Exceptions_TEST
 	 * @description Shared error text for all throw-and-catch assertions.
 	 */
 	private static final String ERROR_MESSAGE = 'Simulated failure for unit test';
+
+	/**
+	 * @description Length of the random text used for each item that was not started.
+	 */
+	private static final Integer UNSENT_ITEM_LENGTH = 8;
 
 	/**
 	 * @description Verifies ConfigurationException carries the supplied message.
@@ -135,6 +140,23 @@ private class UTIL_Exceptions_TEST
 			Assert.isInstanceOfType(caught, UTIL_Exceptions.RequestRefusedException.class, 'Expected RequestRefusedException, got ' + caught.getTypeName());
 			Assert.areEqual(ERROR_MESSAGE, caught.getMessage(), 'Expected the supplied message, got ' + caught.getMessage());
 		}
+	}
+
+	/**
+	 * @description Verifies LaunchRefusedException keeps the exception that caused it, takes its message from that
+	 * exception, and keeps the items that were not started.
+	 */
+	@IsTest
+	private static void shouldKeepTheCauseAndTheUnsentItems()
+	{
+		UTIL_Exceptions.IllegalStateException cause = new UTIL_Exceptions.IllegalStateException(ERROR_MESSAGE);
+		List<Object> unsentItems = new List<Object> {UTIL_Random.randomAlphanumeric(UNSENT_ITEM_LENGTH), UTIL_Random.randomAlphanumeric(UNSENT_ITEM_LENGTH)};
+
+		UTIL_Exceptions.LaunchRefusedException refused = new UTIL_Exceptions.LaunchRefusedException(cause, unsentItems);
+
+		Assert.areEqual(cause, refused.getCause(), 'Expected the exception to keep its cause, got ' + refused.getCause());
+		Assert.areEqual(ERROR_MESSAGE, refused.getMessage(), 'Expected the message of the cause, got ' + refused.getMessage());
+		Assert.areEqual(unsentItems, refused.unsentItems, 'Expected the items that were not started, got ' + refused.unsentItems);
 	}
 
 	/**

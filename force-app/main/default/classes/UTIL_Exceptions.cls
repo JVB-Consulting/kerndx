@@ -10,7 +10,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -218,6 +218,40 @@ global inherited sharing class UTIL_Exceptions
 	 */
 	public inherited sharing class PostActionDmlException extends Exception
 	{
+	}
+
+	/**
+	 * @description Thrown by the asynchronous processor when Salesforce refuses to start one of its jobs, for example
+	 * because the org has used up its daily limit of asynchronous jobs. The jobs queued before the refusal run only if
+	 * the caller catches this exception and its transaction goes on. The exception keeps the error Salesforce raised as
+	 * its cause and takes its message from it. It also names every item that was not started: the items of the refused
+	 * job and of every job after it, in the order they were given. A caller can use that list to record the items or
+	 * try them again later.
+	 *
+	 * @see UTIL_AdaptiveAsynchronousProcessor
+	 *
+	 * @group Async Processing
+	 *
+	 * @since 1.12
+	 */
+	public inherited sharing class LaunchRefusedException extends Exception
+	{
+		/**
+		 * @description The items that were not started, in the order they were given to the processor.
+		 */
+		public final List<Object> unsentItems;
+
+		/**
+		 * @description Creates the exception from the error Salesforce raised and the items that were not started.
+		 *
+		 * @param cause The error Salesforce raised when it refused to start the job.
+		 * @param unsentItems The items that were not started, in the order they were given.
+		 */
+		public LaunchRefusedException(Exception cause, List<Object> unsentItems)
+		{
+			this(cause.getMessage(), cause);
+			this.unsentItems = unsentItems;
+		}
 	}
 
 	/**

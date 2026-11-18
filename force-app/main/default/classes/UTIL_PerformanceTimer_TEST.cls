@@ -9,7 +9,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=true)
@@ -23,6 +23,18 @@ private class UTIL_PerformanceTimer_TEST
 	 * @description Class-method value reused across tests.
 	 */
 	private static final String SAMPLE_LOCATION = 'UTIL_PerformanceTimer_TEST/run';
+	/**
+	 * @description Class-method value for the test that logs a duration measured outside a timer.
+	 */
+	private static final String PASSED_DURATION_LOCATION = UTIL_PerformanceTimer_TEST.class.getName() + '/passedDuration';
+	/**
+	 * @description Message for the test that logs a duration measured outside a timer.
+	 */
+	private static final String PASSED_DURATION_MESSAGE = 'Measured elsewhere';
+	/**
+	 * @description Duration in milliseconds for the test that logs a duration measured outside a timer.
+	 */
+	private static final Long PASSED_DURATION_MS = 42;
 
 	/**
 	 * @description Verifies the timer is assignable to its UTIL_StopWatch parent.
@@ -183,6 +195,26 @@ private class UTIL_PerformanceTimer_TEST
 			}
 		}
 		Assert.isTrue(hasDetails, 'Detail line should contain CPU and Heap metrics');
+	}
+
+	/**
+	 * @description A duration measured somewhere else can be logged through the same check as a timer. With performance
+	 * logging on and a threshold of 0, exactly one entry is saved, with the given message and the given duration.
+	 */
+	@IsTest
+	private static void shouldLogAPassedDurationWhenTheThresholdIsReached()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest(true, 0);
+
+		Test.startTest();
+		UTIL_PerformanceTimer.logIfThresholdReached(PASSED_DURATION_MESSAGE, null, PASSED_DURATION_LOCATION, PASSED_DURATION_MS);
+		Test.stopTest();
+
+		List<LogEntry__c> entries = new SEL_LogEntry().findAllByMethod(PASSED_DURATION_LOCATION);
+		Assert.areEqual(1, entries.size(), 'Expected exactly one entry for the passed duration');
+		Assert.areEqual(PASSED_DURATION_MS, entries[0].DurationMs__c?.longValue(), 'Expected the entry to carry the passed duration');
+		Assert.isTrue(entries[0].ShortMessage__c?.contains(PASSED_DURATION_MESSAGE) == true, 'Expected the short message of the entry to carry the passed message');
 	}
 
 	/**
