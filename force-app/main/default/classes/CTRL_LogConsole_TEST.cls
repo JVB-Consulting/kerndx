@@ -12,7 +12,7 @@
  *
  * @group Logging
  *
- * @date June 2026, October 2026
+ * @date June 2026, November 2026
  */
 @IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -151,6 +151,48 @@ private class CTRL_LogConsole_TEST
 	 * @description Window covering seven days, so the back-dated rollup rows fall inside the scope.
 	 */
 	private static final Integer WINDOW_SEVEN_DAYS = 10080;
+
+	/**
+	 * @description The API name of the permission set that lets a person read the log in the Log Console and change
+	 * nothing.
+	 */
+	private static final String LOG_CONSOLE_READ_ONLY_PERMISSION_SET = 'LogConsoleReadOnly';
+
+	/**
+	 * @description The company name of the test user who holds the read-only Log Console permission set.
+	 */
+	private static final String LOG_READER_COMPANY = 'CTRL_LogConsole_TEST-log-reader';
+
+	/**
+	 * @description The company name of the test user who holds no package permission set.
+	 */
+	private static final String NO_ACCESS_COMPANY = 'CTRL_LogConsole_TEST-no-access';
+
+	/**
+	 * @description How many log entries the permission set tests save. The test user saves them, so another user owns
+	 * every one of them.
+	 */
+	private static final Integer READ_ONLY_ENTRY_COUNT = 3;
+
+	/**
+	 * @description The company name of the test user who holds only the read-only Log Console permission set and tries to
+	 * change log entries.
+	 */
+	private static final String LOG_WRITER_COMPANY = 'CTRL_LogConsole_TEST-log-writer';
+
+	/**
+	 * @description The log entry fields the read-only permission set must let its holder read. A read that names them
+	 * is refused if the set stops granting any one of them.
+	 */
+	private static final List<SObjectField> GRANTED_ENTRY_FIELDS = new List<SObjectField>
+	{
+			LogEntry__c.Message__c,
+			LogEntry__c.ContextData__c,
+			LogEntry__c.StackTrace__c,
+			LogEntry__c.LogLevel__c,
+			LogEntry__c.RecordId__c,
+			LogEntry__c.UserId__c
+	};
 
 	/**
 	 * @description The tracking id of an action that launched a chain: the root every entry of the action carries.
@@ -1528,6 +1570,128 @@ private class CTRL_LogConsole_TEST
 
 		Assert.areEqual(4, result.totalCount, 'One detail sample plus three plain rows; the two rollups are excluded');
 		Assert.areEqual(4, result.records.size(), 'The page should hold all four forensic rows');
+	}
+
+	/**
+	 * @description Tests that a standard user who holds only the read-only Log Console permission set can read log
+	 * entries that another user owns. The console shows the entries, their summary and the detail of one entry. A read
+	 * that keeps the user's own object access and record sharing also returns every entry, because the set grants read
+	 * and View All Records on log entries.
+	 */
+	@IsTest
+	private static void shouldShowTheLogToAUserWhoHoldsOnlyTheReadOnlySet()
+	{
+		seedForensicEntries(READ_ONLY_ENTRY_COUNT, LOG_Engine.LEVEL_ERROR, CLASS_METHOD_PRICING, 'Unhandled pricing error');
+		User logReader = TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_STANDARD_USER, LOG_READER_COMPANY, LOG_CONSOLE_READ_ONLY_PERMISSION_SET);
+
+		CTRL_LogConsole.DTO_Request request = new CTRL_LogConsole.DTO_Request();
+		request.windowMinutes = WINDOW_SEVEN_DAYS;
+		request.levels = new List<String> {LOG_Engine.LEVEL_ERROR};
+		request.pageSize = 50;
+		request.pageNumber = 1;
+
+		CTRL_LogConsole.DTO_LogEntryPage page;
+		CTRL_LogConsole.DTO_LogSummary summary;
+		CTRL_LogConsole.DTO_LogEntryDetail detail;
+		List<SObject> recordsTheUserCanRead;
+
+		Test.startTest();
+		System.runAs(logReader)
+		{
+			page = CTRL_LogConsole.getLogEntries(JSON.serialize(request));
+			summary = CTRL_LogConsole.getLogSummary(JSON.serialize(request));
+			detail = CTRL_LogConsole.getLogEntryDetail(page.records[0].id);
+			recordsTheUserCanRead = QRY_Builder.selectFrom(LogEntry__c.SObjectType).addFields(GRANTED_ENTRY_FIELDS).withUserMode().withSharing().toList();
+		}
+		Test.stopTest();
+
+		Assert.areEqual(READ_ONLY_ENTRY_COUNT, page.totalCount, 'Expected the console to list every entry another user owns');
+		Assert.areEqual(READ_ONLY_ENTRY_COUNT, summary.totalOccurrences, 'Expected the console summary to count every entry');
+		Assert.areEqual(page.records[0].id, detail.id, 'Expected the console to open the detail of the chosen entry');
+		Assert.areEqual(READ_ONLY_ENTRY_COUNT, recordsTheUserCanRead.size(), 'Expected the set to let the user read every entry, whoever owns it');
+	}
+
+	/**
+	 * @description Tests that a standard user who holds only the read-only Log Console permission set cannot change the
+	 * log. Saving a new log entry, changing an existing one and deleting an existing one are each refused, because the set
+	 * grants read access and nothing more.
+	 */
+	@IsTest
+	private static void shouldRefuseEveryWriteToAUserWhoHoldsOnlyTheReadOnlySet()
+	{
+		List<SObject> existingEntries = TST_Builder.of(LogEntry__c.SObjectType)
+				.withOverride(LogEntry__c.LogLevel__c, LOG_Engine.LEVEL_ERROR)
+				.withOverride(LogEntry__c.ClassMethod__c, CLASS_METHOD_PRICING)
+				.withOverride(LogEntry__c.ShortMessage__c, 'Unhandled pricing error')
+				.withCount(1)
+				.buildList();
+		SObject newEntry = TST_Builder.of(LogEntry__c.SObjectType)
+				.withOverride(LogEntry__c.LogLevel__c, LOG_Engine.LEVEL_ERROR)
+				.withOverride(LogEntry__c.ShortMessage__c, 'New entry the user may not save')
+				.withoutInsertion()
+				.build();
+		User logWriter = TST_Factory.newUserWithPermissionSet(SEL_Profile.PROFILE_STANDARD_USER, LOG_WRITER_COMPANY, LOG_CONSOLE_READ_ONLY_PERMISSION_SET);
+
+		Test.startTest();
+		System.runAs(logWriter)
+		{
+			try
+			{
+				DML_Builder.newTransaction().withUserMode().doInsert(newEntry).execute();
+				Assert.fail('Expected saving a new log entry to be refused');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, TypeException.class, 'Expected a refusal when the user saves a log entry');
+			}
+
+			try
+			{
+				DML_Builder.newTransaction().withUserMode().doUpdate(existingEntries).execute();
+				Assert.fail('Expected changing a log entry to be refused');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, TypeException.class, 'Expected a refusal when the user changes a log entry');
+			}
+
+			try
+			{
+				DML_Builder.newTransaction().withUserMode().doDelete(existingEntries).execute();
+				Assert.fail('Expected deleting a log entry to be refused');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, TypeException.class, 'Expected a refusal when the user deletes a log entry');
+			}
+		}
+		Test.stopTest();
+	}
+
+	/**
+	 * @description Tests that a standard user who holds no package permission set cannot read log entries: a read that
+	 * keeps the user's own object access is refused, because nothing gives the user read access to log entries.
+	 */
+	@IsTest
+	private static void shouldRefuseTheLogToAUserWithoutTheReadOnlySet()
+	{
+		seedForensicEntries(READ_ONLY_ENTRY_COUNT, LOG_Engine.LEVEL_ERROR, CLASS_METHOD_PRICING, 'Unhandled pricing error');
+		User userWithoutAccess = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER, NO_ACCESS_COMPANY);
+
+		Test.startTest();
+		System.runAs(userWithoutAccess)
+		{
+			try
+			{
+				QRY_Builder.selectFrom(LogEntry__c.SObjectType).withUserMode().withSharing().toList();
+				Assert.fail('Expected the read to be refused for a user with no access to log entries');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, QueryException.class, 'Expected a query error for a user with no access to log entries');
+			}
+		}
+		Test.stopTest();
 	}
 
 	/**

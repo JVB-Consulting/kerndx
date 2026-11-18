@@ -4,8 +4,10 @@ const path = require('path');
 const {test, expect} = require('@playwright/test');
 const ChainMonitorPage = require('../pages/chain-monitor.page');
 const {navigateToApp, waitForPageLoad} = require('../helpers/sf-navigation');
-const {getInstanceUrl} = require('../helpers/sf-auth');
+const {randomUUID} = require('crypto');
+const {getInstanceUrl, getFrontdoorUrlFor} = require('../helpers/sf-auth');
 const {executeAnonymousApex, soqlQuery} = require('../helpers/sf-cli');
+const {submitNewPassword} = require('../helpers/user-journey');
 const {waitForSpinnerGone} = require('../helpers/wait-helpers');
 const {namespacePrefix, apexNamespacePrefix} = require('../helpers/sf-namespace');
 const {deployMetadataDir} = require('../../runner/cmdt-deployer');
@@ -53,6 +55,9 @@ const MANUAL_RETRY_SUCCESS_TOAST = `Retry started. ${MANUAL_RETRY_FIXTURE_CHAIN}
 // _StatusCompleted labels). Before the retry the first step failed and the second never started; after it, both ran.
 const STEP_WORDS_BEFORE_RETRY = ['Failed', 'Did not run'];
 const STEP_WORDS_AFTER_RETRY = ['Completed', 'Completed'];
+// V160: the clone of Kern Async Chain Monitor Read Only that the upgrade leg gives a Standard User on the released
+// version, before the upgrade (runbook 1.3b and part8 manual retry check 4). Only the upgrade leg has one.
+const CLONE_PERMISSION_SET = 'ChainMonitorReadOnlyClone';
 
 let operatorSetupDone = false;
 let operatorFixtureDone = false;
@@ -1003,5 +1008,69 @@ test.describe.serial('Part 8: Chain Monitor UI', () =>
 		expect(rowTexts[0], 'A finished run leads').not.toContain('elapsed');
 		expect(rowTexts[3], 'A finished run closes').not.toContain('elapsed');
 		testInfo.annotations.push({type: 'notes', description: rowTexts.map(text => text.replace(/\n/g, ' | ')).join(' || ')});
+	});
+
+	test('V160: Upgrade leg — a user whose only Chain Monitor access is a clone made before the upgrade sees the list, sorts it by '
+			+ 'Duration and sees the retry marker', async({browser, viewport, timezoneId}, testInfo) =>
+	{
+		test.setTimeout(240_000);
+		const executionObject = prefixed('AsyncChainExecution__c');
+		// An administrator sees every field whatever the clone holds, so only a user without Modify All Data can prove anything.
+		const holders = soqlQuery(`SELECT AssigneeId, Assignee.Username FROM PermissionSetAssignment WHERE PermissionSet.Name = '${CLONE_PERMISSION_SET}'`
+				+ ' AND Assignee.IsActive = true AND Assignee.Profile.PermissionsModifyAllData = false ORDER BY Assignee.Username LIMIT 1');
+		test.skip(holders.length === 0, `No active non-administrator holds ${CLONE_PERMISSION_SET}: only the upgrade leg sets one up, on the released version`);
+		const {AssigneeId: cloneUserId, Assignee: {Username: username}} = holders[0];
+		const packageSets = soqlQuery(`SELECT PermissionSet.Name FROM PermissionSetAssignment WHERE AssigneeId = '${cloneUserId}'`
+				+ ` AND PermissionSet.${namespaceClause()}`);
+		expect(packageSets.map(row => row.PermissionSet.Name), 'the clone is the user\'s only Chain Monitor access: no package permission set').toEqual([]);
+		// The newest retried run, which V145 leaves just before this journey; a run retried before the upgrade shows a marker too.
+		const retried = soqlQuery(`SELECT ${prefixed('CorrelationId__c')} FROM ${executionObject} WHERE ${prefixed('ChainName__c')} = '${MANUAL_RETRY_FIXTURE_CHAIN}'`
+				+ ` AND ${prefixed('LastManualRetryAt__c')} != null ORDER BY ${prefixed('LastManualRetryAt__c')} DESC LIMIT 1`);
+		expect(retried.length, 'a retried run exists (run V145 first)').toBe(1);
+		// The clone was made on the released version, so it holds no access to a field this version added. Which fields
+		// those are changes with every release, so the journey records what the clone holds instead of asserting it.
+		const cloneFields = soqlQuery(`SELECT Field FROM FieldPermissions WHERE Parent.Name = '${CLONE_PERMISSION_SET}' AND SobjectType = '${executionObject}'`
+				+ ' AND PermissionsRead = true');
+		testInfo.annotations.push({type: 'notes', description: `Clone reads: ${cloneFields.map(row => row.Field.split('.')[1]).sort().join(', ')}`});
+
+		// An empty storage state, so no admin cookie on the Lightning domain outlives the clone user's sign-in (part11 V155).
+		const context = await browser.newContext({viewport, timezoneId, storageState: {cookies: [], origins: []}});
+		try
+		{
+			const clonePage = await context.newPage();
+			clonePage.kernFrontdoorUrl = () => getFrontdoorUrlFor(username);
+			await clonePage.goto(getFrontdoorUrlFor(username), {waitUntil: 'domcontentloaded'});
+			// The clone user's first sign-in stops at Change Your Password; a random password gets past it.
+			const changePassword = clonePage.getByRole('button', {name: 'Change Password'});
+			await Promise.race([clonePage.waitForURL(/\/lightning\//, {timeout: 60_000}), changePassword.waitFor({state: 'visible', timeout: 60_000})]);
+			if(await changePassword.isVisible())
+			{
+				await submitNewPassword(clonePage, changePassword, `V160-${randomUUID()}-a1`);
+				await clonePage.waitForURL(/\/lightning\//, {timeout: 60_000});
+			}
+
+			const chainMonitor = new ChainMonitorPage(clonePage);
+			await chainMonitor.navigate();
+			const pageUserId = await clonePage.evaluate(() => window.$A?.get('$SObjectType.CurrentUser.Id'));
+			expect(pageUserId, 'the page is signed in as the clone user, not the admin').toBe(cloneUserId);
+			await chainMonitor.setNameSearch(MANUAL_RETRY_FIXTURE_CHAIN);
+			await expect(chainMonitor.getDatatable(), 'the clone user sees the list').toBeVisible({timeout: 15000});
+			// The list opens sorted by Started; the header says Duration is sorted once the component has taken the sort, and the
+			// rows that are still there after the reload show the server answered it.
+			const durationHeader = chainMonitor.getDatatable().getByRole('columnheader', {name: /Duration/});
+			await expect(durationHeader, 'the list does not open sorted by Duration').not.toHaveAttribute('aria-sort', /ascending|descending/);
+			await chainMonitor.clickColumnHeader('Duration');
+			await waitForSpinnerGone(clonePage);
+			await expect(durationHeader, 'the Duration sort took').toHaveAttribute('aria-sort', /ascending|descending/, {timeout: 15000});
+			expect((await chainMonitor.getRowTexts()).length, 'the list still has its rows after the Duration sort').toBeGreaterThan(0);
+
+			// The monitor's own reads do not check field access, so the marker shows although the clone was made before it.
+			await chainMonitor.navigateToRun(retried[0][prefixed('CorrelationId__c')]);
+			await expect(chainMonitor.getManualRetryMarkers().first(), 'the clone user sees the retry marker').toContainText('Retried manually after', {timeout: 15000});
+		}
+		finally
+		{
+			await context.close();
+		}
 	});
 });

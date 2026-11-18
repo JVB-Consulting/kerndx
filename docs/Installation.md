@@ -78,12 +78,12 @@ This is the fastest way to start. You install the ready-built package straight i
 
 ### Install the package
 
-**Current SubscriberPackageVersionId (1.11.0-1):** `04tfj000000gMFRAA2`
+**Current SubscriberPackageVersionId (1.12.0-3):** `04tfj000000lFlBAAU`
 
 **One-click install** (in the browser, no CLI needed; Salesforce prompts you to log in on the page):
 
-<a href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000gMFRAA2"><img src="https://img.shields.io/badge/Install-Production-blue.svg?style=for-the-badge" alt="Install in Production" width="187" height="28"></a>
-<a href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000gMFRAA2"><img src="https://img.shields.io/badge/Install-Sandbox-orange.svg?style=for-the-badge" alt="Install in Sandbox" width="163" height="28"></a>
+<a href="https://login.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000lFlBAAU"><img src="https://img.shields.io/badge/Install-Production-blue.svg?style=for-the-badge" alt="Install in Production" width="187" height="28"></a>
+<a href="https://test.salesforce.com/packaging/installPackage.apexp?p0=04tfj000000lFlBAAU"><img src="https://img.shields.io/badge/Install-Sandbox-orange.svg?style=for-the-badge" alt="Install in Sandbox" width="163" height="28"></a>
 
 The same buttons appear on every entry of the [Releases page](https://github.com/JVB-Consulting/kerndx/releases), so you can pick the release that matches the version you want to install.
 
@@ -97,7 +97,7 @@ When the install page asks who to install for, choose **Install for Admins Only*
 your sandbox:
 
 ```shell
-sf package install --package 04tfj000000gMFRAA2 -o YourOrgAlias --wait 15 --no-prompt
+sf package install --package 04tfj000000lFlBAAU -o YourOrgAlias --wait 15 --no-prompt
 ```
 
 You should see `Successfully installed package` when the install finishes.
@@ -129,7 +129,8 @@ What the Health Check looks for, and how to satisfy it:
 4. **Chain recovery actions (optional).** The Chain Monitor can also re-drive a failed chain from its failed step, restart a declared chain from the start, and clear stalled chains on demand. These ship switched off the same way as abort: assign the **Kern Async Chain Redrive** permission set to the operations users who recover chains, and the three actions appear for them. Pair it with the **Kern Async Chain Monitor Read Only** set, which grants the chain data, tabs, and monitor access the actions work on. The org-wide off-switch is the **Async Chain Redrive Enabled** feature-flag record. The first two actions also need the chain itself to opt in (a retry needs the failed step to declare itself safe to re-run; a restart needs the chain's author to have allowed restarts), so they stay unavailable on chains that never declared them; see [Re-driving a failed chain](Async%20Processing%20-%20Guide.md#re-driving-a-failed-chain) in the Async Processing Guide.
 5. **Chain kill-switch control (optional).** Operations leads can suspend and resume all chain processing org-wide from the Chain Monitor, without a deployment. This grant is deliberately separate from the recovery actions because it stops everything at once: assign the **Kern Async Chain Kill Switch** permission set only to the users trusted with an org-wide stop. Its off-switch is the **Async Chain Kill Switch Enabled** feature-flag record. If the package was installed for All Users, every profile already holds the recovery and kill-switch permissions too; remove those profile grants to bring the actions back under the permission sets' control. See [The operations control](Async%20Processing%20-%20Guide.md#the-operations-control) in the Async Processing Guide.
 6. **Issue resolvers (optional).** Assign the **Kern API Issue Resolver** permission set to the support users who run failed API calls again from an API issue. It grants the **Retry API Issue** permission, access to the Retry action, read access to API issues, read access to every API call (View All Records, so the holder sees calls other users made, which are otherwise private to their owner), the API Issues tab and the Kern app. Administrators keep Retry through the **Kern Administrator** set. A fresh install for admins only also writes the permission into the System Administrator profile, and a fresh install for all users writes it into every profile; remove those profile grants to bring Retry under the permission sets' control. An administrator who works through a profile alone and is refused Retry after an upgrade needs the Kern API Issue Resolver or the Kern Administrator set. See [Failures and retries](Web%20Services%20-%20Guide.md#failures-and-retries) in the Web Services Guide.
-7. **Stalled-chain recovery (schedule the watchdog).** A background job can die silently and leave an async chain stuck part-way. A scheduled watchdog spots these and marks them `Stalled`. When it can prove a chain's job died, it runs the stalled step again only if that is safe (the step never started, or it declares itself safe to run twice) and otherwise ends the chain `Failed`; the rest it flags for you. A managed package cannot ship a scheduled job, so stalled-chain recovery stays dormant until you schedule it. The Health Check's **Chain Watchdog** row spots the gap and schedules the job for you in one click (hourly, with a 30-minute stale threshold and up to 50 chains per sweep). To set it up yourself instead, create a `ScheduledJob__c` record whose `ClassName__c` is `SCHED_ChainWatchdog`, running hourly (cron `0 0 * * * ?`), through the framework's Scheduled Jobs UI (no code needed). Two optional attributes tune it: `StaleThresholdMinutes` (idle minutes before a chain counts as stalled, default 30) and `BatchSize` (chains inspected per sweep, default 50). To schedule it from Apex instead: `System.schedule('Chain Watchdog', '0 0 * * * ?', new SCHED_ChainWatchdog());`. See [Declarative Scheduling with `ScheduledJob__c`](Async%20Processing%20-%20Guide.md#declarative-scheduling-with-scheduledjob__c) in the Async Processing Guide.
+7. **Log Console readers (optional).** Assign the **Kern Log Console Read Only** permission set to the reviewers and operators who read the log in the Log Console and change nothing. It grants read access to every log entry, the Log Console tab and the console itself, so they do not need Kern Administrator. It ships assigned to nobody. A log entry can hold what your code logged for every user's work, so assign it only to people you would let read that. See [Sharing considerations](Logging%20-%20Guide.md#sharing-considerations) in the Logging Guide.
+8. **Stalled-chain recovery (schedule the watchdog).** A background job can die silently and leave an async chain stuck part-way. A scheduled watchdog spots these and marks them `Stalled`. When it can prove a chain's job died, it runs the stalled step again only if that is safe (the step never started, or it declares itself safe to run twice) and otherwise ends the chain `Failed`; the rest it flags for you. A managed package cannot ship a scheduled job, so stalled-chain recovery stays dormant until you schedule it. The Health Check's **Chain Watchdog** row spots the gap and schedules the job for you in one click (hourly, with a 30-minute stale threshold and up to 50 chains per sweep). To set it up yourself instead, create a `ScheduledJob__c` record whose `ClassName__c` is `SCHED_ChainWatchdog`, running hourly (cron `0 0 * * * ?`), through the framework's Scheduled Jobs UI (no code needed). Two optional attributes tune it: `StaleThresholdMinutes` (idle minutes before a chain counts as stalled, default 30) and `BatchSize` (chains inspected per sweep, default 50). To schedule it from Apex instead: `System.schedule('Chain Watchdog', '0 0 * * * ?', new SCHED_ChainWatchdog());`. See [Declarative Scheduling with `ScheduledJob__c`](Async%20Processing%20-%20Guide.md#declarative-scheduling-with-scheduledjob__c) in the Async Processing Guide.
 
 To grant non-admin users access to the app, assign the **Kern Administrator** permission set (see [CI Integration User: Manage Flow Permission](#ci-integration-user-manage-flow-permission) below). It grants every Kern tab and the Apex classes behind the Health Check and the Administration Tools, so a user who is not a System Administrator can open them. A user of your own pages and flows built with the package's components, modules and Flow actions (feature flag reads, logging, search lookups, field-set forms, picklist values, permission checks) needs only the much smaller **Kern Component Access** set; see [Use in LWC](Fast%20Start%20-%20Feature%20Flags.md#use-in-lwc) in the Feature Flags Fast Start. For a full walkthrough of every check and what each result means,
 see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide.
@@ -209,10 +210,9 @@ If you use an AI coding assistant, it works much better when it knows the framew
 In your org, every KernDX framework class is called with the namespace prefix in front of it. **In your editor**, add these examples of the common patterns to the file:
 
 ```apex
-// Query builder
-{{NAMESPACE}}.QRY_Builder.selectFrom(Account.SObjectType)
-	.fields(new List<String>{'Name', 'Industry'})
-	.condition(Account.Industry).equals('Tech')
+// Query: every read goes through a selector (the SEL_Cases selector below)
+List<Case> cases = new {{PREFIX}}SEL_Cases().query
+	.condition(Case.Status).equals('New')
 	.toList();
 
 // Logging
