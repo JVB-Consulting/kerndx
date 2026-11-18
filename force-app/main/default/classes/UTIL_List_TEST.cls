@@ -12,7 +12,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(seeAllData=false isParallel=true)
@@ -337,5 +337,158 @@ private class UTIL_List_TEST
 
 		Assert.areEqual(1, result.size(), 'Should produce a single sublist');
 		Assert.areEqual(2, result[0].size(), MSG_SIZE_EQUALITY);
+	}
+
+	/**
+	 * @description An empty list gives one empty part. The caller always gets a list it can loop over.
+	 *
+	 * @see UTIL_List.partition
+	 */
+	@IsTest
+	private static void shouldReturnOneEmptySublistWhenPartitioningAnEmptyList()
+	{
+		List<List<Object>> result = UTIL_List.partition(new List<Object>(), 5);
+
+		Assert.areEqual(1, result.size(), 'Expected one sublist for an empty list.');
+		Assert.isTrue(result[0].isEmpty(), 'Expected the one sublist to be empty.');
+	}
+
+	/**
+	 * @description A list one item longer than the part size gives two parts. No item is lost.
+	 *
+	 * @see UTIL_List.partition
+	 */
+	@IsTest
+	private static void shouldKeepEveryItemWhenPartitioning201ItemsBy200()
+	{
+		assertPartitionKeepsEveryItem(201, 200, 2);
+	}
+
+	/**
+	 * @description A list a few items over the part size gives two parts. No item is lost.
+	 *
+	 * @see UTIL_List.partition
+	 */
+	@IsTest
+	private static void shouldKeepEveryItemWhenPartitioning210ItemsBy200()
+	{
+		assertPartitionKeepsEveryItem(210, 200, 2);
+	}
+
+	/**
+	 * @description A list eleven items over the part size gives two parts. No item is lost.
+	 *
+	 * @see UTIL_List.partition
+	 */
+	@IsTest
+	private static void shouldKeepEveryItemWhenPartitioning211ItemsBy200()
+	{
+		assertPartitionKeepsEveryItem(211, 200, 2);
+	}
+
+	/**
+	 * @description A list one item over two full parts gives three parts. No item is lost.
+	 *
+	 * @see UTIL_List.partition
+	 */
+	@IsTest
+	private static void shouldKeepEveryItemWhenPartitioning401ItemsBy200()
+	{
+		assertPartitionKeepsEveryItem(401, 200, 3);
+	}
+
+	/**
+	 * @description A list ten items over two full parts gives three parts. No item is lost.
+	 *
+	 * @see UTIL_List.partition
+	 */
+	@IsTest
+	private static void shouldKeepEveryItemWhenPartitioning410ItemsBy200()
+	{
+		assertPartitionKeepsEveryItem(410, 200, 3);
+	}
+
+	/**
+	 * @description A list two items over a part size of 50 gives two parts. No item is lost.
+	 *
+	 * @see UTIL_List.partition
+	 */
+	@IsTest
+	private static void shouldKeepEveryItemWhenPartitioning52ItemsBy50()
+	{
+		assertPartitionKeepsEveryItem(52, 50, 2);
+	}
+
+	/**
+	 * @description A list one item over a small part size of 19 gives two parts. No item is lost.
+	 *
+	 * @see UTIL_List.partition
+	 */
+	@IsTest
+	private static void shouldKeepEveryItemWhenPartitioning20ItemsBy19()
+	{
+		assertPartitionKeepsEveryItem(20, 19, 2);
+	}
+
+	/**
+	 * @description A part size of 1 gives one part for each item. No item is lost.
+	 *
+	 * @see UTIL_List.partition
+	 */
+	@IsTest
+	private static void shouldKeepEveryItemWhenPartitioning3ItemsBy1()
+	{
+		assertPartitionKeepsEveryItem(3, 1, 3);
+	}
+
+	/**
+	 * @description A list exactly as long as the part size gives one part. No item is lost.
+	 *
+	 * @see UTIL_List.partition
+	 */
+	@IsTest
+	private static void shouldKeepEveryItemWhenPartitioning200ItemsBy200()
+	{
+		assertPartitionKeepsEveryItem(200, 200, 1);
+	}
+
+	/**
+	 * @description A list that fills two parts exactly gives two parts. No empty part is added.
+	 *
+	 * @see UTIL_List.partition
+	 */
+	@IsTest
+	private static void shouldKeepEveryItemWhenPartitioning400ItemsBy200()
+	{
+		assertPartitionKeepsEveryItem(400, 200, 2);
+	}
+
+	/**
+	 * @description Partitions a numbered list and checks the number of parts, the size of each part and that the parts
+	 * joined together give back the list in its original order.
+	 *
+	 * @param itemCount The number of items in the list
+	 * @param partitionSize The largest size of one part
+	 * @param expectedPartCount The number of parts the list must give
+	 */
+	private static void assertPartitionKeepsEveryItem(Integer itemCount, Integer partitionSize, Integer expectedPartCount)
+	{
+		List<Object> items = new List<Object>();
+		for(Integer index = 0; index < itemCount; index++)
+		{
+			items.add(index);
+		}
+
+		List<List<Object>> result = UTIL_List.partition(items, partitionSize);
+
+		Assert.areEqual(expectedPartCount, result.size(), 'Expected ' + expectedPartCount + ' parts for ' + itemCount + ' items of part size ' + partitionSize + '.');
+
+		List<Object> joined = new List<Object>();
+		for(List<Object> part : result)
+		{
+			Assert.isTrue(part.size() <= partitionSize, 'Expected every part to hold at most ' + partitionSize + ' items, got ' + part.size() + '.');
+			joined.addAll(part);
+		}
+		Assert.areEqual(items, joined, 'Expected the parts joined together to equal the list, in order.');
 	}
 }

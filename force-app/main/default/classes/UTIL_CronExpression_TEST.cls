@@ -13,7 +13,7 @@
  *
  * @date March 2026, October 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ApexUnitTestClassShouldHaveAsserts,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ApexUnitTestClassShouldHaveAsserts,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssCount')
 @IsTest(seeAllData=false isParallel=true)
 private class UTIL_CronExpression_TEST
 {
@@ -140,6 +140,358 @@ private class UTIL_CronExpression_TEST
 	private static final String LOCAL_TIME_FORMAT = 'HH:mm';
 
 	/**
+	 * @description American Samoa, eleven hours behind UTC with no daylight-saving changes.
+	 */
+	private static final String TIMEZONE_PAGO_PAGO = 'Pacific/Pago_Pago';
+
+	/**
+	 * @description Kiribati's Line Islands, fourteen hours ahead of UTC with no daylight-saving changes. From American Samoa
+	 * this is twenty-five hours ahead, the widest gap between two zones, and it can move a time by two calendar days.
+	 */
+	private static final String TIMEZONE_KIRITIMATI = 'Pacific/Kiritimati';
+
+	/**
+	 * @description Nepal, five hours and forty-five minutes ahead of UTC with no daylight-saving changes. It is fifteen
+	 * minutes ahead of India, so a move between the two can change the minutes and leave the hours alone.
+	 */
+	private static final String TIMEZONE_KATHMANDU = 'Asia/Kathmandu';
+
+	/**
+	 * @description Sydney, ten hours ahead of UTC in the southern winter and eleven in summer.
+	 */
+	private static final String TIMEZONE_SYDNEY = 'Australia/Sydney';
+
+	/**
+	 * @description Lord Howe Island, ten and a half hours ahead of UTC in the southern winter and eleven in summer. It is
+	 * thirty minutes ahead of Sydney in winter and has the same time in summer.
+	 */
+	private static final String TIMEZONE_LORD_HOWE = 'Australia/Lord_Howe';
+
+	/**
+	 * @description A moment in the southern winter, when Lord Howe Island is thirty minutes ahead of Sydney. Neither zone
+	 * changes its clocks in the days after it.
+	 */
+	private static final Datetime SOUTHERN_WINTER_REFERENCE = Datetime.newInstanceGmt(2026, 7, 1, 0, 0, 0);
+
+	/**
+	 * @description The moment the conversion tests start from. New York's clocks went back the day before and no zone in
+	 * these tests changes its clocks in the weeks after it, so one offset holds for every firing compared.
+	 */
+	private static final Datetime CONVERSION_REFERENCE = Datetime.newInstanceGmt(2026, 11, 2, 0, 0, 0);
+
+	/**
+	 * @description How many firings of a schedule are compared before and after a conversion.
+	 */
+	private static final Integer FIRINGS_TO_COMPARE = 12;
+
+	/**
+	 * @description Schedules that one cron expression can carry after a conversion. Each row is the expression, the zone
+	 * it is written for and the zone it moves to. The rows use both directions, between zones half an hour off the hour
+	 * and zones a whole number of hours apart. Each shape of the hours field has at least one row. The minutes field has
+	 * one shape only, a single number, because System.schedule accepts nothing else there.
+	 */
+	private static final List<List<String>> SCHEDULES_THAT_CONVERT = new List<List<String>>
+	{
+			new List<String> {'0 15 * * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 45 * * * ?', TIMEZONE_GMT, TIMEZONE_IST},
+			new List<String> {'0 45 14 * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 45 14 * * ?', TIMEZONE_GMT, TIMEZONE_IST},
+			new List<String> {'0 0 14 * * ?', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 14 * * ?', TIMEZONE_GMT, TIMEZONE_NYC},
+			new List<String> {'0 0 2 * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 1 ? * MON', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 20 ? * MON', TIMEZONE_GMT, TIMEZONE_TOKYO},
+			new List<String> {'0 0 23 ? * MON', TIMEZONE_PAGO_PAGO, TIMEZONE_KIRITIMATI},
+			new List<String> {'0 15 2 5 * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 23 15 * ?', TIMEZONE_GMT, TIMEZONE_IST},
+			new List<String> {'0 0 14 ? * MON-FRI', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 8,14 * * ?', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 8,14 * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 2,23 * * ?', TIMEZONE_GMT, TIMEZONE_NYC},
+			new List<String> {'0 0 8,10-12 * * ?', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 9-17/2 * * ?', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 1,2 ? * MON', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 20,21 ? * MON,WED', TIMEZONE_GMT, TIMEZONE_TOKYO},
+			new List<String> {'0 0 1,2 5,15 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 8-12 * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 20-23 * * ?', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 2-6 * * ?', TIMEZONE_GMT, TIMEZONE_NYC},
+			new List<String> {'0 0 1-3 ? * MON', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 20-22 ? * MON', TIMEZONE_GMT, TIMEZONE_TOKYO},
+			new List<String> {'0 0 * * * ?', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 * * * ?', TIMEZONE_GMT, TIMEZONE_NYC},
+			new List<String> {'0 0 * * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 */3 * * ?', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 */3 * * ?', TIMEZONE_GMT, TIMEZONE_NYC},
+			new List<String> {'0 0 1/3 * * ?', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 1/4 * * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 */2 * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 45 */2 * * ?', TIMEZONE_GMT, TIMEZONE_IST},
+			new List<String> {'0 0 8/2 * * ?', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 8/2 * * ?', TIMEZONE_GMT, TIMEZONE_NYC},
+			new List<String> {'0 30 8/2 * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 */7 * * ?', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 */7 * * ?', TIMEZONE_GMT, TIMEZONE_IST},
+			new List<String> {'0 0 14 * 6 ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 14 15 6 ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 14 * * ? 2027', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 * * ? *', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 * 5 * ?', TIMEZONE_IST, TIMEZONE_KATHMANDU},
+			new List<String> {'0 15 * 5 * ?', TIMEZONE_KATHMANDU, TIMEZONE_IST},
+			new List<String> {'0 0 * ? * MON', TIMEZONE_IST, TIMEZONE_KATHMANDU},
+			new List<String> {'0 0 * * 6 ?', TIMEZONE_IST, TIMEZONE_KATHMANDU},
+			new List<String> {'0 0 * * * ? 2027', TIMEZONE_IST, TIMEZONE_KATHMANDU},
+			new List<String> {'0 0 14 1,15 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 14 1-15 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 20 1,15 * ?', TIMEZONE_GMT, TIMEZONE_TOKYO},
+			new List<String> {'0 0 20 1-15 * ?', TIMEZONE_GMT, TIMEZONE_TOKYO},
+			new List<String> {'0 0 1 2,15 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 2-15 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 2,27 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 20 2,27 * ?', TIMEZONE_GMT, TIMEZONE_TOKYO},
+			new List<String> {'0 0 20 2-27 * ?', TIMEZONE_GMT, TIMEZONE_TOKYO}
+	};
+
+	/**
+	 * @description Schedules that one cron expression cannot carry after a conversion, so the conversion must refuse them.
+	 * Each row is the expression, the zone it is written for and the zone it moves to.
+	 */
+	private static final List<List<String>> SCHEDULES_THAT_ARE_REFUSED = new List<List<String>>
+	{
+			new List<String> {'0 0,30 * * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 * * * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 */5 * * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 */5 * * * ?', TIMEZONE_GMT, TIMEZONE_IST},
+			new List<String> {'0 0/15 * * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0-45 * * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0,30 14 * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 * 14 * * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 15 2,14 5 * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 8-10 ? * MON', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 */3 ? * MON', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 8/2 ? * MON', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 * ? * MON', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 30 * 5 * ?', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 * * 6 ?', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 * * * ? 2027', TIMEZONE_NYC, TIMEZONE_GMT},
+			new List<String> {'0 0 1,23 * 6 ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 * 6 ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 15 6 ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 15 * ? 2027', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 2 ? * 2#2', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 2 ? * 6L', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 2 ? * fril', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 2 ? * L', TIMEZONE_IST, TIMEZONE_GMT},
+			new List<String> {'0 0 1 ? * SAT-WED', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 ? * SUN-THU', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 ? * MON/2', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 ? * MON-WED,FRI', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 ? * 2-3-4', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 L * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 LW * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 15W * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 1/5 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 1-5,10 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 20-10 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 1-5-9 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 50 * 5 * ?', TIMEZONE_IST, TIMEZONE_KATHMANDU},
+			new List<String> {'0 0 * 5 * ?', TIMEZONE_KATHMANDU, TIMEZONE_IST},
+			new List<String> {'0 50 * ? * MON', TIMEZONE_IST, TIMEZONE_KATHMANDU},
+			new List<String> {'0 0 1 1,15 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 1 1-15 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 23 15,31 * ?', TIMEZONE_GMT, TIMEZONE_TOKYO},
+			new List<String> {'0 0 23 20-31 * ?', TIMEZONE_GMT, TIMEZONE_TOKYO},
+			new List<String> {'0 0 1 2,31 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 20 30 * ?', TIMEZONE_GMT, TIMEZONE_TOKYO},
+			new List<String> {'0 0 1 29 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT},
+			new List<String> {'0 0 20 28 * ?', TIMEZONE_GMT, TIMEZONE_TOKYO}
+	};
+
+	/**
+	 * @description For every shape one cron expression can carry, the next twelve firings of the schedule as written, read
+	 * in its own zone, are the same moments as the next twelve firings of the converted schedule, read in the new zone. The
+	 * firings are the measure, not the text, so a conversion that reads well but fires at other times fails here.
+	 */
+	@IsTest
+	private static void shouldKeepTheFiringTimesOfEveryScheduleThatConverts()
+	{
+		for(List<String> schedule : SCHEDULES_THAT_CONVERT)
+		{
+			String converted = UTIL_CronExpression.shiftTimezone(schedule[0], schedule[1], schedule[2], CONVERSION_REFERENCE);
+
+			Assert.areEqual(
+					findNextFirings(schedule[0], schedule[1]),
+					findNextFirings(converted, schedule[2]),
+					'Expected ' + schedule[0] + ' moved from ' + schedule[1] + ' to ' + schedule[2] + ' to fire at the same moments, got ' + converted
+			);
+		}
+	}
+
+	/**
+	 * @description Every schedule that one cron expression cannot carry is refused, and the message names both time zones
+	 * so the author knows which move failed. A schedule that came back instead would fire at different times with nobody told.
+	 */
+	@IsTest
+	private static void shouldRefuseEveryScheduleThatCannotKeepItsTimes()
+	{
+		for(List<String> schedule : SCHEDULES_THAT_ARE_REFUSED)
+		{
+			assertRefused(schedule[0], schedule[1], schedule[2]);
+		}
+	}
+
+	/**
+	 * @description A wildcard in the hours field on named days stays as written when no hour changes. India and Nepal are
+	 * fifteen minutes apart, so 00:00 becomes 00:15 of the same hour, and every hour still falls on the same days.
+	 */
+	@IsTest
+	private static void shouldKeepWildcardHoursOnNamedDaysWhenOnlyTheMinutesChange()
+	{
+		String result = UTIL_CronExpression.shiftTimezone('0 0 * 5 * ?', TIMEZONE_IST, TIMEZONE_KATHMANDU, CONVERSION_REFERENCE);
+
+		Assert.areEqual('0 15 * 5 * ?', result, 'Expected the minutes to move and the hours to stay a wildcard');
+	}
+
+	/**
+	 * @description Sydney and Lord Howe Island are thirty minutes apart in the southern winter. Minutes that stay inside
+	 * the hour convert, and the converted schedule fires at the same moments. Minutes that cross the hour are refused,
+	 * because the last firing of the named day would move onto the next day.
+	 */
+	@IsTest
+	private static void shouldConvertWildcardHoursOnNamedDaysOnlyWhenNoHourChanges()
+	{
+		String converted = UTIL_CronExpression.shiftTimezone('0 0 * 5 * ?', TIMEZONE_SYDNEY, TIMEZONE_LORD_HOWE, SOUTHERN_WINTER_REFERENCE);
+		String convertedBack = UTIL_CronExpression.shiftTimezone(converted, TIMEZONE_LORD_HOWE, TIMEZONE_SYDNEY, SOUTHERN_WINTER_REFERENCE);
+
+		Assert.areEqual('0 30 * 5 * ?', converted, 'Expected the minutes to move and the hours to stay a wildcard');
+		Assert.areEqual('0 0 * 5 * ?', convertedBack, 'Expected the move back to restore the schedule');
+		Assert.areEqual(
+				findNextFirings('0 0 * 5 * ?', TIMEZONE_SYDNEY, SOUTHERN_WINTER_REFERENCE),
+				findNextFirings(converted, TIMEZONE_LORD_HOWE, SOUTHERN_WINTER_REFERENCE),
+				'Expected the converted schedule to fire at the same moments'
+		);
+
+		assertRefusedAt(new List<String> {'0 30 * 5 * ?', TIMEZONE_SYDNEY, TIMEZONE_LORD_HOWE}, SOUTHERN_WINTER_REFERENCE);
+		assertRefusedAt(new List<String> {'0 0 * 5 * ?', TIMEZONE_LORD_HOWE, TIMEZONE_SYDNEY}, SOUTHERN_WINTER_REFERENCE);
+	}
+
+	/**
+	 * @description The label text is used with String.format, which drops an apostrophe and everything it encloses. This
+	 * proves the two time zones reach the message and the wording arrives whole.
+	 */
+	@IsTest
+	private static void shouldNameBothTimeZonesInTheRefusal()
+	{
+		try
+		{
+			UTIL_CronExpression.shiftTimezone('0 0,30 14 * * ?', TIMEZONE_IST, TIMEZONE_GMT, CONVERSION_REFERENCE);
+			Assert.fail('Expected the conversion to be refused');
+		}
+		catch(IllegalArgumentException error)
+		{
+			Assert.isTrue(error.getMessage().contains('from ' + TIMEZONE_IST + ' to ' + TIMEZONE_GMT), 'Expected both time zones in: ' + error.getMessage());
+			Assert.isFalse(error.getMessage().contains('{'), 'Expected no unfilled placeholder in: ' + error.getMessage());
+		}
+	}
+
+	/**
+	 * @description The written form of the most common conversions. An hour step becomes a sorted list of the moved hours.
+	 * One hour stays one hour and a range that does not cross midnight stays a range.
+	 */
+	@IsTest
+	private static void shouldWriteTheConvertedExpressions()
+	{
+		Map<String, String> expectedByExpression = new Map<String, String>
+		{
+				'0 0 8/2 * * ?' => '0 30 2,4,6,8,10,12,14,16 * * ?',
+				'0 0 8-12 * * ?' => '0 30 2-6 * * ?',
+				'0 0 8,14 * * ?' => '0 30 2,8 * * ?',
+				'0 0 14 ? * MON-FRI' => '0 30 8 ? * MON-FRI',
+				'0 0 14 * * ?' => '0 30 8 * * ?'
+		};
+
+		for(String expression : expectedByExpression.keySet())
+		{
+			String converted = UTIL_CronExpression.shiftTimezone(expression, TIMEZONE_IST, TIMEZONE_GMT, CONVERSION_REFERENCE);
+
+			Assert.areEqual(expectedByExpression.get(expression), converted, 'Expected the written form of ' + expression);
+		}
+	}
+
+	/**
+	 * @description Every third hour in New York, five hours behind GMT in winter, is written out as the moved hours, so the
+	 * first two firings after midnight are 02:00 and 05:00 GMT.
+	 */
+	@IsTest
+	private static void shouldWriteAnHourStepAsTheListOfItsMovedHours()
+	{
+		String converted = UTIL_CronExpression.shiftTimezone('0 0 */3 * * ?', TIMEZONE_NYC, TIMEZONE_GMT, CONVERSION_REFERENCE);
+
+		List<Datetime> firings = findNextFirings(converted, TIMEZONE_GMT);
+
+		Assert.areEqual('0 0 2,5,8,11,14,17,20,23 * * ?', converted, 'Expected the moved hours as a list');
+		Assert.areEqual(Datetime.newInstanceGmt(2026, 11, 2, 2, 0, 0), firings[0], 'Expected the first firing at 02:00 GMT');
+		Assert.areEqual(Datetime.newInstanceGmt(2026, 11, 2, 5, 0, 0), firings[1], 'Expected the second firing at 05:00 GMT');
+	}
+
+	/**
+	 * @description A minute that is not a minute of the hour is reported with the message that names it, not refused as a
+	 * schedule that cannot move: the schedule is wrong in every zone.
+	 */
+	@IsTest
+	private static void shouldReportAMinuteOutsideTheHour()
+	{
+		assertReportedAsUnreadable('0 75 14 * * ?', TIMEZONE_IST, '75');
+	}
+
+	/**
+	 * @description A day field the conversion cannot read is reported with the message that names it. Without the check the
+	 * person saving the schedule would see a raw conversion error.
+	 */
+	@IsTest
+	private static void shouldReportUnreadableDayFields()
+	{
+		assertReportedAsUnreadable('0 0 1 ? * NOON', TIMEZONE_TOKYO, 'NOON');
+		assertReportedAsUnreadable('0 0 1 ? * 9', TIMEZONE_TOKYO, '9');
+		assertReportedAsUnreadable('0 0 1 ? * MON-NOON', TIMEZONE_TOKYO, 'NOON');
+		assertReportedAsUnreadable('0 0 1 NOON * ?', TIMEZONE_TOKYO, 'NOON');
+		assertReportedAsUnreadable('0 0 1 40 * ?', TIMEZONE_TOKYO, '40');
+	}
+
+	/**
+	 * @description The widest gap between two zones is twenty-five hours, which can move a time by two calendar days. Monday
+	 * 23:00 in American Samoa is Wednesday 00:00 in Kiritimati, so the weekday moves two days and not one.
+	 */
+	@IsTest
+	private static void shouldMoveTheWeekdayTwoDaysBetweenTheFurthestZones()
+	{
+		String converted = UTIL_CronExpression.shiftTimezone('0 0 23 ? * MON', TIMEZONE_PAGO_PAGO, TIMEZONE_KIRITIMATI, CONVERSION_REFERENCE);
+
+		Assert.areEqual('0 0 0 ? * WED', converted, 'Expected the weekday to move two days');
+	}
+
+	/**
+	 * @description An hours field the conversion cannot read is reported with the message that names the token. A raw
+	 * conversion error would mean nothing to the person saving the schedule.
+	 */
+	@IsTest
+	private static void shouldReportAnUnreadableHoursField()
+	{
+		assertReportedAsUnreadable('0 0 noon * * ?', TIMEZONE_NYC, 'noon');
+	}
+
+	/**
+	 * @description An expression with too few fields is reported with the same message, naming the whole expression.
+	 */
+	@IsTest
+	private static void shouldReportAnExpressionWithTooFewFields()
+	{
+		String expression = '0 0 14 * *';
+
+		assertReportedAsUnreadable(expression, TIMEZONE_NYC, expression);
+	}
+
+	/**
 	 * @description A daily 14:00 schedule written for South Africa, which is two hours ahead of GMT, becomes 12:00 when it
 	 * is rewritten for GMT. The hour changes so that the job still fires at the same moment.
 	 */
@@ -233,7 +585,8 @@ private class UTIL_CronExpression_TEST
 
 	/**
 	 * @description A schedule whose hours field is a step (every second hour, written as a star, a slash and 2) comes
-	 * back unchanged. The step is left as written and is not turned into a list of shifted hours.
+	 * back unchanged when the two time zones are a whole number of steps apart. South Africa and GMT are two hours apart,
+	 * so the same even hours fire in both.
 	 */
 	@IsTest
 	private static void shouldNotShiftStepHours()
@@ -344,39 +697,41 @@ private class UTIL_CronExpression_TEST
 	}
 
 	/**
-	 * @description A day-of-month field of L, which means the last day of the month, is left as L even when the shift
-	 * moves the time onto the day before. Only the hour changes, because "last day" has no number to take one from.
+	 * @description A day-of-month field of L, which means the last day of the month, has no number to take one from. A shift
+	 * that keeps the day leaves it as written. A shift onto the day before is refused, because the day before the last day
+	 * has no way to be written for every month.
 	 */
 	@IsTest
-	private static void shouldNotShiftDayOfMonthWithLastDaySuffix()
+	private static void shouldRefuseDayOfMonthLastDayOnlyWhenTheDayChanges()
 	{
-		String result = UTIL_CronExpression.shiftTimezone('0 0 1 L * ?', TIMEZONE_AEST, TIMEZONE_GMT);
+		Assert.areEqual('0 0 5 L * ?', UTIL_CronExpression.shiftTimezone('0 0 15 L * ?', TIMEZONE_AEST, TIMEZONE_GMT), 'Expected the field to stay on the same day');
 
-		Assert.areEqual('0 0 15 L * ?', result, 'L suffix day-of-month should remain unchanged despite day rollover');
+		assertRefused('0 0 1 L * ?', TIMEZONE_AEST, TIMEZONE_GMT);
 	}
 
 	/**
-	 * @description A weekday written with a hash and a number, such as MON#2 for the second Monday of the month, has its
-	 * day moved and its number kept: it becomes SUN#2 when the shift moves the time onto the day before.
+	 * @description A weekday written with a hash and a number, such as MON#2 for the second Monday of the month, keeps its
+	 * place in the month only when the shift stays on the same day. The Sunday before the second Monday is not always the
+	 * second Sunday, so a shift onto the day before is refused. Without a change of day the field is left as written.
 	 */
 	@IsTest
-	private static void shouldShiftDayOfWeekHashPattern()
+	private static void shouldRefuseDayOfWeekHashPatternOnlyWhenTheDayChanges()
 	{
-		String result = UTIL_CronExpression.shiftTimezone('0 0 1 ? * MON#2', TIMEZONE_AEST, TIMEZONE_GMT);
+		Assert.areEqual('0 0 5 ? * MON#2', UTIL_CronExpression.shiftTimezone('0 0 15 ? * MON#2', TIMEZONE_AEST, TIMEZONE_GMT), 'Expected the field to stay on the same day');
 
-		Assert.areEqual('0 0 15 ? * SUN#2', result, 'Hash pattern should shift day name while preserving occurrence number');
+		assertRefused('0 0 1 ? * MON#2', TIMEZONE_AEST, TIMEZONE_GMT);
 	}
 
 	/**
-	 * @description A weekday written with an L, such as FRIL for the last Friday of the month, has its day moved and its
-	 * L kept: it becomes THUL when the shift moves the time onto the day before.
+	 * @description A weekday written with an L, such as FRIL for the last Friday of the month, follows the same rule. The
+	 * Thursday before the last Friday is not always the last Thursday, so a shift onto the day before is refused.
 	 */
 	@IsTest
-	private static void shouldShiftDayOfWeekLastSuffix()
+	private static void shouldRefuseDayOfWeekLastSuffixOnlyWhenTheDayChanges()
 	{
-		String result = UTIL_CronExpression.shiftTimezone('0 0 1 ? * FRIL', TIMEZONE_AEST, TIMEZONE_GMT);
+		Assert.areEqual('0 0 5 ? * FRIL', UTIL_CronExpression.shiftTimezone('0 0 15 ? * FRIL', TIMEZONE_AEST, TIMEZONE_GMT), 'Expected the field to stay on the same day');
 
-		Assert.areEqual('0 0 15 ? * THUL', result, 'L suffix should shift day name while preserving L');
+		assertRefused('0 0 1 ? * FRIL', TIMEZONE_AEST, TIMEZONE_GMT);
 	}
 
 	/**
@@ -491,35 +846,28 @@ private class UTIL_CronExpression_TEST
 	}
 
 	/**
-	 * @description Records that a schedule which fires every minute of an hour keeps its wildcard in the minutes field and
-	 * only the hour moves. Between two time zones that are half an hour apart, the half hour is dropped, so the job runs
-	 * thirty minutes late. In the test, 14:00 to 14:59 in India becomes 09:00 to 09:59 GMT, where the true window is
-	 * 08:30 to 09:29 GMT. This is a known limit of the conversion: one schedule cannot describe an hour that starts on the
-	 * half hour.
+	 * @description A wildcard in the minutes field is refused when the two zones are half an hour apart, under every hours
+	 * field, because System.schedule accepts only one number there. Between zones a whole number of hours apart the
+	 * minutes need no change, so the field stays as written and the platform answers for it.
 	 */
 	@IsTest
-	private static void shouldPassThroughWildcardMinutesForHalfHourTimezone()
+	private static void shouldRefuseWildcardMinutesForHalfHourTimezone()
 	{
-		String result = UTIL_CronExpression.shiftTimezone('0 * 14 * * ?', TIMEZONE_IST, TIMEZONE_GMT);
+		Assert.areEqual('0 * * * * ?', UTIL_CronExpression.shiftTimezone('0 * * * * ?', TIMEZONE_SAST, TIMEZONE_GMT), 'Expected the minutes to stay as written');
 
-		Assert.areEqual('0 * 9 * * ?', result, 'Wildcard minutes should pass through unshifted even with half-hour timezone');
+		assertRefused('0 * * * * ?', TIMEZONE_IST, TIMEZONE_GMT);
 	}
 
 	/**
-	 * @description Records what the conversion gives back for a list of minutes between two time zones that are half an
-	 * hour apart, and that result is wrong for one of the minutes. Every minute in the list is shifted by thirty minutes,
-	 * but the hours field holds one hour for the whole list, and that hour is worked out from the first minute. The first
-	 * minute lands on the right time. The second is given the first one's hour, so it fires an hour early. In the test,
-	 * 14:00 and 14:30 in India become 08:30 and 08:00 GMT, where 14:30 in India is really 09:00 GMT. This is a known limit
-	 * of the conversion: one schedule cannot hold both 08:30 and 09:00. The expected value in this test will change when
-	 * the conversion is corrected.
+	 * @description A list of minutes is refused when the two zones are half an hour apart, because System.schedule accepts
+	 * only one number there. Between zones a whole number of hours apart the minutes need no change.
 	 */
 	@IsTest
-	private static void shouldShiftCommaListMinutesForHalfHourTimezone()
+	private static void shouldRefuseCommaListMinutesForHalfHourTimezone()
 	{
-		String result = UTIL_CronExpression.shiftTimezone('0 0,30 14 * * ?', TIMEZONE_IST, TIMEZONE_GMT);
+		Assert.areEqual('0 40,50 12 * * ?', UTIL_CronExpression.shiftTimezone('0 40,50 14 * * ?', TIMEZONE_SAST, TIMEZONE_GMT), 'Expected the minutes to stay as written');
 
-		Assert.areEqual('0 30,0 8 * * ?', result, 'Comma-list minutes should each shift by -30 for half-hour timezone');
+		assertRefused('0 40,50 14 * * ?', TIMEZONE_IST, TIMEZONE_GMT);
 	}
 
 	/**
@@ -561,41 +909,52 @@ private class UTIL_CronExpression_TEST
 	}
 
 	/**
-	 * @description A day-of-month list is shifted as a whole or not at all. The list 1,15 holds the 1st, which cannot move
-	 * a day back, so the whole list is left as written and the 15th does not become the 14th. Only the hour changes, so
-	 * both days fire one day later than the schedule as written.
+	 * @description The 1st has no day before it in the same month, and the 31st has no day after it, so the shift cannot move
+	 * them. This is a known limit: the day stays as written and only the hour changes.
 	 */
 	@IsTest
-	private static void shouldNotShiftDayOfMonthCommaListOnBoundary()
+	private static void shouldKeepASingleFirstOrThirtyFirstDayAsWritten()
 	{
-		String result = UTIL_CronExpression.shiftTimezone('0 0 1 1,15 * ?', TIMEZONE_AEST, TIMEZONE_GMT);
-
-		Assert.areEqual('0 0 15 1,15 * ?', result, 'Day-of-month comma list should not shift when any value would cross boundary');
+		Assert.areEqual('0 0 16 1 * ?', UTIL_CronExpression.shiftTimezone('0 0 1 1 * ?', TIMEZONE_TOKYO, TIMEZONE_GMT), 'Expected the 1st to stay as written');
+		Assert.areEqual('0 0 8 31 * ?', UTIL_CronExpression.shiftTimezone('0 0 23 31 * ?', TIMEZONE_GMT, TIMEZONE_TOKYO), 'Expected the 31st to stay as written');
 	}
 
 	/**
-	 * @description A day-of-month range is shifted as a whole or not at all. The range 1-15 starts on the 1st, which
-	 * cannot move a day back, so the whole range is left as written. Only the hour changes, so every day in the range
-	 * fires one day later than the schedule as written.
+	 * @description A day-of-month list is refused when one of its days would leave 1 to 31. The list 1,15 holds the 1st,
+	 * which cannot move a day back, and leaving the list as written would fire the 15th one day late. The same list is
+	 * kept when the shift stays on the same day.
 	 */
 	@IsTest
-	private static void shouldNotShiftDayOfMonthRangeOnBoundary()
+	private static void shouldRefuseDayOfMonthCommaListWhenADayWouldLeaveTheMonth()
 	{
-		String result = UTIL_CronExpression.shiftTimezone('0 0 1 1-15 * ?', TIMEZONE_AEST, TIMEZONE_GMT);
+		assertRefused('0 0 1 1,15 * ?', TIMEZONE_AEST, TIMEZONE_GMT);
 
-		Assert.areEqual('0 0 15 1-15 * ?', result, 'Day-of-month range should not shift when start would cross boundary');
+		Assert.areEqual('0 0 5 1,15 * ?', UTIL_CronExpression.shiftTimezone('0 0 15 1,15 * ?', TIMEZONE_AEST, TIMEZONE_GMT), 'Expected the days to stay as written');
+	}
+
+	/**
+	 * @description A day-of-month range is refused when one of its days would leave 1 to 31. The range 1-15 starts on the
+	 * 1st, which cannot move a day back, and leaving the range as written would fire all fifteen days one day late. The
+	 * same range is kept when the shift stays on the same day.
+	 */
+	@IsTest
+	private static void shouldRefuseDayOfMonthRangeWhenADayWouldLeaveTheMonth()
+	{
+		assertRefused('0 0 1 1-15 * ?', TIMEZONE_AEST, TIMEZONE_GMT);
+
+		Assert.areEqual('0 0 5 1-15 * ?', UTIL_CronExpression.shiftTimezone('0 0 15 1-15 * ?', TIMEZONE_AEST, TIMEZONE_GMT), 'Expected the days to stay as written');
 	}
 
 	/**
 	 * @description An hour range that is split by midnight after the shift cannot stay a range, so it is written out as a
-	 * list: 14 to 16 in South Africa becomes 22, 23 and 0 in Brisbane, eight hours further ahead.
+	 * list in ascending order: 14 to 16 in South Africa becomes 0, 22 and 23 in Brisbane, eight hours further ahead.
 	 */
 	@IsTest
 	private static void shouldExpandWrappingRangeToCommaList()
 	{
 		String result = UTIL_CronExpression.shiftTimezone('0 0 14-16 * * ?', TIMEZONE_SAST, TIMEZONE_AEST);
 
-		Assert.areEqual('0 0 22,23,0 * * ?', result, 'Range crossing midnight should expand to comma list');
+		Assert.areEqual('0 0 0,22,23 * * ?', result, 'Range crossing midnight should expand to comma list');
 	}
 
 	/**
@@ -608,6 +967,94 @@ private class UTIL_CronExpression_TEST
 		String result = UTIL_CronExpression.shiftTimezone('0 0 1 ? * *', TIMEZONE_AEST, TIMEZONE_GMT);
 
 		Assert.areEqual('0 0 15 ? * *', result, 'Wildcard day-of-week should pass through unshifted on rollover');
+	}
+
+	/**
+	 * @description Asserts a conversion is refused with the message that names both time zones.
+	 *
+	 * @param expression The cron expression to move.
+	 * @param sourceZone The time zone the schedule is written for.
+	 * @param targetZone The time zone it would move to.
+	 */
+	private static void assertRefused(String expression, String sourceZone, String targetZone)
+	{
+		assertRefusedAt(new List<String> {expression, sourceZone, targetZone}, CONVERSION_REFERENCE);
+	}
+
+	/**
+	 * @description Asserts a conversion is refused with the message that names both time zones, using the offset between
+	 * the zones at a given moment.
+	 *
+	 * @param schedule The cron expression, the time zone it is written for and the time zone it would move to.
+	 * @param reference The moment that decides the offset between the two time zones.
+	 */
+	private static void assertRefusedAt(List<String> schedule, Datetime reference)
+	{
+		try
+		{
+			String converted = UTIL_CronExpression.shiftTimezone(schedule[0], schedule[1], schedule[2], reference);
+			Assert.fail('Expected ' + schedule[0] + ' moved from ' + schedule[1] + ' to ' + schedule[2] + ' to be refused, got ' + converted);
+		}
+		catch(IllegalArgumentException error)
+		{
+			String expected = String.format(System.Label.ScheduledJob_ScheduleCannotKeepTimesAcrossTimeZones, new List<Object> {schedule[1], schedule[2]});
+			Assert.areEqual(expected, error.getMessage(), 'Expected the labelled refusal for ' + schedule[0]);
+		}
+	}
+
+	/**
+	 * @description Asserts a conversion to GMT is reported as unreadable, with the message that names the token.
+	 *
+	 * @param expression The cron expression to move.
+	 * @param sourceZone The time zone the schedule is written for.
+	 * @param token The part of the expression the message must name.
+	 */
+	private static void assertReportedAsUnreadable(String expression, String sourceZone, String token)
+	{
+		try
+		{
+			String converted = UTIL_CronExpression.shiftTimezone(expression, sourceZone, TIMEZONE_GMT, CONVERSION_REFERENCE);
+			Assert.fail('Expected ' + expression + ' to be reported, got ' + converted);
+		}
+		catch(IllegalArgumentException error)
+		{
+			String expected = String.format(System.Label.ScheduledJob_CronExpressionInvalid, new List<Object> {token});
+			Assert.areEqual(expected, error.getMessage(), 'Expected the token in the message for ' + expression);
+		}
+	}
+
+	/**
+	 * @description Finds the next firings of an expression in a zone, starting from the moment the conversion tests share.
+	 *
+	 * @param expression The cron expression to walk.
+	 * @param zoneId The time zone the expression is read in.
+	 *
+	 * @return The firings in order, FIRINGS_TO_COMPARE of them.
+	 */
+	private static List<Datetime> findNextFirings(String expression, String zoneId)
+	{
+		return findNextFirings(expression, zoneId, CONVERSION_REFERENCE);
+	}
+
+	/**
+	 * @description Finds the next firings of a schedule after a given moment, read in a time zone.
+	 *
+	 * @param expression The cron expression.
+	 * @param zoneId The time zone the expression is read in.
+	 * @param start The moment the firings must come after.
+	 *
+	 * @return The firings, earliest first.
+	 */
+	private static List<Datetime> findNextFirings(String expression, String zoneId, Datetime start)
+	{
+		List<Datetime> firings = new List<Datetime>();
+		Datetime firing = start;
+		for(Integer count = 0; count < FIRINGS_TO_COMPARE; count++)
+		{
+			firing = UTIL_CronExpression.nextFireTime(expression, firing, zoneId);
+			firings.add(firing);
+		}
+		return firings;
 	}
 
 	/**

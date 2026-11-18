@@ -3,6 +3,7 @@
  * @description Utility for timezone-aware cron expression handling. Shifts cron expression hours
  * (and minutes for half-hour timezones) from one timezone to another so that System.schedule()
  * fires at the originally intended absolute time regardless of the running user's timezone.
+ * A schedule that one expression cannot hold in the new timezone is refused (see shiftTimezone).
  * Also evaluates an expression in a time zone for the job runner: nextFireTime returns the next moment an expression fires.
  *
  * @see UTIL_CronExpression_TEST
@@ -40,6 +41,11 @@ public inherited sharing class UTIL_CronExpression
 	 * @description Number of milliseconds in a minute.
 	 */
 	private static final Integer MILLISECONDS_PER_MINUTE = 60000;
+
+	/**
+	 * @description The number of days in the shortest month. A later day is missing from some months.
+	 */
+	private static final Integer DAYS_IN_THE_SHORTEST_MONTH = 28;
 
 	/**
 	 * @description Number of days in a week.
@@ -138,6 +144,21 @@ public inherited sharing class UTIL_CronExpression
 	private static final String OCCURRENCE_SEPARATOR = '#';
 
 	/**
+	 * @description The separator of a step such as 3/10.
+	 */
+	private static final String STEP_SEPARATOR = '/';
+
+	/**
+	 * @description The separator of a range such as 8-12.
+	 */
+	private static final String RANGE_SEPARATOR = '-';
+
+	/**
+	 * @description The number of fields a cron expression must have: the seventh, the year, is optional.
+	 */
+	private static final Integer MINIMUM_FIELD_COUNT = 6;
+
+	/**
 	 * @description Maps month names to numbers for the month field.
 	 */
 	private static final Map<String, Integer> MONTH_NAME_TO_NUMBER = new Map<String, Integer>
@@ -156,11 +177,39 @@ public inherited sharing class UTIL_CronExpression
 	 * (and minutes for half-hour timezones like India UTC+5:30) so that the job fires at the same
 	 * absolute time regardless of which user's timezone is active when System.schedule() runs.
 	 *
+	 * One expression cannot hold every moved schedule. A job at 01:00 and 23:00 on Mondays in Tokyo fires at 16:00 on Sunday
+	 * and 14:00 on Monday GMT, and one expression cannot name a different day for each hour. Such a schedule is refused,
+	 * never returned firing at other times.
+	 *
+	 * When the two zones are not a whole number of hours apart, the minutes field must be one number. System.schedule accepts
+	 * nothing else in that field, so any other minutes field is refused.
+	 *
+	 * The hours field can be any shape. It comes back as a sorted list of the moved hours. There are two exceptions: one hour
+	 * or an unbroken range is written that way, and a field whose hours are the same after the move stays as written. A
+	 * schedule that runs every day of every month and year can move freely, because the day a firing lands on does not
+	 * matter. A schedule that names days, a month or a year is refused when its hours would land on different days. When the
+	 * hours change, a wildcard hours field always puts some hours on another day, so it is refused too. It stays a wildcard
+	 * when only the minutes change and no firing crosses into another hour.
+	 *
+	 * When the shift moves the time onto another day, the day fields move with it. A named month or year is refused, because
+	 * a firing can land in the month before or after the one named. So is a day field that cannot be moved to the day before
+	 * or after: a weekday named by its place in the month (the second Monday, the last Friday), L or W in the day of the
+	 * month, a step, a list holding a range, a weekday range that would run past Saturday, and a list or range of days of the
+	 * month with a day that would leave 1 to 31. When the shift changes the day, a day of the month after the 28th is refused,
+	 * before or after the move, because whether it fires depends on the length of the month.
+	 *
+	 * The shift also has limits it does not refuse. One numbered day of the month that would leave 1 to 31 stays as written,
+	 * so a job on that day fires one or two days early or late. The offset is the one at the reference moment. So when only
+	 * one of the two zones changes its clocks, the job fires an hour early or late from that change until the record is saved
+	 * again.
+	 *
 	 * @param cronExpression The Salesforce cron expression (Seconds Minutes Hours DayOfMonth Month DayOfWeek [Year]).
 	 * @param sourceTimezoneSidKey The IANA timezone ID of the user who authored the cron expression.
 	 * @param targetTimezoneSidKey The IANA timezone ID of the user who will run System.schedule().
 	 *
 	 * @return The adjusted cron expression, or the original if no shift is needed.
+	 *
+	 * @throws IllegalArgumentException When one expression cannot keep the firing times, or a field cannot be read.
 	 *
 	 * @example
 	 * ```apex
@@ -187,6 +236,8 @@ public inherited sharing class UTIL_CronExpression
 	 *
 	 * @return The adjusted cron expression, or the original if no shift is needed.
 	 *
+	 * @throws IllegalArgumentException When one expression cannot keep the firing times, or a field cannot be read.
+	 *
 	 * @example
 	 * ```apex
 	 * // 2026-11-01 05:30 GMT is 30 minutes BEFORE DST ends in America/New_York
@@ -212,32 +263,47 @@ public inherited sharing class UTIL_CronExpression
 		}
 
 		List<String> parts = cronExpression.split(' ');
+
+		if(parts.size() < MINIMUM_FIELD_COUNT)
+		{
+			throw unreadable(cronExpression);
+		}
+
 		Integer hourOffset = offsetMinutes / MINUTES_PER_HOUR;
 		Integer minuteOffset = Math.mod(offsetMinutes, MINUTES_PER_HOUR);
-
 		Integer hourCarry = 0;
 
 		if(minuteOffset != 0)
 		{
 			ShiftResult minuteResult = shiftMinutes(parts[1], minuteOffset);
+
+			if(minuteResult == null)
+			{
+				throw buildRefusal(sourceTimezoneSidKey, targetTimezoneSidKey);
+			}
+
 			parts[1] = minuteResult.value;
 			hourCarry = minuteResult.carry;
 		}
 
-		ShiftResult hourResult = shiftHours(parts[2], hourOffset + hourCarry);
-		parts[2] = hourResult.value;
-		Integer dayOffset = hourResult.carry;
+		Boolean areDaysOpen = isDayFieldOpen(parts[3]) && isDayFieldOpen(parts[5]) && isMonthAndYearOpen(parts);
+		ShiftResult hourResult = shiftHours(parts[2], hourOffset + hourCarry, areDaysOpen);
 
-		if(dayOffset != 0)
+		if(hourResult == null)
 		{
-			if(parts[5] != QUESTION_MARK)
-			{
-				parts[5] = shiftDayOfWeek(parts[5], dayOffset);
-			}
+			throw buildRefusal(sourceTimezoneSidKey, targetTimezoneSidKey);
+		}
 
-			if(parts[3] != QUESTION_MARK && parts[3] != WILDCARD)
+		parts[2] = hourResult.value;
+
+		if(!areDaysOpen && hourResult.carry != 0)
+		{
+			parts[3] = shiftDayOfMonth(parts[3], hourResult.carry);
+			parts[5] = shiftDayOfWeek(parts[5], hourResult.carry);
+
+			if(parts[3] == null || parts[5] == null || !isMonthAndYearOpen(parts))
 			{
-				parts[3] = shiftDayOfMonth(parts[3], dayOffset);
+				throw buildRefusal(sourceTimezoneSidKey, targetTimezoneSidKey);
 			}
 		}
 
@@ -285,203 +351,234 @@ public inherited sharing class UTIL_CronExpression
 	}
 
 	/**
-	 * @description Shifts the minutes field of a cron expression by the given offset. Used for
-	 * half-hour timezone offsets (e.g., India UTC+5:30). Wildcards and step values pass through unshifted.
+	 * @description Shifts the minutes field of a cron expression when the two time zones are not a whole number of hours
+	 * apart (India, UTC+5:30, for example). The field must be one number, because System.schedule accepts nothing else here.
 	 *
 	 * @param minutesField The cron minutes field value.
 	 * @param minuteOffset The number of minutes to shift (can be negative).
 	 *
-	 * @return A ShiftResult with the adjusted minutes string and hour carry (0, +1, or -1).
+	 * @return A ShiftResult with the adjusted minutes and the number of hours they moved across, or null when the field is
+	 * not one number.
+	 *
+	 * @throws IllegalArgumentException When the number is not a minute of the hour.
 	 */
 	private static ShiftResult shiftMinutes(String minutesField, Integer minuteOffset)
 	{
-		ShiftResult result = new ShiftResult();
-		result.carry = 0;
-
-		if(minutesField == WILDCARD || minutesField.contains('/'))
+		if(!Pattern.matches(CRON_FIELD_DIGITS_PATTERN, minutesField))
 		{
-			result.value = minutesField;
-			return result;
+			return null;
 		}
 
-		if(minutesField.contains(UTIL_String.COMMA))
-		{
-			List<String> values = minutesField.split(UTIL_String.COMMA);
-			List<String> shifted = new List<String>();
-
-			for(String value : values)
-			{
-				Integer minutes = Integer.valueOf(value.trim());
-				Integer shiftedMinutes = minutes + minuteOffset;
-
-				if(shifted.isEmpty())
-				{
-					result.carry = calculateMinuteCarry(shiftedMinutes);
-				}
-
-				shifted.add(String.valueOf(wrapMinute(shiftedMinutes)));
-			}
-
-			result.value = String.join(shifted, UTIL_String.COMMA);
-			return result;
-		}
-
-		Integer minutes = Integer.valueOf(minutesField.trim());
-		Integer shiftedMinutes = minutes + minuteOffset;
-		result.carry = calculateMinuteCarry(shiftedMinutes);
-		result.value = String.valueOf(wrapMinute(shiftedMinutes));
+		Integer shiftedRaw = parseNumber(minutesField, 0, MINUTES_PER_HOUR - 1, null, minutesField) + minuteOffset;
+		ShiftResult result = new ShiftResult(String.valueOf(wrapValue(shiftedRaw, MINUTES_PER_HOUR)));
+		result.carry = calculateCarry(shiftedRaw, MINUTES_PER_HOUR);
 		return result;
 	}
 
 	/**
-	 * @description Shifts the hours field of a cron expression by the given offset. Handles single values,
-	 * comma lists, ranges, wildcards, and step expressions. Wildcards and steps pass through unshifted.
+	 * @description Shifts the hours field of a cron expression by the whole offset, including any hour added when the
+	 * minutes crossed the hour. Every shape is read into its hours and each hour is moved. When the schedule runs every day
+	 * a value may cross midnight freely, because the day does not matter. When it names days, every hour must land on the
+	 * same day, because the day fields name the same days for all of them. A wildcard stays a wildcard when the schedule
+	 * runs every day or the hours do not change. Otherwise it is refused: some of its hours would cross midnight and others
+	 * would not.
 	 *
 	 * @param hoursField The cron hours field value.
 	 * @param hourOffset The number of hours to shift (can be negative).
+	 * @param areDaysOpen True when the schedule runs on every day of every month and year.
 	 *
-	 * @return A ShiftResult with the adjusted hours string and day offset (0, +1, or -1).
+	 * @return A ShiftResult with the adjusted hours and the number of days they moved across, or null when one field cannot
+	 * hold the result.
+	 *
+	 * @throws IllegalArgumentException When the field cannot be read.
 	 */
-	private static ShiftResult shiftHours(String hoursField, Integer hourOffset)
+	private static ShiftResult shiftHours(String hoursField, Integer hourOffset, Boolean areDaysOpen)
 	{
-		ShiftResult result = new ShiftResult();
-		result.carry = 0;
-
-		if(hoursField == WILDCARD || hoursField.contains('/'))
+		if(hoursField == WILDCARD)
 		{
-			result.value = hoursField;
-			return result;
+			return areDaysOpen || hourOffset == 0 ? new ShiftResult(hoursField) : null;
 		}
 
-		if(hoursField.contains(UTIL_String.COMMA))
+		List<Integer> hours = parseNumberSet(hoursField, 0, HOURS_PER_DAY - 1, null);
+		List<Integer> shiftedHours = new List<Integer>();
+		Set<Integer> carries = new Set<Integer>();
+
+		for(Integer hour : hours)
 		{
-			List<String> values = hoursField.split(UTIL_String.COMMA);
-			List<String> shifted = new List<String>();
-
-			for(String value : values)
-			{
-				Integer hour = Integer.valueOf(value.trim());
-				Integer shiftedRaw = hour + hourOffset;
-				shifted.add(String.valueOf(wrapHour(shiftedRaw)));
-
-				if(shifted.size() == 1)
-				{
-					result.carry = calculateDayOffset(shiftedRaw);
-				}
-			}
-
-			result.value = String.join(shifted, UTIL_String.COMMA);
-			return result;
+			Integer shiftedRaw = hour + hourOffset;
+			shiftedHours.add(wrapValue(shiftedRaw, HOURS_PER_DAY));
+			carries.add(calculateCarry(shiftedRaw, HOURS_PER_DAY));
 		}
 
-		if(hoursField.contains('-'))
+		Boolean hasOneCarry = carries.size() == 1;
+
+		if(!hasOneCarry && !areDaysOpen)
 		{
-			List<String> endpoints = hoursField.split('-');
-			Integer startHour = Integer.valueOf(endpoints[0].trim());
-			Integer endHour = Integer.valueOf(endpoints[1].trim());
-
-			Integer shiftedStartRaw = startHour + hourOffset;
-			Integer shiftedEndRaw = endHour + hourOffset;
-
-			Integer wrappedStart = wrapHour(shiftedStartRaw);
-			Integer wrappedEnd = wrapHour(shiftedEndRaw);
-
-			result.carry = calculateDayOffset(shiftedStartRaw);
-
-			if(wrappedStart <= wrappedEnd)
-			{
-				result.value = wrappedStart + '-' + wrappedEnd;
-			}
-			else
-			{
-				List<String> hours = new List<String>();
-
-				for(Integer h = wrappedStart; h <= 23; h++)
-				{
-					hours.add(String.valueOf(h));
-				}
-
-				for(Integer h = 0; h <= wrappedEnd; h++)
-				{
-					hours.add(String.valueOf(h));
-				}
-
-				result.value = String.join(hours, UTIL_String.COMMA);
-			}
-
-			return result;
+			return null;
 		}
 
-		Integer hour = Integer.valueOf(hoursField.trim());
-		Integer shiftedRaw = hour + hourOffset;
-		result.value = String.valueOf(wrapHour(shiftedRaw));
-		result.carry = calculateDayOffset(shiftedRaw);
+		shiftedHours.sort();
+		Boolean keepsSameHours = shiftedHours.equals(hours);
+		ShiftResult result = new ShiftResult(keepsSameHours ? hoursField : writeHours(hoursField, shiftedHours));
+		result.carry = new List<Integer>(carries)[0];
 		return result;
 	}
 
 	/**
-	 * @description Shifts a day-of-week field by the given offset. Handles single values, comma lists,
-	 * ranges, hash patterns (e.g., MON#2), and L suffix (e.g., FRIL).
+	 * @description Writes moved hours as text. A field written as one range stays a range when the moved hours still form
+	 * one. Every other field becomes a comma list, in ascending order.
+	 *
+	 * @param field The hours field as written.
+	 * @param shiftedHours The moved hours in ascending order.
+	 *
+	 * @return The new hours field.
+	 */
+	private static String writeHours(String field, List<Integer> shiftedHours)
+	{
+		Integer first = shiftedHours[0];
+		Integer last = shiftedHours[shiftedHours.size() - 1];
+		Boolean staysRange = isRangeField(field) && last - first == shiftedHours.size() - 1;
+		return staysRange ? first + RANGE_SEPARATOR + last : String.join(shiftedHours, UTIL_String.COMMA);
+	}
+
+	/**
+	 * @description Works out how many hours or days a shifted value moved across.
+	 *
+	 * @param shiftedRaw The value after the shift, before it is wrapped (may be negative or too large).
+	 * @param fieldSize The number of values the field can hold: 60 for minutes, 24 for hours.
+	 *
+	 * @return How many hours or days the value moved across. It is negative when the value moved back past zero.
+	 */
+	private static Integer calculateCarry(Integer shiftedRaw, Integer fieldSize)
+	{
+		return (shiftedRaw - wrapValue(shiftedRaw, fieldSize)) / fieldSize;
+	}
+
+	/**
+	 * @description Checks whether a field is one plain range, such as `8-12`.
+	 *
+	 * @param field The field text.
+	 *
+	 * @return True when the field is two numbers joined by a dash, with no list and no step.
+	 */
+	private static Boolean isRangeField(String field)
+	{
+		return field.contains(RANGE_SEPARATOR) && !containsStepOrMixedList(field);
+	}
+
+	/**
+	 * @description Checks whether a field holds a step, or a list with a range inside it. A day field of either shape
+	 * cannot be moved to the day before or after.
+	 *
+	 * @param field The field text.
+	 *
+	 * @return True when the field holds a slash, or both a comma and a dash.
+	 */
+	private static Boolean containsStepOrMixedList(String field)
+	{
+		return field.contains(STEP_SEPARATOR) || (field.contains(UTIL_String.COMMA) && field.contains(RANGE_SEPARATOR));
+	}
+
+	/**
+	 * @description Checks whether a day field lets the schedule run on every day.
+	 *
+	 * @param field The day-of-month or day-of-week field.
+	 *
+	 * @return True for a wildcard or a question mark.
+	 */
+	private static Boolean isDayFieldOpen(String field)
+	{
+		return field == WILDCARD || field == QUESTION_MARK;
+	}
+
+	/**
+	 * @description Checks whether a schedule runs in every month of every year. When it does not, a firing that crosses the
+	 * end of a month can land in a month the schedule does not name.
+	 *
+	 * @param parts The fields of the expression.
+	 *
+	 * @return True when the month is a wildcard and the year is a wildcard or is not given.
+	 */
+	private static Boolean isMonthAndYearOpen(List<String> parts)
+	{
+		return parts[4] == WILDCARD && (parts.size() == MINIMUM_FIELD_COUNT || parts[6] == WILDCARD);
+	}
+
+	/**
+	 * @description Checks whether a day-of-week field names a place in the month, such as the second Monday (`2#2`) or the
+	 * last Friday (`6L`). Such a day cannot move to the weekday before or after: the Sunday before the second Monday of a month
+	 * is the first Sunday in some months and the second in others. No weekday name contains the letter L. A lone `L`, which
+	 * means Saturday, is refused with them.
+	 *
+	 * @param field The day-of-week field.
+	 *
+	 * @return True when the field holds a hash or the letter L.
+	 */
+	private static Boolean containsPlaceInMonth(String field)
+	{
+		return field.contains(OCCURRENCE_SEPARATOR) || field.toUpperCase().contains(LAST_DAY_TOKEN);
+	}
+
+	/**
+	 * @description Builds the exception for a schedule that one cron expression cannot hold in another time zone.
+	 *
+	 * @param sourceTimezoneSidKey The time zone the schedule is written for.
+	 * @param targetTimezoneSidKey The time zone it would move to.
+	 *
+	 * @return The exception, ready to throw.
+	 */
+	private static IllegalArgumentException buildRefusal(String sourceTimezoneSidKey, String targetTimezoneSidKey)
+	{
+		List<Object> timezones = new List<Object> {sourceTimezoneSidKey, targetTimezoneSidKey};
+		return new IllegalArgumentException(String.format(System.Label.ScheduledJob_ScheduleCannotKeepTimesAcrossTimeZones, timezones));
+	}
+
+	/**
+	 * @description Shifts a day-of-week field by the given offset. Handles single values, comma lists and ranges. A range
+	 * must run forward both before and after the move, because a range that runs past Saturday cannot be read back.
 	 *
 	 * @param field The cron day-of-week field value.
-	 * @param dayOffset The number of days to shift (+1 or -1).
+	 * @param dayOffset The number of days to shift.
 	 *
-	 * @return The adjusted day-of-week string.
+	 * @return The adjusted day-of-week string, or null when the field cannot be moved to the day before or after.
+	 *
+	 * @throws IllegalArgumentException When a day cannot be read.
 	 */
 	private static String shiftDayOfWeek(String field, Integer dayOffset)
 	{
-		if(field == WILDCARD || field == QUESTION_MARK)
+		if(isDayFieldOpen(field))
 		{
 			return field;
 		}
 
-		if(field.contains(UTIL_String.COMMA))
+		if(containsPlaceInMonth(field) || containsStepOrMixedList(field))
 		{
-			List<String> values = field.split(UTIL_String.COMMA);
-			List<String> shifted = new List<String>();
+			return null;
+		}
 
-			for(String value : values)
+		if(field.contains(RANGE_SEPARATOR))
+		{
+			List<String> endpoints = field.split(RANGE_SEPARATOR);
+
+			if(endpoints.size() != 2)
 			{
-				shifted.add(shiftSingleDayOfWeek(value.trim(), dayOffset));
+				return null;
 			}
 
-			return String.join(shifted, UTIL_String.COMMA);
+			String shiftedStart = shiftDayToken(endpoints[0], dayOffset);
+			String shiftedEnd = shiftDayToken(endpoints[1], dayOffset);
+			Boolean runsForward = readDayOfWeek(endpoints[0]) <= readDayOfWeek(endpoints[1]) && readDayOfWeek(shiftedStart) <= readDayOfWeek(shiftedEnd);
+			return runsForward ? shiftedStart + RANGE_SEPARATOR + shiftedEnd : null;
 		}
 
-		if(field.contains('-'))
+		List<String> shifted = new List<String>();
+
+		for(String token : field.split(UTIL_String.COMMA))
 		{
-			List<String> endpoints = field.split('-');
-			String shiftedStart = shiftSingleDayOfWeek(endpoints[0].trim(), dayOffset);
-			String shiftedEnd = shiftSingleDayOfWeek(endpoints[1].trim(), dayOffset);
-			return shiftedStart + '-' + shiftedEnd;
+			shifted.add(shiftDayToken(token, dayOffset));
 		}
 
-		return shiftSingleDayOfWeek(field, dayOffset);
-	}
-
-	/**
-	 * @description Shifts a single day-of-week token, handling hash and L patterns.
-	 *
-	 * @param dayValue The day token (e.g., MON, 2, MON#2, FRIL).
-	 * @param dayOffset The number of days to shift.
-	 *
-	 * @return The shifted day token.
-	 */
-	private static String shiftSingleDayOfWeek(String dayValue, Integer dayOffset)
-	{
-		if(dayValue.contains('#'))
-		{
-			List<String> hashParts = dayValue.split('#');
-			return shiftDayToken(hashParts[0], dayOffset) + '#' + hashParts[1];
-		}
-
-		if(dayValue.endsWith('L'))
-		{
-			String dayPart = dayValue.removeEnd('L');
-			return shiftDayToken(dayPart, dayOffset) + 'L';
-		}
-
-		return shiftDayToken(dayValue, dayOffset);
+		return String.join(shifted, UTIL_String.COMMA);
 	}
 
 	/**
@@ -492,85 +589,89 @@ public inherited sharing class UTIL_CronExpression
 	 * @param dayOffset The number of days to shift.
 	 *
 	 * @return The shifted day token in the same format (name or number) as the input.
+	 *
+	 * @throws IllegalArgumentException When the token cannot be read.
 	 */
 	private static String shiftDayToken(String token, Integer dayOffset)
 	{
-		Boolean isName = DAY_NAME_TO_NUMBER.containsKey(token.toUpperCase());
-		Integer dayNumber;
-
-		if(isName)
-		{
-			dayNumber = DAY_NAME_TO_NUMBER.get(token.toUpperCase());
-		}
-		else
-		{
-			dayNumber = Integer.valueOf(token);
-		}
-
-		Integer shifted = wrapDayOfWeek(dayNumber + dayOffset);
-		return isName ? DAY_NUMBER_TO_NAME.get(shifted) : String.valueOf(shifted);
+		Integer shifted = wrapDayOfWeek(readDayOfWeek(token) + dayOffset);
+		return DAY_NAME_TO_NUMBER.containsKey(token.toUpperCase()) ? DAY_NUMBER_TO_NAME.get(shifted) : String.valueOf(shifted);
 	}
 
 	/**
-	 * @description Shifts a day-of-month field by the given offset. Returns the field unchanged when
-	 * the shifted value would fall outside the valid 1-31 range (month boundaries cannot be reliably
-	 * resolved without knowing the specific month). Values with L or W suffixes are also returned
-	 * unchanged since "last day" and "nearest weekday" are relative expressions.
+	 * @description Reads one day-of-week token as its number, where 1 is Sunday and 7 is Saturday.
+	 *
+	 * @param token The day name (e.g., MON) or number (e.g., 2).
+	 *
+	 * @return The day number.
+	 *
+	 * @throws IllegalArgumentException When the token cannot be read.
+	 */
+	private static Integer readDayOfWeek(String token)
+	{
+		return parseNumber(token.toUpperCase(), CRON_SUNDAY, CRON_SATURDAY, DAY_NAME_TO_NUMBER, token);
+	}
+
+	/**
+	 * @description Shifts a day-of-month field by the given offset. A single day that would fall outside 1 to 31 stays as
+	 * written, because the day before the 1st depends on the month. A list or range with such a day is refused, because
+	 * leaving it as written would make every other day in it fire on the wrong day. A day after the 28th is refused,
+	 * before or after the move, because whether it fires depends on the length of the month. L and W have no number to move, because
+	 * "last day" and "nearest weekday" depend on the month, so those are refused, as are steps and lists that hold a range.
 	 *
 	 * @param field The cron day-of-month field value.
 	 * @param dayOffset The number of days to shift (+1 or -1).
 	 *
-	 * @return The adjusted day-of-month string, or the original if shifting would produce an invalid value.
+	 * @return The adjusted day-of-month string, the original if it is a single day that would leave 1 to 31, or null when
+	 * the field cannot be moved to the day before or after.
+	 *
+	 * @throws IllegalArgumentException When a day cannot be read.
 	 */
 	private static String shiftDayOfMonth(String field, Integer dayOffset)
 	{
-		if(field.contains('L') || field.contains('W'))
+		if(isDayFieldOpen(field))
 		{
 			return field;
 		}
 
-		if(field.contains(UTIL_String.COMMA))
-		{
-			List<String> values = field.split(UTIL_String.COMMA);
-			List<String> shifted = new List<String>();
+		String upperCaseField = field.toUpperCase();
 
-			for(String value : values)
+		if(upperCaseField.contains(LAST_DAY_TOKEN) || upperCaseField.contains(WEEKDAY_SUFFIX) || containsStepOrMixedList(field))
+		{
+			return null;
+		}
+
+		Boolean isRange = field.contains(RANGE_SEPARATOR);
+		String separator = isRange ? RANGE_SEPARATOR : UTIL_String.COMMA;
+		List<Integer> shifted = new List<Integer>();
+
+		for(String token : field.split(separator))
+		{
+			shifted.add(parseNumber(token, 1, 31, null, field) + dayOffset);
+		}
+
+		if(isRange && (shifted.size() != 2 || shifted[0] > shifted[1]))
+		{
+			return null;
+		}
+
+		for(Integer shiftedDay : shifted)
+		{
+			if(!isDayOfMonthValid(shiftedDay))
 			{
-				Integer shiftedDay = Integer.valueOf(value.trim()) + dayOffset;
-
-				if(!isDayOfMonthValid(shiftedDay))
-				{
-					return field;
-				}
-
-				shifted.add(String.valueOf(shiftedDay));
+				return shifted.size() == 1 ? field : null;
 			}
-
-			return String.join(shifted, UTIL_String.COMMA);
 		}
 
-		if(field.contains('-'))
+		for(Integer shiftedDay : shifted)
 		{
-			List<String> endpoints = field.split('-');
-			Integer shiftedStart = Integer.valueOf(endpoints[0].trim()) + dayOffset;
-			Integer shiftedEnd = Integer.valueOf(endpoints[1].trim()) + dayOffset;
-
-			if(!isDayOfMonthValid(shiftedStart) || !isDayOfMonthValid(shiftedEnd))
+			if(dayOffset != 0 && (shiftedDay > DAYS_IN_THE_SHORTEST_MONTH || shiftedDay - dayOffset > DAYS_IN_THE_SHORTEST_MONTH))
 			{
-				return field;
+				return null;
 			}
-
-			return shiftedStart + '-' + shiftedEnd;
 		}
 
-		Integer shiftedDay = Integer.valueOf(field.trim()) + dayOffset;
-
-		if(!isDayOfMonthValid(shiftedDay))
-		{
-			return field;
-		}
-
-		return String.valueOf(shiftedDay);
+		return String.join(shifted, separator);
 	}
 
 	/**
@@ -586,30 +687,18 @@ public inherited sharing class UTIL_CronExpression
 	}
 
 	/**
-	 * @description Wraps an hour value into the valid 0-23 range using modular arithmetic.
+	 * @description Wraps a value into the range 0 to size minus 1. A value past the end starts again at 0, and a value
+	 * below 0 counts back from the end, so with size 24 the value 25 becomes 1 and the value -1 becomes 23.
 	 *
-	 * @param hour The raw hour value (may be negative or >= 24).
+	 * @param value The raw value (may be negative or too large).
+	 * @param size The size of the range: 60 for minutes or 24 for hours.
 	 *
-	 * @return The wrapped hour value between 0 and 23.
+	 * @return The wrapped value.
 	 */
-	@TestVisible
-	private static Integer wrapHour(Integer hour)
+	private static Integer wrapValue(Integer value, Integer size)
 	{
-		Integer result = Math.mod(hour, HOURS_PER_DAY);
-		return result < 0 ? result + HOURS_PER_DAY : result;
-	}
-
-	/**
-	 * @description Wraps a minute value into the valid 0-59 range using modular arithmetic.
-	 *
-	 * @param minute The raw minute value (may be negative or >= 60).
-	 *
-	 * @return The wrapped minute value between 0 and 59.
-	 */
-	private static Integer wrapMinute(Integer minute)
-	{
-		Integer result = Math.mod(minute, MINUTES_PER_HOUR);
-		return result < 0 ? result + MINUTES_PER_HOUR : result;
+		Integer result = Math.mod(value, size);
+		return result < 0 ? result + size : result;
 	}
 
 	/**
@@ -623,50 +712,6 @@ public inherited sharing class UTIL_CronExpression
 	{
 		Integer result = Math.mod(day - 1, DAYS_PER_WEEK);
 		return (result < 0 ? result + DAYS_PER_WEEK : result) + 1;
-	}
-
-	/**
-	 * @description Calculates the day offset when a raw shifted hour value crosses midnight.
-	 *
-	 * @param shiftedRawHour The hour value before wrapping (may be negative or >= 24).
-	 *
-	 * @return -1 if the hour crossed midnight backward, +1 if forward, 0 otherwise.
-	 */
-	private static Integer calculateDayOffset(Integer shiftedRawHour)
-	{
-		if(shiftedRawHour < 0)
-		{
-			return -1;
-		}
-
-		if(shiftedRawHour >= HOURS_PER_DAY)
-		{
-			return 1;
-		}
-
-		return 0;
-	}
-
-	/**
-	 * @description Calculates the hour carry when a raw shifted minute value crosses the hour boundary.
-	 *
-	 * @param shiftedRawMinute The minute value before wrapping (may be negative or >= 60).
-	 *
-	 * @return -1 if the minute crossed backward, +1 if forward, 0 otherwise.
-	 */
-	private static Integer calculateMinuteCarry(Integer shiftedRawMinute)
-	{
-		if(shiftedRawMinute < 0)
-		{
-			return -1;
-		}
-
-		if(shiftedRawMinute >= MINUTES_PER_HOUR)
-		{
-			return 1;
-		}
-
-		return 0;
 	}
 
 	/**
@@ -1386,19 +1431,30 @@ public inherited sharing class UTIL_CronExpression
 	}
 
 	/**
-	 * @description Holds the result of shifting a cron field, including the shifted value and any
-	 * carry to the next higher field (minutes carry to hours, hours carry to days).
+	 * @description Holds the result of shifting a cron field: the shifted value, and how far it moved in the next larger
+	 * field (minutes can move into another hour, hours into another day).
 	 */
 	private class ShiftResult
 	{
 		/**
 		 * @description The shifted field value.
 		 */
-		String value;
+		final String value;
 
 		/**
-		 * @description The carry to the next higher field (0, +1, or -1).
+		 * @description How many hours or days the value moved across. Zero for a wildcard. When the values of a field moved
+		 * by different amounts, this is one of those amounts, and it is used only when the day does not matter.
 		 */
-		Integer carry;
+		Integer carry = 0;
+
+		/**
+		 * @description Builds a result that moved across no hour or day.
+		 *
+		 * @param value The shifted field value.
+		 */
+		ShiftResult(String value)
+		{
+			this.value = value;
+		}
 	}
 }

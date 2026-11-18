@@ -15,7 +15,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -269,7 +269,7 @@ global inherited sharing class UTIL_List
 		if(objects.size() > partitionSize)
 		{
 			List<Object> partitionObjects;
-			Integer partitionCount = (Integer)Math.ceil(Decimal.valueOf(objects.size()).divide(Math.max(partitionSize, 1), 1));
+			Integer partitionCount = (objects.size() + partitionSize - 1) / partitionSize;
 
 			for(Integer partitionIndex = 0; partitionIndex < partitionCount; partitionIndex++)
 			{

@@ -10,7 +10,7 @@
  *
  * @group DML
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.AvoidBooleanMethodParameters,PMD.ExcessiveClassLength')
 public inherited sharing class DML_SharingProxy
@@ -25,8 +25,8 @@ public inherited sharing class DML_SharingProxy
 	/**
 	 * @description The two mode names that the fallback comparison in matchesAccessLevel accepts. Any other text
 	 * never counts as a match. This holds even when both access levels show the same unknown text, which could
-	 * happen if the platform changes how it prints an access level. So a failed comparison can only make the caller
-	 * fall back to the flag's default mode. It can never give the caller more access.
+	 * happen if the platform changes how it prints an access level. A failed comparison is treated as no match.
+	 * commitWork(false) then passes the level on unchanged, and PROC_UpdateFields does too.
 	 */
 	private static final Set<String> KNOWN_ACCESS_PERMISSIONS = new Set<String> {'SYSTEM_MODE', 'USER_MODE'};
 
@@ -82,9 +82,10 @@ public inherited sharing class DML_SharingProxy
 	 * not, it reads the mode name from the text that `String.valueOf` prints for each value. That text ends with the
 	 * value's own `currentAccessPermissions` name, and the name must be one of the two known modes. If a name cannot
 	 * be read, or is not a known mode, the method reports no match. This can happen if the platform changes how it
-	 * prints an access level. The caller then falls back to the flag's default mode, so it never gains access by
-	 * mistake. A USER_MODE value limited to a permission set prints the same `USER_MODE` name as the plain value, so
-	 * it matches USER_MODE. The permission-set limit is lost, which leaves the stricter mode.
+	 * prints an access level. commitWork(false) then passes the level on unchanged, and PROC_UpdateFields does
+	 * too. A USER_MODE value limited to a permission set prints `CUSTOM`, not `USER_MODE`, so it matches
+	 * neither mode. `DML_Transaction.commitWork(false)` then sends such a save to Salesforce unchanged, with the
+	 * permission set.
 	 *
 	 * @param candidate The access level under test, possibly deserialized from an async payload.
 	 * @param reference The access level to compare against, normally the `AccessLevel.SYSTEM_MODE` or `AccessLevel.USER_MODE` singleton.
@@ -528,8 +529,8 @@ public inherited sharing class DML_SharingProxy
 	 * always does: the same exception, message and status code. In all-or-nothing mode one refused object sends the
 	 * whole statement that way. When a partial save is allowed, only the refused objects go that way, and the results
 	 * are put back in the order of the statement. A refused object is sent with the access level the caller passes, or
-	 * in plain user mode when it is null. So when the caller sets user mode with a permission set, the platform takes
-	 * that permission set into account for a refused object. The checks in steps 1 to 3 use only the running user's
+	 * in plain user mode when it is null. A level that names a permission set never reaches this proxy; see
+	 * DML_Transaction.commitWork(Boolean). The checks in steps 1 to 3 use only the running user's
 	 * own permissions. The class runs without sharing, so an inner proxy with inherited sharing also ignores record
 	 * sharing.
 	 */

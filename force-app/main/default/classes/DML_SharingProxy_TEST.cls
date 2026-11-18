@@ -8,7 +8,7 @@
  *
  * @group DML
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=false)
@@ -84,6 +84,20 @@ private class DML_SharingProxy_TEST
 				'The rebuilt AccessLevel should not match with ==. If it does, the platform now keeps the same object and the fallback comparison is not tested');
 		Assert.isTrue(comparatorResolvesSystemMode, 'Comparator must resolve the round-tripped AccessLevel as SYSTEM_MODE');
 		Assert.isFalse(comparatorResolvesUserMode, 'Comparator must not resolve the round-tripped SYSTEM_MODE as USER_MODE');
+	}
+
+	/**
+	 * @description A missing access level matches only another missing level. Compared with user mode, either way
+	 * round, it is no match, so a caller that gave no level never counts as one that asked for user mode.
+	 *
+	 * @see DML_SharingProxy.matchesAccessLevel
+	 */
+	@IsTest
+	private static void shouldMatchAMissingLevelOnlyToAnotherMissingLevel()
+	{
+		Assert.isFalse(DML_SharingProxy.matchesAccessLevel(null, System.AccessLevel.USER_MODE), 'Expected a missing level not to match user mode');
+		Assert.isFalse(DML_SharingProxy.matchesAccessLevel(System.AccessLevel.USER_MODE, null), 'Expected user mode not to match a missing level');
+		Assert.isTrue(DML_SharingProxy.matchesAccessLevel(null, null), 'Expected two missing levels to match');
 	}
 
 	/**

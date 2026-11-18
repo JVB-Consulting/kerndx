@@ -21,7 +21,7 @@
  *
  * @group Testing
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @IsTest(seeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.AvoidBooleanMethodParameters')
@@ -1096,7 +1096,8 @@ private class TST_Builder_TEST
 	}
 
 	/**
-	 * @description Tests that building an SObject with an invalid/non-existent SObject API name ('TEST') correctly throws an exception.
+	 * @description Tests that building with the name 'test', which finds a system Apex class and not an object, throws a
+	 * descriptive IllegalArgumentException.
 	 */
 	@IsTest
 	private static void buildWithInvalidSObjectNameThrowsException()
@@ -1113,7 +1114,8 @@ private class TST_Builder_TEST
 			}
 			catch(Exception error)
 			{
-				assertIsTypeException(error, 'Invalid exception for an invalid SObject name.');
+				assertIsIllegalArgumentException(error, 'Invalid exception for an invalid SObject name.');
+				Assert.isTrue(error.getMessage().contains(TEST_STRING), 'Error message should contain the invalid name');
 			}
 		}
 	}

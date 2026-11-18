@@ -9,10 +9,11 @@
  *    - QRY_Builder.selectFrom(
  *    - DML_Builder.newTransaction(
  *    - new DML_Transaction(
- *    …must be followed (within 500 chars) by .withUserMode() / .withSystemMode()
- *    / .setAccessLevel( / .systemModeInternal(. Selector classes that extend SEL_Base and return their
- *    fluent `query` getter are protected by the systemModeRequired() hook, so
- *    calls through `new SEL_X().query` / `this.query` don't hit this rule.
+ *    …must be followed (within 500 chars) by .withUserMode() / .withSystemMode() / .setAccessLevel(
+ *    / .setAccessLevelInternal( / .systemModeInternal(. The two Internal forms are the framework's own
+ *    silent switches, which set the mode without writing a bypass audit entry. Selector classes that
+ *    extend SEL_Base and return their fluent `query` getter are protected by the systemModeRequired()
+ *    hook, so calls through `new SEL_X().query` / `this.query` don't hit this rule.
  *
  * 2. Raw SOQL / SOSL calls must pass an explicit AccessLevel argument
  *    - Database.query(
@@ -68,6 +69,7 @@ const DECLARATION_PATTERNS = [
 	/\.withUserMode\s*\(/,
 	/\.withSystemMode\s*\(/,
 	/\.setAccessLevel\s*\(/,
+	/\.setAccessLevelInternal\s*\(/,
 	/\.systemModeInternal\s*\(/
 ];
 

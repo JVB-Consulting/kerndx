@@ -35,13 +35,16 @@ export default [
 		}
 	},
 
-	// The maintainer scripts and the pipeline package are Node tooling too: CommonJS modules that read `module`,
-	// `process` and `__dirname`, run commands one after another on purpose, and print to a terminal rather than to a
-	// subscriber's page. Without this block every one of those globals was an error nobody could clear, so the real
-	// findings in these folders were read past. The rules written for Lightning components and their Jest suites
-	// (DOM queries, timers, user-facing text, the Jest theatre check, which also fires on node:test files) are off.
+	// The maintainer scripts and the pipeline package are Node tooling too: CommonJS modules
+	// that read `module`, `process` and `__dirname`, run commands one after another on purpose, and print to a terminal
+	// rather than to a subscriber's page. Without this block every one of those globals was an error nobody could
+	// clear, so the real findings in these folders were read past. The rules written for Lightning components and their
+	// Jest suites (DOM queries, timers, user-facing text, the Jest theatre check, which also fires on node:test files)
+	// are off.
 	{
-		files: ['scripts/**/*.js', 'scripts/**/*.mjs', 'pipeline/**/*.js', 'pipeline/**/*.mjs'], languageOptions: {
+		files: [
+			'scripts/**/*.js', 'scripts/**/*.mjs', 'pipeline/**/*.js', 'pipeline/**/*.mjs'
+		], languageOptions: {
 			globals: {
 				...globals.es2021, ...globals.node
 			}

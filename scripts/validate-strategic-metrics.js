@@ -19,7 +19,7 @@
  *              specific document.
  *
  * @author Kern Framework
- * @date May 2026, October 2026
+ * @date May 2026, November 2026
  */
 
 const fs = require('node:fs');
@@ -975,6 +975,8 @@ module.exports = {
 	parseLocalTestRun,
 	formatPassRate,
 	highestReleasedVersion,
+	readPromotedVersions,
+	compareVersions,
 	findRecordedFigureDrift,
 	LOCAL_TEST_RUN_RECORD
 };
