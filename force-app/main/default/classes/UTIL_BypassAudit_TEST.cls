@@ -10,11 +10,11 @@
  *
  * @group Security
  *
- * @date May 2026, October 2026
+ * @date May 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(seeAllData=false isParallel=true)
-private class UTIL_BypassAudit_TEST
+public class UTIL_BypassAudit_TEST
 {
 	/**
 	 * @description Surface label used by the canonical-shape test.
@@ -907,6 +907,166 @@ private class UTIL_BypassAudit_TEST
 	}
 
 	/**
+	 * @description A bypass audit entry is a warning, but the level threshold applies only to application logs. So
+	 * when the threshold is ERROR and logging is on, the entry is still kept.
+	 *
+	 * @see UTIL_BypassAudit.emit
+	 * @see LOG_Engine.logAudit
+	 */
+	@IsTest
+	private static void shouldKeepABypassEntryWhenTheLevelThresholdIsError()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		LOG_Builder.suspendSaving();
+		LOG_Engine.logSettingOverride = (LogSetting__c)newLogSetting(true, LOG_Engine.LEVEL_ERROR).build();
+
+		UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_TRIGGER_OBJECT, UTIL_BypassAudit.ACTION_BYPASS, UTIL_Random.randomName(), null);
+
+		Assert.areEqual(1, LOG_Engine.getAuditBufferSize(), 'Expected the bypass entry to be kept when the level threshold is ERROR');
+	}
+
+	/**
+	 * @description When logging is switched off (Is Enabled is not checked), a bypass audit entry is dropped, at
+	 * every level threshold.
+	 *
+	 * @see UTIL_BypassAudit.emit
+	 * @see LOG_Engine.logAudit
+	 */
+	@IsTest
+	private static void shouldDropABypassEntryWhenLoggingIsSwitchedOff()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		LOG_Builder.suspendSaving();
+		LOG_Engine.logSettingOverride = (LogSetting__c)newLogSetting(false, LOG_Engine.LEVEL_DEBUG).build();
+
+		UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_TRIGGER_OBJECT, UTIL_BypassAudit.ACTION_BYPASS, UTIL_Random.randomName(), null);
+
+		Assert.areEqual(0, LOG_Engine.getAuditBufferSize(), 'Expected the bypass entry to be dropped when logging is switched off');
+	}
+
+	/**
+	 * @description When the class filter of the log setting names only other classes, a bypass audit entry whose
+	 * caller is in a class the filter leaves out is dropped.
+	 *
+	 * @see UTIL_BypassAudit.emit
+	 * @see LOG_Engine.logAudit
+	 */
+	@IsTest
+	private static void shouldDropABypassEntryWhenTheClassFilterLeavesOutItsCaller()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		LOG_Builder.suspendSaving();
+		LOG_Engine.logSettingOverride = (LogSetting__c)newLogSetting(true, LOG_Engine.LEVEL_ERROR)
+				.withOverride(LogSetting__c.ClassFilter__c, UTIL_Random.randomName())
+				.build();
+
+		UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_TRIGGER_OBJECT, UTIL_BypassAudit.ACTION_BYPASS, UTIL_Random.randomName(), null);
+
+		Assert.areEqual(0, LOG_Engine.getAuditBufferSize(), 'Expected the bypass entry to be dropped when the class filter leaves out its caller');
+	}
+
+	/**
+	 * @description When the suppression list of the log setting names the class of the caller, a bypass audit entry
+	 * from that caller is dropped. The class name is read from the entry the org records, so the test works with and
+	 * without a namespace.
+	 *
+	 * @see UTIL_BypassAudit.emit
+	 * @see LOG_Engine.logAudit
+	 */
+	@IsTest
+	private static void shouldDropABypassEntryWhenASuppressionNamesItsCaller()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		LOG_Builder.suspendSaving();
+		String callerClassName = findRecordedCallerClassName();
+		LOG_Engine.logSettingOverride = (LogSetting__c)newLogSetting(true, LOG_Engine.LEVEL_ERROR)
+				.withOverride(LogSetting__c.SuppressClassMethod__c, callerClassName)
+				.build();
+
+		UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_TRIGGER_OBJECT, UTIL_BypassAudit.ACTION_BYPASS, UTIL_Random.randomName(), null);
+
+		Assert.areEqual(0, LOG_Engine.getAuditBufferSize(), 'Expected the bypass entry to be dropped when a suppression names its caller');
+	}
+
+	/**
+	 * @description When the class filter of the log setting names the class of the caller, a bypass audit entry
+	 * from that caller is kept, even when the level threshold is ERROR. The class name is read from the entry the org
+	 * records, so the test works with and without a namespace.
+	 *
+	 * @see UTIL_BypassAudit.emit
+	 * @see LOG_Engine.logAudit
+	 */
+	@IsTest
+	private static void shouldKeepABypassEntryWhenTheClassFilterNamesItsCaller()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		LOG_Builder.suspendSaving();
+		String callerClassName = findRecordedCallerClassName();
+		LOG_Engine.logSettingOverride = (LogSetting__c)newLogSetting(true, LOG_Engine.LEVEL_ERROR)
+				.withOverride(LogSetting__c.ClassFilter__c, callerClassName)
+				.build();
+
+		UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_TRIGGER_OBJECT, UTIL_BypassAudit.ACTION_BYPASS, UTIL_Random.randomName(), null);
+
+		Assert.areEqual(1, LOG_Engine.getAuditBufferSize(), 'Expected the bypass entry to be kept when the class filter names its caller');
+	}
+
+	/**
+	 * @description In a test that does not set `LOG_Builder.ignoreTestMode`, a bypass audit entry is not sent, so it
+	 * never reaches the audit buffer, even while logging is on.
+	 *
+	 * @see UTIL_BypassAudit.emit
+	 * @see LOG_Engine.logAudit
+	 */
+	@IsTest
+	private static void shouldNotPublishABypassEntryInATestWithoutIgnoreTestMode()
+	{
+		LOG_Builder.ignoreTestMode = false;
+		LOG_Builder.suspendSaving();
+		LOG_Engine.logSettingOverride = (LogSetting__c)newLogSetting(true, LOG_Engine.LEVEL_ERROR).build();
+
+		UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_TRIGGER_OBJECT, UTIL_BypassAudit.ACTION_BYPASS, UTIL_Random.randomName(), null);
+
+		Assert.areEqual(0, LOG_Engine.getAuditBufferSize(), 'Expected no bypass entry in a test that does not set ignoreTestMode');
+	}
+
+	/**
+	 * @description Starts a log setting that is not saved, with logging switched on or off, the given level
+	 * threshold, and no class filter or suppression. A test adds a class filter or a suppression before it builds.
+	 *
+	 * @param isEnabled Whether logging is switched on.
+	 * @param threshold The lowest level an application log needs to be kept.
+	 *
+	 * @return The builder for the log setting.
+	 */
+	private static TST_Builder.Builder newLogSetting(Boolean isEnabled, String threshold)
+	{
+		return TST_Builder.of(LogSetting__c.SObjectType)
+				.withOverride(LogSetting__c.IsEnabled__c, isEnabled)
+				.withOverride(LogSetting__c.LogLevelThreshold__c, threshold)
+				.withOverride(LogSetting__c.ClassFilter__c, null)
+				.withOverride(LogSetting__c.SuppressClassMethod__c, null)
+				.withoutInsertion();
+	}
+
+	/**
+	 * @description Finds the class name the org records as the caller of a bypass in this test class. It sends one
+	 * bypass entry with a setting that keeps every entry, reads the caller from the buffered event, and empties the
+	 * audit buffer again. Without a namespace the caller is this test class. With a namespace every frame carries it,
+	 * so the caller is the fallback, and its class part is the namespace. Saving must be suspended first.
+	 *
+	 * @return The class part of the recorded caller.
+	 */
+	private static String findRecordedCallerClassName()
+	{
+		LOG_Engine.logSettingOverride = (LogSetting__c)newLogSetting(true, LOG_Engine.LEVEL_DEBUG).build();
+		UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_TRIGGER_OBJECT, UTIL_BypassAudit.ACTION_BYPASS, UTIL_Random.randomName(), null);
+		String recordedCaller = LOG_Engine.auditLogBuffer[0].ClassMethod__c;
+		LOG_Engine.auditLogBuffer.clear();
+		return LOG_Engine.extractClassName(recordedCaller);
+	}
+
+	/**
 	 * @description Checks the recorded caller in a way that depends on the namespace. In an
 	 * unmanaged org the test frame is the first external frame, so the resolved caller names this
 	 * test class. In a namespaced org (e.g. the packaging-build test run, where even test frames
@@ -1059,5 +1219,97 @@ private class UTIL_BypassAudit_TEST
 			}
 		}
 		return matches;
+	}
+
+	/**
+	 * @description Reads the context of each bypass entry waiting in the audit buffer for one surface whose target starts
+	 * with the given text. Saving must be suspended first, so the entries stay in the buffer.
+	 *
+	 * @param surface The surface of the bypass, such as dml or query.
+	 * @param targetStart The text the target of a returned entry starts with. An empty text matches every target.
+	 *
+	 * @return The context of each matching entry, in the order the entries were written.
+	 */
+	public static List<Map<String, Object>> findBufferedBypassEntries(String surface, String targetStart)
+	{
+		List<Map<String, Object>> entries = new List<Map<String, Object>>();
+		for(LogEntryEvent__e event : LOG_Engine.auditLogBuffer)
+		{
+			LogEntry__c entry = (LogEntry__c)TST_Builder.of(LogEntry__c.SObjectType)
+					.withOverride(LogEntry__c.ContextData__c, event.ContextData__c)
+					.withoutInsertion()
+					.build();
+			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
+			String target = (String)context?.get(UTIL_BypassAudit.CONTEXT_TARGET);
+			if(surface == context?.get(UTIL_BypassAudit.CONTEXT_SURFACE) && target?.startsWith(targetStart) == true)
+			{
+				entries.add(context);
+			}
+		}
+		return entries;
+	}
+
+	/**
+	 * @description Counts the bypass entries waiting in the audit buffer for one surface whose target starts with the
+	 * given text. Saving must be suspended first, so the entries stay in the buffer.
+	 *
+	 * @param surface The surface of the bypass, such as dml or query.
+	 * @param targetStart The text the target of a counted entry starts with.
+	 *
+	 * @return How many entries match.
+	 */
+	public static Integer countBufferedBypassEntries(String surface, String targetStart)
+	{
+		return findBufferedBypassEntries(surface, targetStart).size();
+	}
+
+	/**
+	 * @description Counts the saved bypass entries for one surface whose target starts with the given text.
+	 *
+	 * @param surface The surface of the bypass, such as dml or query.
+	 * @param targetStart The text the target of a counted entry starts with.
+	 *
+	 * @return How many entries match.
+	 */
+	public static Integer countSavedBypassEntries(String surface, String targetStart)
+	{
+		Integer matchingEntries = 0;
+		for(LogEntry__c entry : new SEL_LogEntry().findAllOrderedByCreatedDateDesc())
+		{
+			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
+			String target = (String)context?.get(UTIL_BypassAudit.CONTEXT_TARGET);
+			if(surface == context?.get(UTIL_BypassAudit.CONTEXT_SURFACE) && target?.startsWith(targetStart) == true)
+			{
+				matchingEntries++;
+			}
+		}
+		return matchingEntries;
+	}
+
+	/**
+	 * @description Counts how many times a bypass with exactly the given surface and target happened, from the saved
+	 * rollup rows. The log merges repeated entries into one detail row and keeps how many there were on a rollup row,
+	 * so each rollup row adds its occurrence count.
+	 *
+	 * @param surface The surface of the bypass, such as dml or query.
+	 * @param target The exact bypass target, for example sharing: followed by the object name.
+	 *
+	 * @return How many times the bypass happened.
+	 */
+	public static Integer countSavedRollupOccurrences(String surface, String target)
+	{
+		String rollupBypassPrefix = TRG_PersistLogEntry.PREFIX_ROLLUP + LOG_Builder.RESERVED_FINGERPRINT_PREFIX;
+		Integer occurrences = 0;
+		for(LogEntry__c entry : new SEL_LogEntry().findAllOrderedByCreatedDateDesc())
+		{
+			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
+			if(entry.Fingerprint__c?.startsWith(rollupBypassPrefix) == true
+					&& target.equals(context?.get(UTIL_BypassAudit.CONTEXT_TARGET))
+					&& surface.equals(context?.get(UTIL_BypassAudit.CONTEXT_SURFACE)))
+			{
+				occurrences += entry.OccurrenceCount__c?.intValue() ?? 0;
+			}
+		}
+		return occurrences;
 	}
 }

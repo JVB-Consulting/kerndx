@@ -28,18 +28,19 @@ Controls logging behaviour: log level threshold, class filtering, performance lo
 
 | Field | Description |
 |-------|-------------|
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [AsyncChainPerformanceThresholdMs__c](#asyncchainperformancethresholdms__c) | Minimum duration in milliseconds before a whole async chain run is logged as a performance entry. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ClassFilter__c](#classfilter__c) | Comma-separated class name patterns. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [EnableFlowActionLogging__c](#enableflowactionlogging__c) | Controls how often flow trigger actions write audit log entries. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [EnableMaskerPerformanceLogging__c](#enablemaskerperformancelogging__c) | When enabled, logs performance metrics for data masking on a trigger batch that exceeds MaskerPerformanceThresholdMs. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [EnablePerformanceLogging__c](#enableperformancelogging__c) | When enabled, logs performance metrics for webservice and API callout operations that exceed PerformanceThresholdMs. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [EnablePerformanceLogging__c](#enableperformancelogging__c) | When on, logs a performance entry for web service and API operations, and for each async chain step, that take Performance Threshold (ms) or longer. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [EnableQueryPerformanceLogging__c](#enablequeryperformancelogging__c) | When enabled, logs performance metrics for SOQL queries that exceed QueryPerformanceThresholdMs. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [EnableTriggerPerformanceLogging__c](#enabletriggerperformancelogging__c) | When enabled, logs performance metrics for trigger action handlers that exceed TriggerPerformanceThresholdMs. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [EnableTriggerPerformanceLogging__c](#enabletriggerperformancelogging__c) | When enabled, a trigger action or post-trigger action that takes Trigger Performance Threshold (ms) or longer is logged. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [EnableValidationPerformanceLogging__c](#enablevalidationperformancelogging__c) | When enabled, logs performance metrics for validation rule processing that exceeds ValidationPerformanceThresholdMs. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [IsEnabled__c](#isenabled__c) | Master kill switch for logging. |
-| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [LogLevelThreshold__c](#loglevelthreshold__c) | Minimum log level to capture. |
+| global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [LogLevelThreshold__c](#loglevelthreshold__c) | Minimum log level to capture for application logs. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [MaskerPerformanceThresholdMs__c](#maskerperformancethresholdms__c) | Minimum masking duration in milliseconds before a trigger batch is logged as a performance entry. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [MaxContextDataSize__c](#maxcontextdatasize__c) | Maximum character length for serialized context data attached to log entries. |
-| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [PerformanceThresholdMs__c](#performancethresholdms__c) | Minimum duration in milliseconds before a webservice/API operation is logged as a performance entry. |
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [PerformanceThresholdMs__c](#performancethresholdms__c) | Minimum duration in milliseconds before a web service or API operation, or an async chain step, is logged as a performance entry. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ProblemGroupingDisabled__c](#problemgroupingdisabled__c) | Check this box to stop the Log Console grouping repeated errors on its own. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ProblemGroupingLogLevels__c](#problemgroupingloglevels__c) | Which log levels the Log Console may group on its own: ERROR, WARN, INFO or DEBUG. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [ProblemGroupingMinimumOccurrences__c](#problemgroupingminimumoccurrences__c) | How many times the same error must appear inside the date range you are viewing before the Log Console groups it into Problem summary. |
@@ -47,6 +48,23 @@ Controls logging behaviour: log level threshold, class filtering, performance lo
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [SuppressClassMethod__c](#suppressclassmethod__c) | Comma-separated class name patterns to suppress (denylist). |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [TriggerPerformanceThresholdMs__c](#triggerperformancethresholdms__c) | Minimum duration in milliseconds before a trigger action handler is logged as a performance entry. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [ValidationPerformanceThresholdMs__c](#validationperformancethresholdms__c) | Minimum duration in milliseconds before a validation rule processing cycle is logged as a performance entry. |
+
+### AsyncChainPerformanceThresholdMs__c
+
+```apex
+global Decimal AsyncChainPerformanceThresholdMs__c
+```
+
+Minimum duration in milliseconds before a whole async chain run is logged as a performance entry. Leave this field blank to use Enable Performance Logging and Performance Threshold (ms) instead. When you set a number, a run that took that long or longer is logged, even with Enable Performance Logging turned off. The time runs from the start of the run to its end, waits in the queue included. Only four endings get this entry: a run that finishes all its steps, a run that stops because a step failed and is not retried, a run that fails because the data its steps share grew past its limit, and a run stopped because the AsyncChain feature flag is off. No other run gets it, for example a chain started with no steps, a run an operator aborts, a stalled run, or a run whose background job crashes. Set 0 to log every such run, or a very high number to log none. A negative number works like 0. The entry is a DEBUG log entry: it is saved only when logging is on and the log level allows DEBUG.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Number(18,0) |
+| Required | false |
+| Unique | false |
+| External ID | false |
 
 ### ClassFilter__c
 
@@ -104,7 +122,7 @@ When enabled, logs performance metrics for data masking on a trigger batch that 
 global Boolean EnablePerformanceLogging__c
 ```
 
-When enabled, logs performance metrics for webservice and API callout operations that exceed PerformanceThresholdMs.
+When on, logs a performance entry for web service and API operations, and for each async chain step, that take Performance Threshold (ms) or longer. It also controls the entry for a whole async chain run when Async Chain Performance Threshold (ms) is blank. When that field holds a number, the whole-run entry follows that number only, even with this setting off.
 
 **Field Attributes:**
 
@@ -134,7 +152,7 @@ When enabled, logs performance metrics for SOQL queries that exceed QueryPerform
 global Boolean EnableTriggerPerformanceLogging__c
 ```
 
-When enabled, logs performance metrics for trigger action handlers that exceed TriggerPerformanceThresholdMs.
+When enabled, a trigger action or post-trigger action that takes Trigger Performance Threshold (ms) or longer is logged. This applies only to actions that have no threshold of their own and whose trigger setting has no threshold. A threshold set on an action or on a trigger setting logs even when this is off, and Force Performance Logging always logs. To stop every slow-action entry, turn logging off (Is Enabled) or set Log Level Threshold above DEBUG.
 
 **Field Attributes:**
 
@@ -179,7 +197,7 @@ Master kill switch for logging. When false, all log entries except ERROR are dro
 global String LogLevelThreshold__c
 ```
 
-Minimum log level to capture. Valid values: DEBUG, INFO, WARN, ERROR. Entries below this threshold are silently dropped. DEBUG captures all; ERROR captures only errors.
+Minimum log level to capture for application logs. Valid values: DEBUG, INFO, WARN, ERROR. Entries below this threshold are silently dropped. DEBUG captures all; ERROR captures only errors. Bypass audit entries ignore this threshold: they are kept while Is Enabled is checked and the BypassAudit_Enabled feature flag is on.
 
 **Field Attributes:**
 
@@ -233,7 +251,7 @@ Maximum character length for serialized context data attached to log entries. Co
 global Decimal PerformanceThresholdMs__c
 ```
 
-Minimum duration in milliseconds before a webservice/API operation is logged as a performance entry.
+Minimum duration in milliseconds before a web service or API operation, or an async chain step, is logged as a performance entry. It also applies to a whole async chain run when Async Chain Performance Threshold (ms) is blank. Used only when Enable Performance Logging is on. When this field is blank, none of these entries is logged.
 
 **Field Attributes:**
 

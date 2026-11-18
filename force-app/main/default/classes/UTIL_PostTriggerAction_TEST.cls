@@ -12,10 +12,10 @@
  *
  * @group Triggers
  *
- * @date May 2026, October 2026
+ * @date May 2026, November 2026
  */
-@IsTest(seeAllData=false)
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
+@IsTest(seeAllData=false isParallel=true)
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 private class UTIL_PostTriggerAction_TEST
 {
 	/**
@@ -93,6 +93,58 @@ private class UTIL_PostTriggerAction_TEST
 	 * @description The Name of the Foobar__c record the DML-beside-log mock inserts, distinct so its rows stay attributable.
 	 */
 	private static final String DML_AND_LOG_MOCK_FOOBAR_NAME = 'PostActionDmlBesideLogFoobar';
+	/**
+	 * @description The first three characters of a custom object's record id. A trigger setting for a custom object
+	 * stores an id that starts with these characters in `SObjectType__c`.
+	 */
+	private static final String CUSTOM_OBJECT_ID_PREFIX = '01I';
+	/**
+	 * @description Length of the random part that follows CUSTOM_OBJECT_ID_PREFIX, so the made-up id has the 15
+	 * characters of a real one.
+	 */
+	private static final Integer CUSTOM_OBJECT_ID_RANDOM_LENGTH = 12;
+	/**
+	 * @description A made-up record id for a custom object, in the form a trigger setting stores in `SObjectType__c`
+	 * for a custom object. It names no object, so the post-action handler cannot find the object through this value.
+	 */
+	private static final String CUSTOM_OBJECT_RECORD_ID = CUSTOM_OBJECT_ID_PREFIX + UTIL_Random.randomNumeric(CUSTOM_OBJECT_ID_RANDOM_LENGTH);
+	/**
+	 * @description DeveloperName of the post-action row scoped to the Foobar__c trigger setting.
+	 */
+	private static final String CUSTOM_OBJECT_SCOPED_ROW_NAME = 'FoobarScoped' + UTIL_Random.randomAlphanumeric(6);
+	/**
+	 * @description DeveloperName of the post-action row scoped to the trigger setting for the Account change event.
+	 */
+	private static final String CHANGE_EVENT_SCOPED_ROW_NAME = 'ChangeEventScoped' + UTIL_Random.randomAlphanumeric(6);
+	/**
+	 * @description DeveloperName of the post-action row the performance logging tests build.
+	 */
+	private static final String PERFORMANCE_ROW_NAME = 'PerformanceLogged' + UTIL_Random.randomAlphanumeric(6);
+	/**
+	 * @description The method name the performance timer writes on the log entry for the success action: the class
+	 * name, a slash and the post-trigger step name in lower case.
+	 */
+	private static final String SUCCESS_PERFORMANCE_LOG_METHOD = ACTION_NAME_SUCCESS + '/' + UTIL_PostTriggerAction.OPERATION_LABEL.toLowerCase();
+	/**
+	 * @description A performance threshold of 0 milliseconds. Every run takes at least that long, so every run is slow
+	 * enough to log.
+	 */
+	private static final Integer THRESHOLD_EVERY_RUN = 0;
+	/**
+	 * @description A performance threshold of 999999 milliseconds, about 17 minutes. No test run takes that long, so no
+	 * run is slow enough to log.
+	 */
+	private static final Integer THRESHOLD_NO_RUN = 999999;
+	/**
+	 * @description A trigger setting for Account, built in memory, with a performance threshold of THRESHOLD_EVERY_RUN.
+	 * The performance logging tests attach their post-trigger action row to it and run the row with Account among the
+	 * touched objects.
+	 */
+	private static final TriggerSetting__mdt ACCOUNT_SETTING_LOGGING_EVERY_RUN = (TriggerSetting__mdt)TST_Builder.of(TriggerSetting__mdt.SObjectType)
+			.withOverride(TriggerSetting__mdt.SObjectType__c, String.valueOf(Account.SObjectType))
+			.withOverride(TriggerSetting__mdt.PerformanceThresholdMs__c, THRESHOLD_EVERY_RUN)
+			.withoutInsertion(true)
+			.build();
 
 	/**
 	 * @description Confirms `run` short-circuits when the selector returns no rows —
@@ -342,6 +394,74 @@ private class UTIL_PostTriggerAction_TEST
 		Test.stopTest();
 
 		Assert.areEqual(0, totalExecutionCount(), 'Unresolvable parent SObjectType → action skipped');
+	}
+
+	/**
+	 * @description A row scoped to a trigger setting for a custom object runs when that object took part. For a custom
+	 * object the setting's `SObjectType__c` holds the object's record id, not its name, so the object is found through
+	 * the name on `SObjectType__r.QualifiedApiName`.
+	 */
+	@IsTest
+	private static void shouldRunARowScopedToACustomObjectSettingWhenTheObjectIsTouched()
+	{
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt> {newRowScopedToCustomObjectSetting()};
+		resetExecutionLog();
+
+		Test.startTest();
+		UTIL_PostTriggerAction.run(contextWith(new Set<SObjectType> {Foobar__c.SObjectType}));
+		Test.stopTest();
+
+		Assert.areEqual(1, totalExecutionCount(), 'Expected the row scoped to the Foobar__c setting to run when Foobar__c took part');
+	}
+
+	/**
+	 * @description A row scoped to a trigger setting for a custom object is skipped when that object did not take part.
+	 */
+	@IsTest
+	private static void shouldSkipARowScopedToACustomObjectSettingWhenTheObjectIsNotTouched()
+	{
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt> {newRowScopedToCustomObjectSetting()};
+		resetExecutionLog();
+
+		Test.startTest();
+		UTIL_PostTriggerAction.run(contextWith(new Set<SObjectType> {Account.SObjectType}));
+		Test.stopTest();
+
+		Assert.areEqual(0, totalExecutionCount(), 'Expected the row scoped to the Foobar__c setting to be skipped when only Account took part');
+	}
+
+	/**
+	 * @description A row scoped to a trigger setting for a change event runs when that change event took part. The
+	 * setting names the change event in `ObjectApiNameOverride__c`, and that name is used instead of `SObjectType__c`.
+	 */
+	@IsTest
+	private static void shouldRunAPostActionScopedToAChangeEventSettingWhenTheChangeEventIsTouched()
+	{
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt> {newRowScopedToChangeEventSetting()};
+		resetExecutionLog();
+
+		Test.startTest();
+		UTIL_PostTriggerAction.run(contextWith(new Set<SObjectType> {AccountChangeEvent.SObjectType}));
+		Test.stopTest();
+
+		Assert.areEqual(1, totalExecutionCount(), 'Expected the row scoped to the change event setting to run when the change event took part');
+	}
+
+	/**
+	 * @description A row scoped to a trigger setting for a change event is skipped when only the source object took
+	 * part. The name in `ObjectApiNameOverride__c` wins over `SObjectType__c`, so the source object does not count.
+	 */
+	@IsTest
+	private static void shouldSkipAPostActionScopedToAChangeEventSettingWhenOnlyTheSourceObjectIsTouched()
+	{
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt> {newRowScopedToChangeEventSetting()};
+		resetExecutionLog();
+
+		Test.startTest();
+		UTIL_PostTriggerAction.run(contextWith(new Set<SObjectType> {Account.SObjectType}));
+		Test.stopTest();
+
+		Assert.areEqual(0, totalExecutionCount(), 'Expected the row scoped to the change event setting to be skipped when only Account took part');
 	}
 
 	/**
@@ -632,6 +752,108 @@ private class UTIL_PostTriggerAction_TEST
 	}
 
 	/**
+	 * @description A post-trigger action logs a slow run when its trigger setting has a threshold, even with the org
+	 * switch for trigger performance logging off. The setting's threshold is 0 and the action has none: one entry is
+	 * written.
+	 */
+	@IsTest
+	private static void shouldLogAPostTriggerActionAboveTheTriggerSettingThresholdWithTheOrgSwitchOff()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.newLoggerSettings().apply();
+		PostTriggerAction__mdt row = newRowUnderAccountSetting();
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt> {row};
+
+		Test.startTest();
+		UTIL_PostTriggerAction.run(contextWith(new Set<SObjectType> {Account.SObjectType}));
+		Test.stopTest();
+
+		Assert.isNotNull(new SEL_LogEntry().findPerformanceLogByMethod(SUCCESS_PERFORMANCE_LOG_METHOD),
+				'Expected a log entry, because a set trigger setting threshold logs even with the org switch off');
+	}
+
+	/**
+	 * @description A post-trigger action logs a slow run when it has its own threshold, even with the org switch off. The
+	 * action's threshold is 0 and it has no trigger setting: one entry is written.
+	 */
+	@IsTest
+	private static void shouldLogAPostTriggerActionAboveItsOwnThresholdWithTheOrgSwitchOff()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.newLoggerSettings().apply();
+		PostTriggerAction__mdt row = buildSuccessRow(PERFORMANCE_ROW_NAME, 10);
+		row.PerformanceThresholdMs__c = THRESHOLD_EVERY_RUN;
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt> {row};
+
+		Test.startTest();
+		UTIL_PostTriggerAction.run(emptyContext());
+		Test.stopTest();
+
+		Assert.isNotNull(new SEL_LogEntry().findPerformanceLogByMethod(SUCCESS_PERFORMANCE_LOG_METHOD),
+				'Expected a log entry, because a set action threshold logs even with the org switch off');
+	}
+
+	/**
+	 * @description A post-trigger action's own threshold wins over its trigger setting's threshold. The action's
+	 * threshold is too high for any run and the setting's is 0: no entry is written.
+	 */
+	@IsTest
+	private static void shouldUseThePostTriggerActionThresholdOverTheTriggerSettingThreshold()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.newLoggerSettings().apply();
+		PostTriggerAction__mdt row = newRowUnderAccountSetting();
+		row.PerformanceThresholdMs__c = THRESHOLD_NO_RUN;
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt> {row};
+		resetExecutionLog();
+
+		Test.startTest();
+		UTIL_PostTriggerAction.run(contextWith(new Set<SObjectType> {Account.SObjectType}));
+		Test.stopTest();
+
+		Assert.areEqual(1, totalExecutionCount(), 'Expected the post-trigger action to run');
+		Assert.isNull(new SEL_LogEntry().findPerformanceLogByMethod(SUCCESS_PERFORMANCE_LOG_METHOD),
+				'Expected no log entry, because the action threshold applies and no run reaches it');
+	}
+
+	/**
+	 * @description A post-trigger action with no trigger setting and no threshold follows the org settings alone. With the
+	 * org switch off it writes no entry.
+	 */
+	@IsTest
+	private static void shouldFollowTheOrgSettingsForAPostTriggerActionWithNoTriggerSetting()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.newLoggerSettings().apply();
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt> {buildSuccessRow(PERFORMANCE_ROW_NAME, 10)};
+		resetExecutionLog();
+
+		Test.startTest();
+		UTIL_PostTriggerAction.run(emptyContext());
+		Test.stopTest();
+
+		Assert.areEqual(1, totalExecutionCount(), 'Expected the post-trigger action to run');
+		Assert.isNull(new SEL_LogEntry().findPerformanceLogByMethod(SUCCESS_PERFORMANCE_LOG_METHOD),
+				'Expected no log entry with the org switch off and no threshold set');
+	}
+
+	/**
+	 * @description Builds a row with the success action that belongs to ACCOUNT_SETTING_LOGGING_EVERY_RUN. The row has
+	 * no threshold of its own.
+	 *
+	 * @return An uninserted PostTriggerAction__mdt
+	 */
+	private static PostTriggerAction__mdt newRowUnderAccountSetting()
+	{
+		return (PostTriggerAction__mdt)TST_Builder.of(PostTriggerAction__mdt.SObjectType)
+				.withOverride(PostTriggerAction__mdt.DeveloperName, PERFORMANCE_ROW_NAME)
+				.withOverride(PostTriggerAction__mdt.ApexClassName__c, ACTION_NAME_SUCCESS)
+				.withOverride(PostTriggerAction__mdt.TriggerSetting__c, ACCOUNT_SETTING_LOGGING_EVERY_RUN)
+				.withoutInsertion()
+				.build();
+	}
+
+	/**
 	 * @description Runs `UTIL_PostTriggerAction.run` against an empty context inside a
 	 * `Test.startTest()`/`Test.stopTest()` window and returns any exception it raised, or
 	 * null when `run` returned normally. Lets the failure-policy tests assert on the
@@ -756,6 +978,56 @@ private class UTIL_PostTriggerAction_TEST
 	private static PostTriggerAction__mdt buildSuccessRow(String developerName, Decimal orderValue)
 	{
 		return buildRow(developerName, orderValue, ACTION_NAME_SUCCESS, SEL_TriggerAction.FAILURE_ACTION_LOG_AND_CONTINUE);
+	}
+
+	/**
+	 * @description Builds a row with the success action, scoped to a trigger setting for Foobar__c that looks the way a
+	 * query returns it: `SObjectType__c` holds a record id that starts with `01I`, and the object's name is on
+	 * `SObjectType__r.QualifiedApiName`.
+	 *
+	 * @return An uninserted PostTriggerAction__mdt
+	 */
+	private static PostTriggerAction__mdt newRowScopedToCustomObjectSetting()
+	{
+		EntityDefinition entityDefinition = (EntityDefinition)TST_Builder.of(EntityDefinition.SObjectType)
+				.withOverride(EntityDefinition.QualifiedApiName, SEL_Foobar.OBJECT_NAME)
+				.withoutInsertion()
+				.build();
+		TriggerSetting__mdt setting = (TriggerSetting__mdt)TST_Builder.of(TriggerSetting__mdt.SObjectType)
+				.withOverride(TriggerSetting__mdt.SObjectType__c, entityDefinition)
+				.withoutInsertion(true)
+				.build();
+		setting.SObjectType__c = CUSTOM_OBJECT_RECORD_ID;
+		return (PostTriggerAction__mdt)TST_Builder.of(PostTriggerAction__mdt.SObjectType)
+				.withOverride(PostTriggerAction__mdt.DeveloperName, CUSTOM_OBJECT_SCOPED_ROW_NAME)
+				.withOverride(PostTriggerAction__mdt.ApexClassName__c, ACTION_NAME_SUCCESS)
+				.withOverride(PostTriggerAction__mdt.Order__c, 10)
+				.withOverride(PostTriggerAction__mdt.TriggerSetting__c, setting)
+				.withoutInsertion()
+				.build();
+	}
+
+	/**
+	 * @description Builds a row with the success action, scoped to a trigger setting for the Account change event. The
+	 * setting names the change event in `ObjectApiNameOverride__c` and names Account, the source object, in
+	 * `SObjectType__c`.
+	 *
+	 * @return An uninserted PostTriggerAction__mdt
+	 */
+	private static PostTriggerAction__mdt newRowScopedToChangeEventSetting()
+	{
+		TriggerSetting__mdt setting = (TriggerSetting__mdt)TST_Builder.of(TriggerSetting__mdt.SObjectType)
+				.withOverride(TriggerSetting__mdt.ObjectApiNameOverride__c, String.valueOf(AccountChangeEvent.SObjectType))
+				.withOverride(TriggerSetting__mdt.SObjectType__c, String.valueOf(Account.SObjectType))
+				.withoutInsertion(true)
+				.build();
+		return (PostTriggerAction__mdt)TST_Builder.of(PostTriggerAction__mdt.SObjectType)
+				.withOverride(PostTriggerAction__mdt.DeveloperName, CHANGE_EVENT_SCOPED_ROW_NAME)
+				.withOverride(PostTriggerAction__mdt.ApexClassName__c, ACTION_NAME_SUCCESS)
+				.withOverride(PostTriggerAction__mdt.Order__c, 10)
+				.withOverride(PostTriggerAction__mdt.TriggerSetting__c, setting)
+				.withoutInsertion()
+				.build();
 	}
 
 	/**

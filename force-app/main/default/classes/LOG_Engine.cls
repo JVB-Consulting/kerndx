@@ -36,7 +36,7 @@
  *
  * @group Logging
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.CyclomaticComplexity,PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.ExcessiveClassLength,PMD.ExcessivePublicCount,PMD.NcssTypeCount,PMD.NcssCount')
 public inherited sharing class LOG_Engine
@@ -349,6 +349,12 @@ public inherited sharing class LOG_Engine
 	 * @description Context key for the step a failed batch job was in when it failed (START, EXECUTE or FINISH).
 	 */
 	public static final String CONTEXT_BATCH_PHASE = 'batchPhase';
+	/**
+	 * @description Context key for the platform's own reason text for a batch job's state, such as why a job was refused.
+	 *
+	 * @since 1.12
+	 */
+	public static final String CONTEXT_EXTENDED_STATUS = 'extendedStatus';
 	/**
 	 * @description Context key for the platform's id of the request in which a batch job failed.
 	 */
@@ -1013,12 +1019,17 @@ public inherited sharing class LOG_Engine
 	 * `UTIL_FrameworkMasker.isMaskingEnabled` inside `getEvents`) do not add queries to tests that do not test
 	 * the audit log. Tests that DO test the audit log set `ignoreTestMode = true`.
 	 *
+	 * The two kinds of entry pass different checks. An application entry passes `isLoggable`, which reads the level
+	 * threshold. An audit entry passes `isAuditLoggable`, which does not read the level threshold, so a bypass is
+	 * recorded at every level while logging is on.
+	 *
 	 * @param dtoLogMessages List of log messages.
 	 * @param isAudit `true` to route to the audit buffer (`publishAuditEvents`); `false` for app.
 	 */
 	private static void log(DTO_LogMessages dtoLogMessages, Boolean isAudit)
 	{
-		if(!dtoLogMessages.isEmpty && isLoggable(dtoLogMessages.logLevel, dtoLogMessages.classMethod))
+		if(!dtoLogMessages.isEmpty
+				&& (isAudit ? isAuditLoggable(dtoLogMessages.classMethod) : isLoggable(dtoLogMessages.logLevel, dtoLogMessages.classMethod)))
 		{
 			if(isAudit && Test.isRunningTest() && !ignoreTestMode)
 			{
@@ -1056,9 +1067,10 @@ public inherited sharing class LOG_Engine
 	}
 
 	/**
-	 * @description Determines whether an entry should be logged based on the hierarchical LogSetting__c.
-	 * Checks in this order: ERROR always passes, then the switch that turns logging off, then the level threshold,
-	 * then the class filter.
+	 * @description Determines whether an application log entry should be logged based on the hierarchical
+	 * LogSetting__c. Checks in this order: ERROR always passes, then the switch that turns logging off, then the
+	 * level threshold, then the class filter and the suppression list. Bypass audit entries use `isAuditLoggable`
+	 * instead.
 	 *
 	 * @param logLevel The debug logging level
 	 * @param classMethod The class/method context (e.g., 'ClassName/methodName')
@@ -1090,6 +1102,38 @@ public inherited sharing class LOG_Engine
 			return false;
 		}
 
+		return isKeptByClassFilters(setting, classMethod);
+	}
+
+	/**
+	 * @description Determines whether a bypass audit entry should be logged. Checks in this order: the switch that
+	 * turns logging off, then the class filter and the suppression list. It never reads the level threshold, so a
+	 * bypass is recorded at every level while logging is on. Unlike an application entry, an audit entry at ERROR is
+	 * also left out while logging is off.
+	 *
+	 * @param classMethod The class and method that made the bypass (e.g., 'ClassName.methodName' or 'ClassName/methodName')
+	 *
+	 * @return Whether the entry should be logged
+	 */
+	private static Boolean isAuditLoggable(String classMethod)
+	{
+		LogSetting__c setting = getLogSetting();
+
+		return setting.IsEnabled__c && isKeptByClassFilters(setting, classMethod);
+	}
+
+	/**
+	 * @description Checks the class filter and the suppression list of a log setting against the class of an entry.
+	 * An entry is left out when the class filter is set and does not name its class, or when the suppression list
+	 * names its class. An entry with no class passes.
+	 *
+	 * @param setting The log setting to read the class filter and the suppression list from
+	 * @param classMethod The class and method of the entry (e.g., 'ClassName.methodName' or 'ClassName/methodName')
+	 *
+	 * @return Whether the entry is kept by both lists
+	 */
+	private static Boolean isKeptByClassFilters(LogSetting__c setting, String classMethod)
+	{
 		String classFilter = setting.ClassFilter__c;
 		String suppressFilter = setting.SuppressClassMethod__c;
 

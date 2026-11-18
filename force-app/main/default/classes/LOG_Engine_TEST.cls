@@ -33,7 +33,7 @@
  *
  * @group Logging
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.NcssCount')
 @IsTest(seeAllData=false isParallel=false)
@@ -996,6 +996,48 @@ private class LOG_Engine_TEST
 	}
 
 	/**
+	 * @description Bypass audit entries are kept at every level threshold, but application logs still follow it. So
+	 * an application warning is dropped when the threshold is ERROR.
+	 *
+	 * @see LOG_Engine.isLoggable
+	 */
+	@IsTest
+	private static void shouldStillDropAnApplicationWarningWhenTheLevelThresholdIsError()
+	{
+		setupTestData();
+		LOG_Engine.logSettingOverride.LogLevelThreshold__c = LOG_Engine.LEVEL_ERROR;
+		LOG_Builder.suspendSaving();
+
+		LOG_Builder.build().warn(UTIL_Random.randomName()).emitAt(CLASS_METHOD);
+
+		Assert.areEqual(0, LOG_Engine.getBufferSize(), 'Expected an application warning to be dropped when the level threshold is ERROR');
+	}
+
+	/**
+	 * @description An application error is kept even when logging is switched off. Bypass audit entries skip the level
+	 * threshold, and this rule for an application error is separate from theirs. An error does not wait in the buffer while saving is
+	 * suspended, so the test counts the saved log rows.
+	 *
+	 * @see LOG_Engine.isLoggable
+	 */
+	@IsTest
+	private static void shouldStillKeepAnApplicationErrorWhenLoggingIsSwitchedOff()
+	{
+		setupTestData();
+		LOG_Engine.logSettingOverride.IsEnabled__c = false;
+		LOG_Engine.logSettingOverride.LogLevelThreshold__c = LOG_Engine.LEVEL_ERROR;
+		LOG_Builder.ignoreTestMode = true;
+
+		Test.startTest();
+
+		LOG_Builder.build().error(UTIL_Random.randomName()).emitAt(CLASS_METHOD);
+
+		Test.stopTest();
+
+		Assert.areEqual(1, new SEL_LogEntry().findAllByMethod(CLASS_METHOD).size(), 'Expected an application error to be kept when logging is switched off');
+	}
+
+	/**
 	 * @description Tests that ClassFilter filters by class name pattern.
 	 *
 	 * @see LOG_Engine.isLoggable
@@ -1034,7 +1076,7 @@ private class LOG_Engine_TEST
 
 		Foobar__c refusedRecord = TST_Factory.newFoobarWithEmail(INVALID_EMAIL);
 		DML_Transaction dmlTransaction = new DML_Transaction();
-		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 		dmlTransaction.setAllowPartial(true);
 		dmlTransaction.setSuppressLogging(true);
 		dmlTransaction.doInsert(refusedRecord);

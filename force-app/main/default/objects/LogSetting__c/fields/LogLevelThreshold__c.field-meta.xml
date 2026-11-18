@@ -2,9 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>LogLevelThreshold__c</fullName>
     <defaultValue>&quot;DEBUG&quot;</defaultValue>
-    <description>Minimum log level to capture. Valid values: DEBUG, INFO, WARN, ERROR. Entries below this threshold are silently dropped. DEBUG captures all; ERROR captures only errors.</description>
+    <description>Minimum log level to capture for application logs. Valid values: DEBUG, INFO, WARN, ERROR. Entries below this threshold are silently dropped. DEBUG captures all; ERROR captures only errors. Bypass audit entries ignore this threshold: they are kept while Is Enabled is checked and the BypassAudit_Enabled feature flag is on.</description>
     <externalId>false</externalId>
-    <inlineHelpText>Set to ERROR for production, DEBUG for development or troubleshooting.</inlineHelpText>
+    <inlineHelpText>Applies to application logs. Set to ERROR for production, DEBUG for development or troubleshooting. Bypass audit entries are kept at every level while logging is on.</inlineHelpText>
     <label>Log Level Threshold</label>
     <length>10</length>
     <required>false</required>

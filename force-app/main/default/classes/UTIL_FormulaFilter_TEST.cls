@@ -8,10 +8,10 @@
  *
  * @group Utilities
  *
- * @date April 2025, October 2026
+ * @date April 2025, November 2026
  */
 @IsTest(seeAllData=false isParallel=true)
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 private class UTIL_FormulaFilter_TEST
 {
 	/**
@@ -31,6 +31,24 @@ private class UTIL_FormulaFilter_TEST
 	 * so the test can tell the old list and the new list apart in the result.
 	 */
 	private static final Integer OLD_RECORD_COUNT = 3;
+
+	/**
+	 * @description The smallest number the tests put in the number field when a record must pass a check for a number
+	 * above zero. The test factory may put zero in that field, and zero fails the check, so these tests set the number
+	 * themselves.
+	 */
+	private static final Integer SMALLEST_POSITIVE_NUMBER = 1;
+
+	/**
+	 * @description The largest number the number field on Foobar__c can hold. The field has three digits.
+	 */
+	private static final Integer LARGEST_NUMBER = 999;
+
+	/**
+	 * @description The checkbox is ticked on one record in this many, so exactly that share of the records matches a
+	 * formula that needs the checkbox ticked.
+	 */
+	private static final Integer TICKED_RECORD_INTERVAL = 2;
 
 	/**
 	 * @description Name of the context class for Foobar__c records. A context class holds the old and new record a
@@ -58,17 +76,6 @@ private class UTIL_FormulaFilter_TEST
 	 * although each old record is paired with a new one.
 	 */
 	private static final String ERROR_RECORD_COUNT_MISMATCH = 'Number of filtered old and new records should match';
-
-	/**
-	 * @description Failure message used when the filter gave back no records although some of them match the formula.
-	 */
-	private static final String ERROR_SOME_RECORDS_EXPECTED = 'Some records should have been matched';
-
-	/**
-	 * @description Failure message used when the filter gave back every record although some of them do not match the
-	 * formula.
-	 */
-	private static final String ERROR_UNEXPECTED_FILTERING = 'Some records should have been excluded';
 
 	/**
 	 * @description Failure message used when the filter gave back records although none can match the formula.
@@ -250,7 +257,7 @@ private class UTIL_FormulaFilter_TEST
 	@IsTest
 	private static void validFormulaAllMatched()
 	{
-		List<Foobar__c> newRecords = TST_Factory.newFoobars(NEW_RECORD_COUNT);
+		List<Foobar__c> newRecords = newFoobarsWithPositiveNumber(NEW_RECORD_COUNT);
 		UTIL_FormulaFilter filter = new UTIL_FormulaFilter(null, CONTEXT_CLASS_NAME, VALID_FORMULA_ALL);
 
 		Test.startTest();
@@ -284,14 +291,21 @@ private class UTIL_FormulaFilter_TEST
 	}
 
 	/**
-	 * @description Tests that some records are matched with a valid formula.
+	 * @description Tests that some records are matched with a valid formula. Every record has a number above zero, and
+	 * the checkbox is ticked on every other record, so some records match and some do not on every run.
 	 *
 	 * @see UTIL_FormulaFilter.filter
 	 */
 	@IsTest
 	private static void validFormulaSomeMatched()
 	{
-		List<Foobar__c> newRecords = TST_Factory.newFoobars(LARGE_RECORD_COUNT);
+		List<Foobar__c> newRecords = newFoobarsWithPositiveNumber(LARGE_RECORD_COUNT);
+
+		for(Integer index = 0; index < newRecords.size(); index++)
+		{
+			newRecords[index].Checkbox__c = Math.mod(index, TICKED_RECORD_INTERVAL) == 0;
+		}
+
 		UTIL_FormulaFilter filter = new UTIL_FormulaFilter(null, CONTEXT_CLASS_NAME, VALID_FORMULA_SOME);
 
 		Test.startTest();
@@ -300,8 +314,11 @@ private class UTIL_FormulaFilter_TEST
 
 		Test.stopTest();
 
-		Assert.isTrue(results.newRecords.size() < LARGE_RECORD_COUNT, ERROR_UNEXPECTED_FILTERING);
-		Assert.isFalse(results.newRecords.isEmpty(), ERROR_SOME_RECORDS_EXPECTED);
+		Assert.areEqual(
+				LARGE_RECORD_COUNT / TICKED_RECORD_INTERVAL,
+				results.newRecords.size(),
+				'Expected exactly the records with the checkbox ticked to match'
+		);
 		Assert.areEqual(results.oldRecords.size(), results.newRecords.size(), ERROR_RECORD_COUNT_MISMATCH);
 	}
 
@@ -478,6 +495,42 @@ private class UTIL_FormulaFilter_TEST
 	}
 
 	/**
+	 * @description Tests that a formula on an API issue runs without a context class name, because the filter finds the
+	 * API issue context class itself.
+	 *
+	 * @see UTIL_FormulaFilter.resolveContextClass
+	 * @see UTIL_FormulaContext.ApiIssueContext
+	 */
+	@IsTest
+	private static void shouldDetectContextForApiIssueWithoutAClassName()
+	{
+		String matchingValue = UTIL_Random.randomUUID();
+
+		List<SObject> keptRecords = filterWithDetectedContext(ApiIssue__c.SObjectType, ApiIssue__c.ServiceName__c, matchingValue);
+
+		Assert.areEqual(1, keptRecords.size(), 'Expected only the API issue whose service name matches the formula to stay');
+		Assert.areEqual(matchingValue, keptRecords[0].get(ApiIssue__c.ServiceName__c), 'Expected the kept API issue to be the matching one');
+	}
+
+	/**
+	 * @description Tests that a formula on an API call runs without a context class name, because the filter finds the
+	 * API call context class itself.
+	 *
+	 * @see UTIL_FormulaFilter.resolveContextClass
+	 * @see UTIL_FormulaContext.ApiCallContext
+	 */
+	@IsTest
+	private static void shouldDetectContextForApiCallWithoutAClassName()
+	{
+		String matchingValue = UTIL_Random.randomUUID();
+
+		List<SObject> keptRecords = filterWithDetectedContext(ApiCall__c.SObjectType, ApiCall__c.ServiceName__c, matchingValue);
+
+		Assert.areEqual(1, keptRecords.size(), 'Expected only the API call whose service name matches the formula to stay');
+		Assert.areEqual(matchingValue, keptRecords[0].get(ApiCall__c.ServiceName__c), 'Expected the kept API call to be the matching one');
+	}
+
+	/**
 	 * @description Tests that resolveContextClass auto-detects context class for Foobar__c test object.
 	 *
 	 * @see UTIL_FormulaFilter.resolveContextClass
@@ -609,6 +662,124 @@ private class UTIL_FormulaFilter_TEST
 	}
 
 	/**
+	 * @description Tests that an object name written in small letters finds the same context class as the name written
+	 * the usual way. The stored describes are cleared after the name is taken, so the lookup works from the name alone.
+	 *
+	 * @see UTIL_FormulaFilter.resolveContextClass
+	 */
+	@IsTest
+	private static void shouldResolveContextClassForObjectNameInAnyLetterCase()
+	{
+		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(Account.SObjectType).toLowerCase();
+		UTIL_SObjectDescribe.flushCache();
+
+		Test.startTest();
+
+		String result = UTIL_FormulaFilter.resolveContextClass(objectName, null);
+
+		Test.stopTest();
+
+		Assert.areEqual(UTIL_FormulaContext.AccountContext.class.getName(), result, 'Expected a name in small letters to find the account context class');
+	}
+
+	/**
+	 * @description Tests that the name of each package object that has a context class finds that context class. The
+	 * names come from the object types, so they carry the package prefix when the package is built. The stored describes
+	 * are cleared after each name is taken, so each lookup works from the name alone.
+	 *
+	 * @see UTIL_FormulaFilter.resolveContextClass
+	 */
+	@IsTest
+	private static void shouldResolveContextClassForPackageObjectNames()
+	{
+		Map<SObjectType, String> contextClassNameByObjectType = new Map<SObjectType, String>
+		{
+				Foobar__c.SObjectType => UTIL_FormulaContext.FoobarContext.class.getName(),
+				ApiCall__c.SObjectType => UTIL_FormulaContext.ApiCallContext.class.getName(),
+				ApiIssue__c.SObjectType => UTIL_FormulaContext.ApiIssueContext.class.getName()
+		};
+		Map<SObjectType, String> resultByObjectType = new Map<SObjectType, String>();
+
+		Test.startTest();
+
+		for(SObjectType objectType : contextClassNameByObjectType.keySet())
+		{
+			String objectName = UTIL_SObjectDescribe.getObjectNameFromType(objectType);
+			UTIL_SObjectDescribe.flushCache();
+			resultByObjectType.put(objectType, UTIL_FormulaFilter.resolveContextClass(objectName, null));
+		}
+
+		Test.stopTest();
+
+		for(SObjectType objectType : contextClassNameByObjectType.keySet())
+		{
+			Assert.areEqual(contextClassNameByObjectType.get(objectType), resultByObjectType.get(objectType),
+					'Expected the name of ' + objectType + ' to find its context class');
+		}
+	}
+
+	/**
+	 * @description Tests that the name of a package object with no context class finds no context class. The stored
+	 * describes are cleared after the name is taken, so the lookup works from the name alone.
+	 *
+	 * @see UTIL_FormulaFilter.resolveContextClass
+	 */
+	@IsTest
+	private static void shouldReturnNullForPackageObjectNameWithoutContextClass()
+	{
+		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(ScheduledJob__c.SObjectType);
+		UTIL_SObjectDescribe.flushCache();
+
+		Test.startTest();
+
+		String result = UTIL_FormulaFilter.resolveContextClass(objectName, null);
+
+		Test.stopTest();
+
+		Assert.isNull(result, 'Expected no context class for an object that has none');
+	}
+
+	/**
+	 * @description Tests that an empty object name and a missing object name find no context class.
+	 *
+	 * @see UTIL_FormulaFilter.resolveContextClass
+	 */
+	@IsTest
+	private static void shouldReturnNullForBlankOrMissingObjectName()
+	{
+		String missingObjectName = null;
+
+		Test.startTest();
+
+		String resultForBlankName = UTIL_FormulaFilter.resolveContextClass(UTIL_String.EMPTY, null);
+		String resultForMissingName = UTIL_FormulaFilter.resolveContextClass(missingObjectName, null);
+
+		Test.stopTest();
+
+		Assert.isNull(resultForBlankName, 'Expected no context class for an empty object name');
+		Assert.isNull(resultForMissingName, 'Expected no context class for a missing object name');
+	}
+
+	/**
+	 * @description Tests that the name of an Apex class, which is not an object, finds no context class.
+	 *
+	 * @see UTIL_FormulaFilter.resolveContextClass
+	 */
+	@IsTest
+	private static void shouldReturnNullForApexClassName()
+	{
+		String className = UTIL_FormulaFilter.class.getName();
+
+		Test.startTest();
+
+		String result = UTIL_FormulaFilter.resolveContextClass(className, null);
+
+		Test.stopTest();
+
+		Assert.isNull(result, 'Expected no context class for the name of an Apex class');
+	}
+
+	/**
 	 * @description Tests that buildBooleanFormula creates a valid formula instance.
 	 *
 	 * @see UTIL_FormulaFilter.buildBooleanFormula
@@ -619,7 +790,7 @@ private class UTIL_FormulaFilter_TEST
 		String formula = 'newRecord.' + SEL_Foobar.FIELD_INTEGER + ' > 0';
 		Type contextType = UTIL_FormulaContext.FoobarContext.class;
 		UTIL_FormulaContext.FoobarContext context = new UTIL_FormulaContext.FoobarContext();
-		Foobar__c foobar = TST_Factory.newFoobars(1)[0];
+		Foobar__c foobar = newFoobarsWithPositiveNumber(1)[0];
 		context.setContext(null, foobar);
 
 		Test.startTest();
@@ -791,6 +962,27 @@ private class UTIL_FormulaFilter_TEST
 	}
 
 	/**
+	 * @description Makes new Foobar__c records in memory whose number field is above zero. The test factory picks a
+	 * random number from 0 to 999 for that field, so a record can get zero and fail a check for a number above zero.
+	 * This sets a random number from 1 to 999 instead.
+	 *
+	 * @param numberOfRecords How many records to make.
+	 *
+	 * @return The records, not saved.
+	 */
+	private static List<Foobar__c> newFoobarsWithPositiveNumber(Integer numberOfRecords)
+	{
+		List<Foobar__c> foobars = TST_Factory.newFoobars(numberOfRecords);
+
+		for(Foobar__c foobar : foobars)
+		{
+			foobar.NumberInteger__c = UTIL_Random.nextInteger(SMALLEST_POSITIVE_NUMBER, LARGEST_NUMBER);
+		}
+
+		return foobars;
+	}
+
+	/**
 	 * @description Tests that on an update the filter calls preLoad once for the whole batch, new records first, so a
 	 * formula that reads the values preLoad fills keeps every record.
 	 *
@@ -910,5 +1102,34 @@ private class UTIL_FormulaFilter_TEST
 
 		Assert.areEqual(batchSize, results.newRecords.size(), 'Expected every new record to pass: preLoad should run once for the batch');
 		Assert.areEqual(QUERIES_PER_BATCH, queriesUsed, 'Expected the batch to use the queries of one preLoad call, not one per record');
+	}
+
+	/**
+	 * @description Finds the context class for an object without being given a class name, then filters one matching and one
+	 * non-matching record with a formula on the service name.
+	 *
+	 * @param objectType The object whose records are filtered.
+	 * @param serviceNameField The text field the formula compares.
+	 * @param matchingValue The service name the formula looks for. Only one of the two records has it.
+	 *
+	 * @return The new records the filter kept.
+	 */
+	private static List<SObject> filterWithDetectedContext(SObjectType objectType, SObjectField serviceNameField, String matchingValue)
+	{
+		SObject matchingRecord = TST_Builder.of(objectType).withoutInsertion().build();
+		matchingRecord.put(serviceNameField, matchingValue);
+		SObject otherRecord = TST_Builder.of(objectType).withoutInsertion().build();
+		otherRecord.put(serviceNameField, UTIL_Random.randomUUID());
+		String formula = 'newRecord.' + String.valueOf(serviceNameField) + ' = \'' + matchingValue + '\'';
+		String detectedClassName = UTIL_FormulaFilter.resolveContextClass(objectType, null);
+		UTIL_FormulaFilter filter = new UTIL_FormulaFilter(null, detectedClassName, formula);
+
+		Test.startTest();
+
+		UTIL_FormulaFilter.DTO_FilterResults results = filter.filter(null, new List<SObject> {matchingRecord, otherRecord});
+
+		Test.stopTest();
+
+		return results.newRecords;
 	}
 }
