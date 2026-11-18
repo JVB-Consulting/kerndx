@@ -191,19 +191,28 @@ The package's own Apex tests, run on a computer with no Salesforce org. The figu
 
 | Metric                               | Value                                                                                                                                                |
 |--------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
-| Apex tests passing locally           | 5,800 of 5,801 (99.98%)                                                                                                                              |
-| Runtime                              | [aer](https://github.com/octoberswimmer/aer-dist) 1.4.45 by October Swimmer, a local Apex runtime                                                    |
+| Apex tests passing locally           | 6,370 of 6,380 (99.84%)                                                                                                                              |
+| Runtime                              | [aer](https://github.com/octoberswimmer/aer-dist) 1.6.10 by October Swimmer, a local Apex runtime                                                    |
 | How it ran                           | as a user with the Administrator permission set (`-p Administrator`), on a copy of the source with no `profiles` folder, in one run                  |
-| Source                               | v1.11.0-1                                                                                                                                            |
-| Measured                             | 2026-10-30                                                                                                                                           |
-| Failing: aer differs from Salesforce | 1                                                                                                                                                    |
+| Source                               | v1.12.0-3                                                                                                                                            |
+| Measured                             | 2026-11-18                                                                                                                                           |
+| Failing: aer differs from Salesforce | 10                                                                                                                                                   |
 | Failing: cause not yet known         | 0                                                                                                                                                    |
 
-> What the runtime cannot run: the two "Failing" rows above. aer copies most of how Salesforce behaves, not all of it, so a real org stays the final word. Each failing test is listed with its reason in `scripts/aer-baseline.json`. On this run 1 test failed. It passes in a Salesforce org, and it fails on aer because aer behaves differently from Salesforce:
+> What the runtime cannot run: the two "Failing" rows above. aer copies most of how Salesforce behaves, not all of it, so a real org stays the final word. Each failing test is listed with its reason in `scripts/aer-baseline.json`. On this run 10 tests failed. Each one passes in a Salesforce org, and each one fails on aer because aer behaves differently from Salesforce:
 
-| Where aer differs from Salesforce                                                                      | Test it affects                                               |
-|--------------------------------------------------------------------------------------------------------|---------------------------------------------------------------|
-| aer matches a 15-character Id in a bound list of Ids to no record; Salesforce matches it to its record | `QRY_Condition_TEST.shouldBindIdTextInAnObjectListAsListOfId` |
+| Where aer differs from Salesforce                                                                                                                                 | Test it affects                                                                                            |
+|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------|
+| aer counts the Apex type `System.Location` as a record object, so finding the Location object by name fails with a type error; Salesforce does not                 | `QRY_BuilderBypassSharing_TEST.bypassSharingAloneChecksATypeofWhoseWhenNamesLocationLikeAnyObject`         |
+| aer finds no event for a filter on the phone of the person the event is about (`Who.Phone`); Salesforce finds the event                                           | `QRY_BuilderBypassSharing_TEST.bypassSharingAloneReadsANameRecordFieldThatTheRelatedObjectHides`           |
+| aer finds no event for a filter on the last name of the person the event is about (`Who.LastName`); Salesforce finds the event                                    | `QRY_BuilderBypassSharing_TEST.bypassSharingAloneReadsAPathThatCanPointToAnObjectTheUserCannotRead`        |
+| aer looks for `What.ProfileId` on Account and the query fails; Salesforce reads it from Name, the shared object that stands for any record `What` can point to    | `QRY_BuilderBypassSharing_TEST.bypassSharingAloneReadsTheUserFieldsOfTheNameRecordForAStandardUser`        |
+| In user mode (the user's own permissions apply), aer runs a query that sorts on a parent field the user cannot read; Salesforce refuses it                        | `QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesAHiddenFieldOfAParentTheUserCanRead`               |
+| In user mode, aer runs a query that selects a field through a lookup the user cannot read; Salesforce refuses it                                                  | `QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesAPathThroughALookupTheUserCannotRead`              |
+| In user mode, aer runs a query that selects `What.Name` when the user cannot read `WhatId`; Salesforce refuses it                                                 | `QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesASelectedPathThroughALookupTheUserCannotRead`      |
+| In user mode, aer runs a `TYPEOF` query that names an object the user cannot read; Salesforce refuses it                                                          | `QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesATypeofWithATypeTheUserCannotRead`                 |
+| For a Minimum Access user, aer says `RecordTypeId` on Name can be read, so the query fails; Salesforce says it cannot, so KernDX refuses the query before it runs | `QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesTheUserFieldsOfTheNameRecordForAMinimumAccessUser` |
+| aer counts the Apex type `System.Location` as a record object, so finding the Location object by name fails with a type error; Salesforce does not                 | `UTIL_SObjectDescribe_TEST.shouldFindObjectWhoseNameIsAlsoSystemTypeName`                                  |
 
 ## E2E Tests (Playwright)
 
