@@ -3,13 +3,14 @@ title: "LOG_Builder.LogScope"
 type: class
 pageClass: reference
 description: "A logging scope that buffers log entries until closed. On creation, suspends immediate log publishing. On close, flushes all buffered logs and resumes publishing. Provides a simpler alternative to man"
+group: "Logging"
 since: "1.0"
 category: apex
 ---
 
 # LOG_Builder.LogScope
 
-**Class**
+**Class** · Group: `Logging`
 
 <div class="apex-member apex-class">
 

@@ -4,13 +4,14 @@ type: trigger
 pageClass: reference
 description: "Example trigger demonstrating the Trigger Action framework"
 author: "Jason Van Beukering"
-date: "2019, October 2026"
+group: "Testing"
+date: "2019, November 2026"
 category: apex
 ---
 
 # TRG_Foobar
 
-**Trigger**
+**Trigger** · Group: `Testing`
 
 <div class="apex-member apex-class">
 

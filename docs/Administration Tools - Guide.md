@@ -1,22 +1,29 @@
 ---
 group: "Getting Started"
-navOrder: 3
+navLabel: "Administration Tools (screens for admins)"
+navOrder: 98
 title: "Administration Tools"
+movedAnchors: {"when-the-native-salesforce-tool-is-enough": "/#consoles"}
 ---
 
 # Administration Tools
 
-> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
-> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
-> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+**Who this page is for:** the admins, developers, and reviewers who run a KernDX org day to day. Deciding whether to use
+KernDX? See [Why KernDX](/).
 
 ## What problem does this solve?
 
-Running a Salesforce integration in production comes down to three jobs you do again and again: watching what your integrations and jobs are doing, working out what went wrong when one fails, and setting up new automation as the team grows. Out of the box, each of those means assembling your own kit: Postman for callouts, throwaway anonymous Apex, a streaming client to watch events, a hand-written audit to find sensitive fields, and a scatter of list views and debug logs to reconstruct what happened. Most teams build and maintain that kit themselves.
+Running a Salesforce integration in production comes down to three jobs you do again and again:
+
+- watching what your integrations and jobs are doing;
+- working out what went wrong when one fails;
+- setting up new automation as the team grows.
+
+Out of the box, each of those means assembling your own kit: Postman for callouts, throwaway anonymous Apex, a streaming client to watch events, a hand-written audit to find sensitive fields, and a scatter of list views and debug logs to reconstruct what happened. Most teams build and maintain that kit themselves.
 
 KernDX gives you one place to do all of it: the **Kern** app. It opens on a home page that first checks whether your org is set up correctly, then gives you the record tabs and tools to monitor your integrations, troubleshoot a failure, and build new automation, without leaving the org.
 
-It is for the admins, developers, and reviewers who run a KernDX org day to day. Turn to it whenever you need to see, exercise, or fix something that is normally invisible or awkward to set up by hand.
+Turn to it whenever you need to see, exercise, or fix something that is normally invisible or awkward to set up by hand.
 
 ## Mental model
 
@@ -30,32 +37,12 @@ It is laid out around the three jobs you came to do:
 
 You enter through the home page. It shows a readiness banner (a quick check that the org is configured correctly) above a set of launch cards for the interactive tools, and the app's tabs give you the underlying records: your API calls, log entries, scheduled jobs, and async runs.
 
+These tools observe and exercise KernDX integrations, events, and async chains, so they need an org that runs the framework: on an org that doesn't, there is nothing for them to show. The walkthroughs are recorded in a live KernDX org.
+
 ## Use this when
 - **You want to monitor your own integrations and jobs.** Watch API calls, platform events, Change Data Capture, and async chains as they happen, check what is consuming your org limits, and review the logs and call history, without standing up your own streaming client or stitching together list views.
 - **You need to troubleshoot a failure.** Fire a real Apex callout or inbound endpoint without Postman or throwaway anonymous Apex, see which step of a multi-step async job broke and how far it got, browse what your code logged grouped into recurring problems, and find and retry the integration calls that failed.
 - **You are developing or onboarding an org.** Schedule a recurring job without writing scheduling code, build a deployable masking configuration from a scan instead of auditing for sensitive fields by hand, generate the small class that points the framework at your own Apex, and turn features on or off as you roll them out.
-
-## When the native Salesforce tool is enough
-
-Reach for the built-in option when it already covers your need; it is less to learn and nothing extra to maintain.
-
-- **For a quick one-off**, the Developer Console, anonymous Apex, or a REST client like Postman is enough to fire a single callout, and Salesforce's own Streaming Monitor and debug logs handle a simple event or a single trace.
-- **For org-wide posture**, Salesforce has its own tools: Setup's Health Check scores your org's security settings, System Overview and the platform limits show usage, and Login History reports who signed in. The KernDX versions are narrower on purpose: they watch your *KernDX* configuration and integrations, not your whole org.
-- **For simple scheduling**, the Setup "Schedule Apex" screen can start a job if you are comfortable with cron and already have a schedulable class.
-
-Each tool below says where the native option overlaps it, so you can choose per task.
-
-You also need a KernDX org for any of this to apply. These tools observe and exercise KernDX integrations, events, and async chains; on an org that doesn't run the framework, there is nothing for them to show.
-
-The tour below follows the same order, from the home page through each job. The walkthroughs are recorded in a live KernDX org. Jump straight to a section:
-
-<div class="admin-tools-glance">
-<a href="#start-here-the-kern-home-control-room">Start here</a>
-<a href="#is-your-org-set-up-correctly-health-check">Health Check</a>
-<a href="#monitor-the-system">Monitor</a>
-<a href="#troubleshoot-problems">Troubleshoot</a>
-<a href="#develop-and-onboard">Develop</a>
-</div>
 
 ## Start here: the Kern Home control room
 
@@ -66,7 +53,7 @@ Open the **Kern** app and you land on **Kern Home**. It is the front door to eve
 
 The app's navigation bar gives you the records behind the tools: API Calls, Log Entries, Scheduled Jobs, API Issues, Async Chain Executions, and Login Frequencies (a login summary), alongside Reports and Dashboards.
 
-One thing worth knowing: the five tools are launched from the home cards, not pinned as their own tabs. Kern Home is the intended way in. (They are also listed in the App Launcher if you prefer to search for one by name.)
+The five tools are launched from the home cards, not pinned as their own tabs. Kern Home is the intended way in. (They are also listed in the App Launcher if you prefer to search for one by name.)
 
 <StillShot src="/stills/kern-home.jpg" caption="Kern Home: the Health Check readiness banner, here flagging setup that still needs attention, sits above the Administration Tools launch cards.">
 
@@ -76,9 +63,27 @@ One thing worth knowing: the five tools are launched from the home cards, not pi
 
 ## Is your org set up correctly? (Health Check)
 
-Before you rely on the framework, you want to know it is wired up properly. The readiness banner on Kern Home runs a short series of checks the moment the page loads and sorts the results into three groups: **Action required** for anything failing, **Review recommended** for things worth a look, and **Passing** for everything already in good shape. When all of it passes, the banner collapses to a single "all systems operational" line.
+The readiness banner on Kern Home tells you whether the framework is wired up properly before you rely on it. It runs a short series of checks the moment the page loads and sorts the results into three groups:
 
-The checks cover the configuration KernDX depends on: the platform cache it uses for state and retries, the class that points the framework at your Apex, a data-retention schedule that stops the framework's own logs and call records growing without limit, your data-masking coverage, whether the chain-abort capability is enabled and granted, whether the stalled-chain recovery job (the Chain Watchdog) is scheduled, and, once you use it, the job runner, which brings three readings of its own: **Job Runner** (whether it is checking for due jobs on schedule, with all its scheduled jobs in place, and whether the user it runs as is still active), **Jobs Waiting for the Job Runner** (whether a job is set to run on a runner that is not there) and **Job Runner Capacity** (how many of the org's scheduled-job slots are in use, and, while a runner is active, whether its last check started every job that was due). The last check, **Selected API Mocking**, lists the active API Settings that have Mocking Enabled ticked and says whether those services answer mock data for you.
+- **Action required** for anything failing;
+- **Review recommended** for things worth a look;
+- **Passing** for everything already in good shape.
+
+When all of it passes, the banner collapses to a single "all systems operational" line.
+
+The checks cover the configuration KernDX depends on:
+
+- the platform cache it uses for state and retries;
+- the class that points the framework at your Apex;
+- a data-retention schedule that stops the framework's own logs and call records growing without limit;
+- your data-masking coverage;
+- whether the chain-abort capability is enabled and granted;
+- whether the stalled-chain recovery job (the Chain Watchdog) is scheduled;
+- once you use it, the job runner, which brings three readings of its own:
+  - **Job Runner**: whether it is checking for due jobs on schedule, with all its scheduled jobs in place, and whether the user it runs as is still active;
+  - **Jobs Waiting for the Job Runner**: whether a job is set to run on a runner that is not there;
+  - **Job Runner Capacity**: how many of the org's scheduled-job slots are in use, and, while a runner is active, whether its last check started every job that was due;
+- the last check, **Selected API Mocking**, which lists the active API Settings that have Mocking Enabled ticked and says whether those services answer mock data for you.
 
 Many of the warnings can be fixed right there. Where a check is flagged because nothing is purging old framework records, for example, one action schedules the recommended clean-up jobs for you and the row flips to Passing without leaving the page. The Chain Watchdog row works the same way: one click schedules the recovery job with the recommended defaults.
 
@@ -90,7 +95,9 @@ Many of the warnings can be fixed right there. Where a check is flagged because 
 
 The job runner card sits under the banner. It lets you run many scheduled jobs from a few slots, as often as every five minutes; Activate, Repair and Deactivate live there. The [Async Processing Guide](Async%20Processing%20-%20Guide.md#running-many-jobs-on-one-job-runner) explains what it does and who its jobs run as.
 
-This is a check of your *KernDX* configuration, and it is separate from Salesforce's own Health Check in Setup, which scores your org's security settings against a baseline. The two answer different questions: this one tells you the framework is ready to run; the Setup one tells you your org's security posture. For how to set the checks up after install, see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide and the [post-install steps](Installation.md#post-install-configuration) in the Installation Guide.
+This is a check of your *KernDX* configuration, and it is separate from Salesforce's own Health Check in Setup, which scores your org's security settings against a baseline. This one tells you the framework is ready to run; the Setup one tells you your org's security posture.
+
+For how to set the checks up after install, see [Health Check](Utilities%20-%20Guide.md#health-check) in the Utilities Guide and the [post-install steps](Installation.md#post-install-configuration) in the Installation Guide.
 
 ## Monitor the system
 
@@ -131,10 +138,12 @@ Two readings sit alongside the event timeline in the same tool:
 
 The live tools are for watching; the tabs in the navigation bar are where the history is kept. Four are worth knowing:
 
-- **Log Entries** record what your code did, one row per logged event, each carrying a correlation ID (one tracking ID that follows a single user action across triggers, queries, callouts, and jobs), a duration, and an occurrence count for repeated events. The tab keeps the raw rows; when you want to browse or diagnose them, open the [Log Console](#log-console) instead, which groups repeats into problems and lays a whole correlated run out on one timeline. See the [Logging Guide](Logging%20-%20Guide.md#apex-logging-log_builder) for how to write to the log from your own Apex.
-- **API Calls** keep every inbound and outbound call with its request, response, status, and timing. Ready-made list views narrow the noise: *Today's Calls*, *Today's Failed Calls*, *Dead Letters*, and more.
-- **Async Chain Executions** record each multi-step async run: its status, how many steps finished, and how long it took. This is the history behind the Chain Monitor.
-- **Login Frequencies** roll up logins per user per month, a convenience for developers and ops. For the authoritative record of who signed in and when, use Salesforce's own Login History.
+| Tab | What it keeps | Where to go next |
+|---|---|---|
+| **Log Entries** | What your code did, one row per logged event, each carrying a correlation ID (one tracking ID that follows a single user action across triggers, queries, callouts, and jobs), a duration, and an occurrence count for repeated events. The tab keeps the raw rows | To browse or diagnose them, open the [Log Console](#log-console) instead, which groups repeats into problems and lays a whole correlated run out on one timeline. To write to the log from your own Apex, see the [Logging Guide](Logging%20-%20Guide.md#apex-logging-log_builder) |
+| **API Calls** | Every inbound and outbound call with its request, response, status, and timing | Ready-made list views narrow the noise: *Today's Calls*, *Today's Failed Calls*, *Dead Letters*, and more |
+| **Async Chain Executions** | Each multi-step async run: its status, how many steps finished, and how long it took | This is the history behind the [Chain Monitor](#chain-monitor) |
+| **Login Frequencies** | Logins per user per month, rolled up as a convenience for developers and ops | For the authoritative record of who signed in and when, use Salesforce's own Login History |
 
 <StillShot src="/stills/log-entry.jpg" caption="A log entry record showing its correlation ID, duration, and occurrence count.">
 
@@ -174,11 +183,24 @@ Exercise a real Apex integration without Postman, throwaway anonymous Apex, or l
 
 Follow an async chain step by step: each step's status, timing, and any error on one timeline.
 
-When a multi-step async job fails, the platform barely tells you which step broke or how far it got. The Chain Monitor lays out every step and shows exactly where it stopped. And when a run is still going but needs to be stopped, the same screen offers an abort action to the users you have granted it to: it asks for confirmation first, then marks the run Aborted.
+When a multi-step async job fails, the platform barely tells you which step broke or how far it got. The Chain Monitor lays out every step and shows exactly where it stopped.
 
-Arriving from the Log Console with a whole action, the monitor lists only that action's chains, twenty a page with the same status boxes and name search, and a Launched under column says what launched each chain: a named chain (a step of it launched this one), the action itself, a restart of a named run, or that this chain started the action. The detail panel reads the same, and **Show the action's logs** returns to the Log Console with the whole action pinned. On a narrow screen the list keeps three columns, the chain, its status and when it started, plus Launched under while the list is kept to one action; the rest stays in the detail panel.
+When a run is still going but needs to be stopped, the same screen offers an abort action to the users you have granted it to: it asks for confirmation first, then marks the run Aborted.
 
-The same screen can recover as well as stop. Users you grant the re-drive permission can retry a failed chain from its failed step (when the step declared itself safe to re-run), restart a chain whose author allowed restarts from the start as a new run, and clear stalled chains on demand; a separate grant controls the kill switch (a master off-switch you can flip in an incident without a deployment), which suspends and resumes all chain processing. A live activity stream in the detail panel shows each run's log entries as they happen. Every action ships switched off until you assign its permission set; see [the Async Processing Guide](Async%20Processing%20-%20Guide.md#re-driving-a-failed-chain) for how each is enabled and why an action can be unavailable.
+**Arriving from the Log Console with a whole action:**
+
+- The monitor lists only that action's chains, twenty a page with the same status boxes and name search.
+- A Launched under column says what launched each chain: a named chain (a step of it launched this one), the action itself, a restart of a named run, or that this chain started the action.
+- The detail panel reads the same, and **Show the action's logs** returns to the Log Console with the whole action pinned.
+- On a narrow screen the list keeps three columns, the chain, its status and when it started, plus Launched under while the list is kept to one action; the rest stays in the detail panel.
+
+**Recovering as well as stopping.** The same screen can recover a chain:
+
+- Users you grant the re-drive permission can retry a failed chain from its failed step (when the step declared itself safe to re-run), restart a chain whose author allowed restarts from the start as a new run, and clear stalled chains on demand.
+- A separate grant controls the kill switch (a master off-switch you can flip in an incident without a deployment), which suspends and resumes all chain processing.
+- A live activity stream in the detail panel shows each run's log entries as they happen.
+
+Every action ships switched off until you assign its permission set; see [the Async Processing Guide](Async%20Processing%20-%20Guide.md#re-driving-a-failed-chain) for how each is enabled and why an action can be unavailable.
 
 <HeroLoop src="/recordings/chain-monitor.webm" mp4="/recordings/chain-monitor.mp4" poster="/recordings/chain-monitor-poster.jpg" caption="Open a failed run and see exactly which step broke, and why. Then stop an in-flight run with the abort action." guide="/lwc-guide#chain-monitor-components" guideLabel="LWC Guide">
 
@@ -190,13 +212,35 @@ The same screen can recover as well as stop. Users you grant the re-drive permis
 
 Browse everything your code logged, grouped into recurring problems rather than a wall of rows, and drill from a problem to the exact run that caused it.
 
-Log records are flood-controlled: repeats of the same event roll up into one row with an occurrence count, which keeps the table small but makes raw list views awkward to diagnose from. The Log Console does that reading for you. Its **Problem summary** view folds the window down to distinct problems ("this error, N occurrences"); the **Individual entries** view shows the flat rows when you need every event. A summary ribbon across the top counts entries per level and names the top sources in the window, each with its origin (the framework's own code, your Apex, a Flow, or a component), so you can see at a glance where the noise is coming from, and an Origin filter narrows the list to one of them.
+Log records are flood-controlled: repeats of the same event roll up into one row with an occurrence count, which keeps the table small but makes raw list views awkward to diagnose from. The Log Console does that reading for you:
 
-The console also works the grouping out for itself, so recurring errors group into problems even where nobody tagged them in code. In Setup > Custom Settings > Log Setting you can change how many repeats it takes before something is listed as a problem, which log levels are covered, or turn the automatic grouping off altogether. None of those change what gets logged, and none of them deletes anything.
+| What you see | What it shows |
+|---|---|
+| **Problem summary** view | The window folded down to distinct problems ("this error, N occurrences") |
+| **Individual entries** view | The flat rows, when you need every event |
+| Summary ribbon across the top | Entries per level, and the top sources in the window, each with its origin (the framework's own code, your Apex, a Flow, or a component), so you can see at a glance where the noise is coming from |
+| Origin filter | The list narrowed to one of those origins |
 
-From either view you can narrow the window with a date-range picker (rolling windows from the last 15 minutes up to the last 30 days, calendar presets, or a custom range), search the text, sort any column, and page through the rows with a position line that says where you are. Selecting a row opens a detail drawer that lays the whole correlated run out as a timeline: every entry sharing the same tracking ID, in order, with the originating user, and usage bars for the resource limits the entry recorded. Pin an action, from an entry's drawer, from the Chain Monitor or by pasting its tracking ID, and the console shows everything the action did in one banner: when it ran, how many chains ran under it and how many failed, up to five of the chains as chips, failed first, with a count for the rest, and every entry the action and its chains wrote, oldest first. The Chain Monitor's **View logs** button jumps straight from a failed async step to its correlated logs here.
+The console also works the grouping out for itself, so recurring errors group into problems even where nobody tagged them in code.
 
-The console reads every user's log rows, so access sits behind the Kern Administrator permission set. For the full walkthrough, see [The Log Console](Logging%20-%20Guide.md#the-log-console) in the Logging Guide.
+In Setup > Custom Settings > Log Setting you can change how many repeats it takes before something is listed as a problem, which log levels are covered, or turn the automatic grouping off altogether. None of those change what gets logged, and none of them deletes anything.
+
+From either view you can:
+
+- narrow the window with a date-range picker (rolling windows from the last 15 minutes up to the last 30 days, calendar presets, or a custom range);
+- search the text, sort any column, and page through the rows with a position line that says where you are;
+- select a row to open a detail drawer that lays the whole correlated run out as a timeline: every entry sharing the same tracking ID, in order, with the originating user, and usage bars for the resource limits the entry recorded.
+
+Pin an action, from an entry's drawer, from the Chain Monitor or by pasting its tracking ID, and the console shows everything the action did in one banner:
+
+- when it ran;
+- how many chains ran under it and how many failed;
+- up to five of the chains as chips, failed first, with a count for the rest;
+- every entry the action and its chains wrote, oldest first.
+
+The Chain Monitor's **View logs** button jumps straight from a failed async step to its correlated logs here.
+
+The console reads every user's log rows, so access sits behind a permission set: Kern Administrator, or Kern Log Console Read Only, which lets a person read the log and change nothing. That set ships assigned to nobody. For the full walkthrough, see [The Log Console](Logging%20-%20Guide.md#the-log-console) in the Logging Guide.
 
 <HeroLoop src="/recordings/log-console.webm" mp4="/recordings/log-console.mp4" poster="/recordings/log-console-poster.jpg" caption="Scan the grouped problems, filter to the errors, then search a correlation ID and follow the whole run on its timeline." guide="/logging-guide#the-log-console" guideLabel="Logging Guide">
 
@@ -206,7 +250,9 @@ The console reads every user's log rows, so access sits behind the Kern Administ
 
 ### Triage and retry failed integration calls
 
-When an outbound call fails for good (after its automatic retries), KernDX records it as an API issue so it doesn't just vanish into the logs. The **API Issues** tab is the queue of these: each row links back to the call that failed, the error, and the request that caused it. The *Requests Failed Today* list view narrows it to the ones still open from today.
+When an outbound call fails for good (after its automatic retries), KernDX records it as an API issue so it doesn't just vanish into the logs.
+
+The **API Issues** tab is the queue of these: each row links back to the call that failed, the error, and the request that caused it. The *Requests Failed Today* list view narrows it to the ones still open from today.
 
 Open a failed issue and you get a **Retry** action that re-runs the original call there and then, with no anonymous Apex and no rebuilt request. If it succeeds, the issue is marked resolved; if it fails again, you keep the record to dig further.
 
@@ -218,13 +264,19 @@ Open a failed issue and you get a **Retry** action that re-runs the original cal
 
 ## Develop and onboard
 
-The last group is for setting an org up and growing it: putting recurring work on a schedule, building a masking configuration, wiring the framework to your own classes, and rolling features out gradually.
+Use these tools to set an org up and grow it: putting recurring work on a schedule, building a masking configuration, wiring the framework to your own classes, and rolling features out gradually.
 
 ### Schedule a recurring job without code
 
 To run a class on a schedule, you normally write a `System.schedule` call with a cron string and hope you got it right. KernDX turns that into a form. You pick the class from a list, choose when it should run, and save a schedule record; the framework starts, stops, and watches the job for you.
 
-The "when" is the useful part. You can start from a **Preset** (every hour, every weekday morning), drop to **Advanced** for finer control, or write a **Custom** cron expression directly. Whichever you use, a plain-English description rewrites itself as you go ("Every weekday at 6:00 AM"), and an impossible schedule is caught before you can save it (it will tell you, for instance, that day 31 does not exist in February).
+The "when" is the useful part:
+
+- Start from a **Preset** (every hour, every weekday morning).
+- Drop to **Advanced** for finer control.
+- Or write a **Custom** cron expression directly.
+
+Whichever you use, a plain-English description rewrites itself as you go ("Every weekday at 6:00 AM"), and an impossible schedule is caught before you can save it (it will tell you, for instance, that day 31 does not exist in February).
 
 Salesforce's own Schedule Apex screen can do the basics if you are comfortable writing cron by hand and already have a schedulable class. This builder is for getting a correct schedule in place quickly, and for changing it later without touching code. For the declarative scheduling record behind it, see [Declarative Scheduling with ScheduledJob__c](Async%20Processing%20-%20Guide.md#declarative-scheduling-with-scheduledjob__c) in the Async Processing Guide.
 
@@ -260,6 +312,10 @@ The Kern Home setup helper writes the class for you. On the readiness banner, th
 
 </HeroLoop>
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 This is the resolver it generates:
 
 ```apex
@@ -278,6 +334,11 @@ global with sharing class ACME_ClassTypeResolver extends kern.UTIL_TypeResolver.
 }
 ```
 
-Rename `ACME_ClassTypeResolver` to suit your org. Two steps then happen outside the helper, on purpose. You deploy the class like any other Apex (Salesforce blocks creating Apex through a setup screen in production), then register its name on the Class Type Resolver custom metadata record so the framework knows to call it. For the full walkthrough, see [Type Resolution](Code%20Conventions%20-%20Guide.md#type-resolution) in the Code Conventions Guide.
+Rename `ACME_ClassTypeResolver` to suit your org. Two steps then happen outside the helper, on purpose:
+
+1. Deploy the class like any other Apex (Salesforce blocks creating Apex through a setup screen in production).
+2. Register its name on the Class Type Resolver custom metadata record so the framework knows to call it.
+
+For the full walkthrough, see [Type Resolution](Code%20Conventions%20-%20Guide.md#type-resolution) in the Code Conventions Guide.
 
 **Feature flags.** KernDX has no dedicated screen for these; you manage them as records and read them in code. See the [Feature Flags Guide](Feature%20Flags%20-%20Guide.md) for how to define and check a flag.

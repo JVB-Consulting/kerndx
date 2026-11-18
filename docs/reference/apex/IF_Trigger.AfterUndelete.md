@@ -3,13 +3,14 @@ title: "IF_Trigger.AfterUndelete"
 type: class
 pageClass: reference
 description: "Handler contract for the after-undelete trigger event."
+group: "Triggers"
 since: "1.0"
 category: apex
 ---
 
 # IF_Trigger.AfterUndelete
 
-**Class**
+**Class** · Group: `Triggers`
 
 <div class="apex-member apex-class">
 

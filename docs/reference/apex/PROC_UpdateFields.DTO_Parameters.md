@@ -3,13 +3,14 @@ title: "PROC_UpdateFields.DTO_Parameters"
 type: class
 pageClass: reference
 description: "DTO for parameters to query and update records."
+group: "Bulk DML"
 since: "1.0"
 category: apex
 ---
 
 # PROC_UpdateFields.DTO_Parameters
 
-**Class**
+**Class** · Group: `Bulk DML`
 
 <div class="apex-member apex-class">
 
@@ -27,7 +28,7 @@ DTO for parameters to query and update records.
 
 | Field | Description |
 |-------|-------------|
-| global [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) [accessLevel](#accesslevel) | Explicit AccessLevel for the bulk update commit, or null to inherit the flag-driven default resolved by DML_SharingProxy.defaultAccessLevel(). |
+| global [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) [accessLevel](#accesslevel) | The access level for the query and the save, or null to use the package default. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [allOrNothing](#allornothing) | Indicates if the update requires all-or-nothing behavior (default: false). |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [objectName](#objectname) | API name of the SObject to update (e.g., 'Account'). |
 | global [QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) [searchConditions](#searchconditions) | Conditions to filter records for updating. |
@@ -41,12 +42,13 @@ global AccessLevel accessLevel
 
 **Type:** [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm)
 
-Explicit AccessLevel for the bulk update commit, or null to inherit the
-flag-driven default resolved by DML_SharingProxy.defaultAccessLevel(). Framework utilities
-that own their lifecycle (e.g. UTIL_BulkUpdates) set this to AccessLevel.SYSTEM_MODE
-explicitly so the bulk commit is not gated on the invoking user's FLS. When your code calls
-PROC_UpdateFields directly, you may pass AccessLevel.USER_MODE to enforce the running user's
-permissions.
+The access level for the query and the save, or null to use the package default. The default
+runs with the running user's object, field and sharing access (user mode), unless the package's feature
+settings turn it off. UTIL_BulkUpdates leaves this null, so its jobs use the default too. Set
+AccessLevel.SYSTEM_MODE to skip those checks, only after your own code has checked that the user may make the
+change. Set AccessLevel.USER_MODE to always check the running user's access. A user mode level that adds a
+permission set, built with AccessLevel.USER_MODE.withPermissionSetId(...), is used as it is for the query and
+the save, so the running user also gets the access that permission set gives.
 
 **Example**
 

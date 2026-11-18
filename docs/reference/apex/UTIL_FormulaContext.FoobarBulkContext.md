@@ -3,13 +3,14 @@ title: "UTIL_FormulaContext.FoobarBulkContext"
 type: class
 pageClass: reference
 description: "For testing only. This class exists only so the framework's own tests can check that the preLoad() method of a context class runs before an entry formula or a validation rule is checked. It is not mea"
+group: "Utilities"
 since: "1.10"
 category: apex
 ---
 
 # UTIL_FormulaContext.FoobarBulkContext
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

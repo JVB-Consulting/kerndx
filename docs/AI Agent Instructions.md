@@ -197,7 +197,7 @@ Tags in order: `@description`, `@see`, `@author`, `@group`, `@date`, `@since`, `
 
 | Rule                                         | Correct                                                                                                                                                                                                                | Wrong                                                                                                                                                                                                                                                                                                         |
 |----------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| No inline SOQL                               | `kern.QRY_Builder.selectFrom(...)` or `new SEL_Cases()`                                                                                                                                                                | `[SELECT ...]`                                                                                                                                                                                                                                                                                                |
+| No inline SOQL                               | `new SEL_Cases().findOpen()` or `new SEL_Cases().query` (every read goes through a selector)                                                                                                                           | `[SELECT ...]`                                                                                                                                                                                                                                                                                                |
 | No System.debug                              | `kern.LOG_Builder.build().info('msg').emitAt('Class.method')`                                                                                                                                                          | `System.debug(...)`                                                                                                                                                                                                                                                                                           |
 | No LightningElement                          | `extends ComponentBuilder('notification')`                                                                                                                                                                             | `extends LightningElement`                                                                                                                                                                                                                                                                                    |
 | No fflib layering pattern in subscriber code | `kern.QRY_Builder`, `kern.DML_Builder`, `extends kern.SEL_Base`, `extends kern.TRG_Base`                                                                                                                               | `fflib_SObjectSelector`, `fflib_SObjectDomain`, `fflib_Application`, `fflib_SObjectUnitOfWork`, `newQueryFactory()`. The framework's own `UTIL_SObjectDescribe` + `DML_Transaction` utilities are BSD-licensed from the same lineage (see `NOTICES.md`); subscriber code goes through `kern.*` not `fflib_*`. |
@@ -299,10 +299,10 @@ public with sharing class SEL_Cases extends kern.SEL_Base  // MUST be "with shar
 
 ## Query Builder (QRY_Builder)
 
-SEL_* for reusable queries; QRY_Builder directly for one-off. Prefer `List<SObjectField>` for compile-time safety.
+Every read goes through a SEL_* selector; QRY_Builder is the engine under its `query` property, so the builder methods below are called on `query`. Plain SOQL only when the framework cannot express the query (raise it with the KernDX team) or the code is outside the framework's reach. Prefer `List<SObjectField>` for compile-time safety.
 
 ```apex
-List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
+List<Account> accounts = new SEL_Accounts().query
 	.fields(new List<SObjectField>{ Account.Name, Account.Industry })
 	.condition(Account.Industry).equals('Tech')
 	.orderBy(Account.Name).ascending()
@@ -343,7 +343,7 @@ never filters rows, and cannot be combined with aggregate functions.
 `.withSystemMode()` per-query to bypass, or subclass `kern.SEL_Base` and override `systemModeRequired()` to return `true` to pin a selector's queries to SYSTEM_MODE regardless of
 > the flag. Under USER_MODE: `.withSharing()` changes nothing on its own (USER_MODE always enforces sharing; after `.bypassSharing()` it cancels the bypass); `.stripInaccessible()` does not stop the platform refusing a
 > selected field the user cannot read (it strips only under `.withSystemMode()` or in a `.bypassSharing()` read); `.bypassSharing()` alone ignores sharing and
-> keeps the object and field checks: hidden fields are removed from the rows, an unreadable object or a `condition(...)`/`orderBy(...)` on a hidden field is
+> keeps the object and field checks: hidden fields are removed from the rows, a hidden lookup or parent object on a selected path (or behind a child query) refuses the read, an unreadable object or a `condition(...)`/`orderBy(...)` on a hidden field is
 > refused, and `toQueryLocator()`, `toCursor()` and aggregate reads are refused with `kern.UTIL_Exceptions.IllegalStateException` (add `.withSystemMode()`);
 > refusing an object the user cannot read throws a `QueryException`, and the other refusals throw `IllegalStateException`.
 > Only `.withSystemMode()`, `.bypassSharing()` and `.withoutSecurity()` write a bypass audit entry.
@@ -372,7 +372,7 @@ kern.QRY_Builder.Builder subquery = kern.QRY_Builder.selectFrom(Contact.SObjectT
 	.fields(new List<String>{ 'AccountId' })
 	.condition(Contact.Email).isNotNull();
 
-List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
+List<Account> accounts = new SEL_Accounts().query
 	.condition(Account.Id).isIn(subquery)
 	.toList();
 ```
@@ -384,7 +384,7 @@ kern.QRY_Condition.OrCondition statusGroup = new kern.QRY_Condition.OrCondition(
 statusGroup.add(new kern.QRY_Condition.FieldCondition(Account.Status__c, kern.QRY_Condition.Operator.EQUALS, 'Active'));
 statusGroup.add(new kern.QRY_Condition.FieldCondition(Account.Status__c, kern.QRY_Condition.Operator.EQUALS, 'Pending'));
 
-List<Account> accounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
+List<Account> accounts = new SEL_Accounts().query
 	.condition(Account.Industry).equals('Tech')
 	.addCondition(statusGroup)
 	.toList();
@@ -421,7 +421,8 @@ kern.DML_Builder.TransactionResult result = kern.DML_Builder.newTransaction()
 
 **Config:** `.allowPartial()` | `.expectRefusal(StatusCode)` | `.withRetryOnLock([retries])` | `.withUserMode()` / `.withSystemMode()` | `.bypassSharing()` | `.suppressLogging()` | `.suppressExceptions()`
 
-**Result:** `isSuccess()` | `getInsertedIds()` | `getErrors()` | `getSuccessCount()` | `getFailureCount()`
+**Result:** `isSuccess()` | `getInsertedIds()` | `getErrors()` | `getSuccessCount()` | `getFailureCount()` | `getFailureMessage()` (the reason when
+`suppressExceptions()` caught a failure or an error stopped an `allowPartial()` save; `getErrors()` does not show that reason)
 
 **Async:** `.async()` → `kern.DML_Builder.DML_AsyncBuilder` — a **type switch, not a config method**. The async builder exposes only `.withBatchSize(Integer)` and
 `.execute()`, and its `execute()` returns **`void`**, not a `TransactionResult`. Chain `.async()` last; none of the Config methods above exist on it. Five
@@ -550,7 +551,18 @@ Two records needed per handler: a `TriggerSetting` (one per SObject) and a `Trig
 
 **File naming:** `kern__TriggerSetting.{ObjectName}.md-meta.xml` and `kern__TriggerAction.{ActionName}_{Event}.md-meta.xml`
 
-**TriggerSetting** — one per SObject (skip if already exists). File: `kern__TriggerSetting.{ObjectName}.md-meta.xml`
+**TriggerSetting** — one per SObject (skip if one of yours already exists). File: `kern__TriggerSetting.{ObjectName}.md-meta.xml`
+
+**Handlers on a KernDX object** (`kern__ApiCall__c`, `kern__ApiIssue__c`, `kern__ScheduledJob__c`, `kern__AsyncChainExecution__c`): the package's
+triggers on these objects run all seven events, so generate only the metadata records, never a trigger of your own (a second trigger that calls the
+dispatcher runs every action twice). Always create your own `TriggerSetting` for the object (`kern__SObjectType__c` = `kern__ApiIssue__c`, say),
+even though the package ships one: the package's settings are protected and a subscriber row cannot reference them. Both settings' actions run, in
+no defined order between the two (`Order__c` sorts within one setting only; the package's own rows on these objects use before events only). `kern__ApplyMasking__c`:
+kern already masks ApiCall, ApiIssue and AsyncChainExecution, whatever this is; on ScheduledJob leave it `false` unless you add masking targets for it.
+Leave `kern__FailureAction__c` blank (`LogAndContinue`): `BlockDml` or a governor-limit error
+rolls back the package's own save, including the very record that started the action (on `kern__ApiIssue__c`, the issue itself).
+`kern__ApiCall__c` and `kern__ApiIssue__c` have built-in formula contexts; the other two need a `global` context class. Full guide:
+[How do I add actions to KernDX's own objects?](Triggers%20-%20Guide.md#how-do-i-add-actions-to-kerndxs-own-objects).
 
 | Field                      | Value                             |
 |----------------------------|-----------------------------------|
@@ -562,11 +574,11 @@ Optional on TriggerSetting (omit unless needed):
 | Field                               | Default | Purpose                                                                                                                                                           |
 |-------------------------------------|:-------:|-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | `kern__ObjectApiNameOverride__c`    | —       | Registers an entity `SObjectType__c` cannot reference — Change Data Capture events (`AccountChangeEvent`). Wins at dispatch; at least one of the two must be set. |
-| `kern__ApplyMasking__c`             | `true`  | Runs the masking pass before insert/update on this object. Uncheck to opt one object out.                                                                         |
+| `kern__ApplyMasking__c`             | `true`  | Runs the masking pass before insert/update on this object. Masking runs when ANY setting for the object has it on; uncheck it on every one to opt out. |
 | `kern__BypassFeatureFlag__c`        | —       | Skip ALL actions on this object while the named `FeatureFlag__mdt` is on.                                                                                         |
 | `kern__RequiredFeatureFlag__c`      | —       | Run actions on this object ONLY while the named `FeatureFlag__mdt` is on.                                                                                         |
-| `kern__EnablePerformanceLogging__c` | `true`  | Track execution time for every action on this object.                                                                                                             |
-| `kern__PerformanceThresholdMs__c`   | —       | Log actions slower than this (ms). Overrides the global default.                                                                                                  |
+| `kern__EnablePerformanceLogging__c` | `true`  | Deprecated: has no effect. Do not set it; use `kern__PerformanceThresholdMs__c`.                                                                                  |
+| `kern__PerformanceThresholdMs__c`   | —       | Log a run of the actions under this setting that takes this long or longer (ms), even when `LogSetting__c.EnableTriggerPerformanceLogging__c` is off. Blank follows `LogSetting__c`; an action threshold wins. Never set it low on your own trigger setting or action for a log object (`kern__LogEntryEvent__e`): each entry can fire the trigger again. |
 
 **TriggerAction** — one per handler + event. File: `kern__TriggerAction.{ActionName}_{Event}.md-meta.xml`
 
@@ -589,11 +601,11 @@ Optional on TriggerAction (omit unless needed):
 | `kern__AllowRecursion__c`                | `true`           | Re-entrancy guard, NOT a once-per-transaction guard. Uncheck to skip the action while an earlier run of it is still in progress (its own DML re-firing the same trigger). It still runs for separate, later operations in the same transaction.             |
 | `kern__AllowNonSelfInitiated__c`         | `true`           | Uncheck to skip the action when another trigger, not the original DML, caused this execution.                                                                                                                                                               |
 | `kern__EntryCriteriaFormula__c`          | —                | Formula gate — the action runs only for records where it evaluates true.                                                                                                                                                                                    |
-| `kern__EntryCriteriaContextClassName__c` | —                | Class implementing `kern.UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext`. Required for CUSTOM objects only — Account, Campaign, Case, Contact, Event, Lead, Opportunity, Task and User resolve automatically.                                       |
+| `kern__EntryCriteriaContextClassName__c` | —                | Class implementing `kern.UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext`. Required for CUSTOM objects only — Account, Campaign, Case, Contact, Event, Lead, Opportunity, Task, User, `kern__ApiCall__c` and `kern__ApiIssue__c` resolve automatically. |
 | `kern__FailureAction__c`                 | `LogAndContinue` | `LogAndContinue` or `BlockDml` when the action throws.                                                                                                                                                                                                      |
-| `kern__PerformanceThresholdMs__c`        | —                | Per-action override of the threshold (ms).                                                                                                                                                                                                                  |
-| `kern__ForcePerformanceLogging__c`       | `false`          | Log this action's timing even when the object-level switch is off.                                                                                                                                                                                          |
-| `kern__SuppressPerformanceLogging__c`    | `false`          | Never log this action's timing.                                                                                                                                                                                                                             |
+| `kern__PerformanceThresholdMs__c`        | —                | Threshold for this action (ms); wins over the trigger setting's. Logs even when `LogSetting__c.EnableTriggerPerformanceLogging__c` is off.                                                                                                                  |
+| `kern__ForcePerformanceLogging__c`       | `false`          | Log every run of this action, even when `LogSetting__c.EnableTriggerPerformanceLogging__c` is off.                                                                                                                                                          |
+| `kern__SuppressPerformanceLogging__c`    | `false`          | Never log this action's timing, even when Force is also ticked.                                                                                                                                                                                             |
 
 **Copy-paste XML reference** (TriggerAction — required fields only; add optional fields from the table above as needed):
 
@@ -657,7 +669,7 @@ gate on `touchedSObjectTypes`. They do not fire at all when the object is bypass
 Registration record — `kern__PostTriggerAction.{Name}.md-meta.xml`. Fields: `kern__ApexClassName__c` (the implementing class) | `kern__Order__c` (ascending) |
 `kern__TriggerSetting__c` (when set, the row runs only if that setting's object is in `touchedSObjectTypes`; omit for cross-object) | `kern__EntryCriteriaContextClassName__c` |
 `kern__BypassExecution__c` (`false`) | `kern__RequiredFeatureFlag__c` / `kern__BypassFeatureFlag__c` | `kern__FailureAction__c` (`LogAndContinue`) |
-`kern__PerformanceThresholdMs__c` | `kern__ForcePerformanceLogging__c` (`false`) | `kern__Description__c`. Gate order, cheapest first: bypass → feature flags →
+`kern__PerformanceThresholdMs__c` (blank: the trigger setting's threshold, else `LogSetting__c`) | `kern__ForcePerformanceLogging__c` (`false`) | `kern__Description__c`. Gate order, cheapest first: bypass → feature flags →
 trigger-setting scope → entry criteria.
 
 ```apex
@@ -1202,7 +1214,7 @@ on the type, and a second call adds rows (`QRY_Builder.setAggregateMock` replace
 
 ```apex
 kern.TST_Mock.registerAggregateRows(Account.SObjectType, new Map<String, Object>{ 'total' => 3 });
-Integer total = kern.QRY_Builder.selectFrom(Account.SObjectType).count(Account.Id, 'total').getFirstAggregate().getInteger('total');
+Integer total = new SEL_Accounts().query.count(Account.Id, 'total').getFirstAggregate().getInteger('total');
 ```
 
 ### TST_Factory
@@ -1358,7 +1370,7 @@ credit-card rules are both active on the same object, the payment-card rule does
 Advisor preview); saves of every other object have no caller, so only targets with a blank `CallerClass__c` apply there.
 
 **Mode picklist values on `MaskingRule__mdt.Mode__c`:** `Regex`, `JsonKey`, `ExactMatch`, `CreditCard`.
-**Optional short-circuit fields:** `MinInputLength__c` (skip rule for shorter values) and `ApplicableFieldTypes__c` (semicolon-delimited `System.DisplayType` names — e.g.,
+**Optional short-circuit fields:** `MinInputLength__c` (skip rule for shorter values; a `JsonKey` rule ignores it) and `ApplicableFieldTypes__c` (semicolon-delimited `System.DisplayType` names — e.g.,
 `STRING;TEXTAREA;ENCRYPTEDSTRING`).
 **Failure handling:** `MaskingRule__mdt.FailureAction__c` = `LogAndContinue` (the value is saved unmasked and the rule is skipped for the rest of the transaction) /
 `WriteFailureMarker` (the default and the shipped choice: `[MASKING_FAILURE]` is saved in place of each value the rule fails on, the rule keeps running on the others, and a pattern
@@ -1485,7 +1497,7 @@ never pass it to `System.abortJob`. The runner's own records name `kern.SCHED_Jo
 | 9  | `inherited sharing` in subscriber code | `with sharing` — except `SCHED_*` which uses `inherited sharing`            |
 | 10 | `global` on selectors, services, flows | `public`; `global` only for `REST_*` and classes created by name (`SCHED_*` too) |
 | 11 | Manual JSON.serialize in response      | Use `updateResponseDTO()` — framework serializes                            |
-| 12 | `[SELECT ...]` in test classes         | Use `kern.QRY_Builder` or `SEL_*` even in tests                             |
+| 12 | `[SELECT ...]` in test classes         | Use the object's `SEL_*` selector even in tests                             |
 | 13 | Missing `@SuppressWarnings` on tests   | `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')` on test classes |
 | 14 | `import from 'c/componentBuilder'`     | `import from 'kern/componentBuilder'` — must use package namespace          |
 | 15 | Line break after `kern.Class` in a chain | Keep the first `.method()` on the class's line — a break compiles `kern` as a variable (`Variable does not exist: kern`) |
@@ -1501,7 +1513,7 @@ never pass it to `System.abortJob`. The runner's own records name `kern.SCHED_Jo
 | Concept   | fflib                                        | KernDX                                               |
 |-----------|----------------------------------------------|------------------------------------------------------|
 | Selectors | `extends fflib_SObjectSelector`              | `extends kern.SEL_Base`                              |
-| Queries   | `Database.query(newQueryFactory().toSOQL())` | `kern.QRY_Builder.selectFrom().toList()`             |
+| Queries   | `Database.query(newQueryFactory().toSOQL())` | `query.condition(...).toList()` inside the selector  |
 | DML       | `fflib_SObjectUnitOfWork`                    | `kern.DML_Builder.newTransaction().execute()`        |
 | Triggers  | `fflib_SObjectDomain`                        | `extends kern.TRG_Base implements kern.IF_Trigger.*` |
 | Logging   | `System.debug()`                             | `kern.LOG_Builder.build().error(e).emitAt()`         |

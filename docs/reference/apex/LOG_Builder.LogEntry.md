@@ -3,13 +3,14 @@ title: "LOG_Builder.LogEntry"
 type: class
 pageClass: reference
 description: "Fluent builder for constructing rich log entries with context. Provides a chainable API for setting log level, location, record association, and contextual metadata before emitting the log."
+group: "Logging"
 since: "1.0"
 category: apex
 ---
 
 # LOG_Builder.LogEntry
 
-**Class**
+**Class** · Group: `Logging`
 
 <div class="apex-member apex-class">
 

@@ -3,13 +3,14 @@ title: "QRY_Condition.Evaluable"
 type: class
 pageClass: reference
 description: "Interface for condition classes. Pass to QRY_Builder.addCondition()."
+group: "Query Infrastructure"
 since: "1.0"
 category: apex
 ---
 
 # QRY_Condition.Evaluable
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 

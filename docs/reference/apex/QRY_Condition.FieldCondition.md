@@ -3,6 +3,7 @@ title: "QRY_Condition.FieldCondition"
 type: class
 pageClass: reference
 description: "Represents a condition in a SOQL WHERE clause based on a specific field, operator, and value."
+group: "Query Infrastructure"
 date: "July 2026"
 since: "1.0"
 category: apex
@@ -10,7 +11,7 @@ category: apex
 
 # QRY_Condition.FieldCondition
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 

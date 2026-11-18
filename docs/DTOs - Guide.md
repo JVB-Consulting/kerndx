@@ -1,15 +1,111 @@
 ---
 navOrder: 66
+navLabel: "DTOs (data to and from JSON)"
+searchTerms: {"creating-custom-dto-classes":["wrapper class"]}
+movedAnchors: {"why-choose-this-over-the-built-in-option": "/#dtos", "what-you-gain": "/#dtos", "what-are-the-moving-parts": "/dtos-guide#how-does-it-work"}
 ---
 
 # DTOs - Guide
 
-**Framework:** KernDX
-**Package Type:** Managed Package (namespace-agnostic)
+**Who this page is for:** developers who send data to a Lightning component, another system or a flow, when they are
+designing or consuming a data contract; and the architects who keep the internal database structure separate from the
+formats outside systems see. Deciding whether to use KernDX? See [Why KernDX](Strategic%20Guide%20-%20Overview.md).
+
+## Copy this first
+
+```apex
+@JsonAccess(serializable='always' deserializable='always')
+public inherited sharing class DTO_OrderSummary extends kern.DTO_JsonBase
+{
+	@AuraEnabled public String orderId;
+	@AuraEnabled public Decimal totalAmount;
+
+	public override Type getObjectType()
+	{
+		return DTO_OrderSummary.class;
+	}
+}
+
+// Turn it into JSON
+DTO_OrderSummary summary = new DTO_OrderSummary();
+summary.orderId = 'ORD-001';
+summary.totalAmount = 250.00;
+String json = summary.serialize();
+
+// Read it back from JSON
+DTO_OrderSummary parsed = (DTO_OrderSummary)new DTO_OrderSummary().deserialize(json);
+```
+
+**What this does:** defines a small class that holds two fields, turns it into JSON, and reads the JSON back into a
+new object with the same values. `@JsonAccess` lets the package write and read your class. `getObjectType()` tells the
+package which class to build when it reads JSON. Declare it `public override`.
+
+**Read next:** [Skip getObjectType() with a type resolver](#type-resolution-critical-requirement-in-your-org),
+[DTOs in REST APIs](#dtos-in-rest-apis), [DTOs in Lightning components](#dtos-in-lwc-components), [Test a DTO](#testing).
+
+---
+
+## Quick Navigation
+
+| I need to...                                                               | Go to...                                                                                             |
+|----------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
+| Decide whether a DTO is the right tool                                     | [Use this when / Don't use this when](#use-this-when--dont-use-this-when)                            |
+| Build my own DTO classes                                                   | [Creating Custom DTO Classes](#creating-custom-dto-classes)                                          |
+| Let the package read and write my DTO (`@JsonAccess`)                      | [Creating JSON DTOs](#creating-json-dtos)                                                            |
+| Stop writing `getObjectType()` in every DTO                                | [Type Resolution](#type-resolution-critical-requirement-in-your-org)                                 |
+| Fill a DTO from a record                                                   | [Implementing populate() Methods](#implementing-populate-methods)                                    |
+| Turn one DTO into another                                                  | [Implementing transform() Methods](#implementing-transform-methods)                                  |
+| Use a ready-made DTO for name-value pairs, a datatable, or picklist values | [Built-in DTO Classes](#built-in-dto-classes)                                                        |
+| Send and receive DTOs in a REST API                                        | [DTOs in REST APIs](#dtos-in-rest-apis)                                                              |
+| Return a DTO to a Lightning component                                      | [DTOs in LWC Components](#dtos-in-lwc-components)                                                    |
+| Pass a DTO from a Lightning component into Apex                            | [Passing Complex DTOs as `@AuraEnabled` Parameters](#passing-complex-dtos-as-auraenabled-parameters) |
+| Use a DTO in a flow                                                        | [DTOs in Flow Invocables](#dtos-in-flow-invocables)                                                  |
+| Read a field by its path, sort DTOs, or put them in a Set                  | [What else can it do?](#what-else-can-it-do)                                                         |
+| Test a DTO                                                                 | [Testing](#testing)                                                                                  |
+| Fix a DTO error                                                            | [Troubleshooting](#troubleshooting)                                                                  |
+| Understand how DTOs work                                                   | [How does it work?](DTOs%20-%20Guide.md#how-does-it-work)                                            |
+| See why KernDX is worth using                                              | [Why KernDX](/)                                                                                      |
+
+---
+
+## Quick Start
+
+Pick the shape that fits your data:
+
+| Your data                                                                                                 | What to write                                                                             |
+|-----------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| Your own fields, sent as JSON for an API integration or a Lightning component response (most of the time) | A JSON DTO: a class that extends `DTO_JsonBase`. The shortest path is below               |
+| Key-value parameters, a Lightning datatable, picklist values, or a change-event header                    | No class of your own: a ready-made DTO from [Built-in DTO Classes](#built-in-dto-classes) |
+
+```apex
+@JsonAccess(serializable='always' deserializable='always')
+public inherited sharing class DTO_OrderSummary extends DTO_JsonBase
+{
+	@AuraEnabled public String orderId;
+	@AuraEnabled public Decimal totalAmount;
+
+	// Needed unless you register a Type Resolver (see Type Resolution)
+	public override Type getObjectType()
+	{
+		return DTO_OrderSummary.class;
+	}
+}
+
+// Create and serialize
+DTO_OrderSummary summary = new DTO_OrderSummary();
+summary.orderId = 'ORD-001';
+summary.totalAmount = 250.00;
+String json = summary.serialize();
+
+// Deserialize from JSON
+DTO_OrderSummary parsed = (DTO_OrderSummary)new DTO_OrderSummary().deserialize(json);
+```
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
+> **When KernDX is installed as a managed package:** Always include `@JsonAccess(serializable='always' deserializable='always')` on every DTO that extends a managed package base class. Without it, serialization fails at runtime. See [Type Resolution](#type-resolution-critical-requirement-in-your-org) for the other requirement.
 
 ---
 
@@ -17,104 +113,23 @@ navOrder: 66
 
 When your code moves data between two places (Apex to a Lightning component, Apex to an outside system, or a screen flow to Apex), you need a tidy package to carry it. Without a deliberate shape, that data ends up as loose maps and untyped JSON that the compiler cannot check and tests cannot pin down.
 
-A Data Transfer Object, or DTO, is a small class that holds exactly the fields you want to move and knows how to convert itself to and from JSON. This guide shows you how to build and use DTOs in KernDX, so that the shape of the data you send is clear, type-checked by the compiler, and easy to test.
+A Data Transfer Object, or DTO, is a small class that holds exactly the fields you want to move and knows how to convert itself to and from JSON. Build your DTOs on KernDX's DTO classes, and the shape of the data you send is clear, type-checked by the compiler, and easy to test.
 
-Developers use DTOs when building APIs, sending structured data to the front end, or passing parameters into flows. Architects use them to keep your internal database structure separate from the formats outside systems see. Read this when you are designing or consuming a data contract.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Quick Navigation](#quick-navigation)
-2. [Mental model](#mental-model)
-3. [Use this when / Don't use this when](#use-this-when--dont-use-this-when)
-    - [Use DTOs when](#use-dtos-when)
-    - [Don't use DTOs when](#dont-use-dtos-when)
-4. [Quick Start](#quick-start)
-5. [Why choose this over the built-in option?](#why-choose-this-over-the-built-in-option)
-    - [What you gain](#what-you-gain)
-    - [What are the moving parts?](#what-are-the-moving-parts)
-6. [How does it work?](#how-does-it-work)
-    - [DTO Class Hierarchy](#dto-class-hierarchy)
-7. [Working with Base DTO Classes](#working-with-base-dto-classes)
-    - [DTO_Base - Foundation](#dto_base---foundation)
-    - [DTO_JsonBase - JSON Handling](#dto_jsonbase---json-handling)
-8. [Built-in DTO Classes](#built-in-dto-classes)
-    - [DTO_NameValue](#dto_namevalue)
-    - [DTO_NameValues](#dto_namevalues)
-        - [DTO_NameValues Properties](#dto_namevalues-properties)
-        - [DTO_NameValues Methods](#dto_namevalues-methods)
-    - [DTO_BaseTable](#dto_basetable)
-        - [Lightning Datatable Column Types](#lightning-datatable-column-types)
-        - [LWC Usage](#lwc-usage)
-    - [DTO_PickList](#dto_picklist)
-    - [DTO_ChangeEventHeader](#dto_changeeventheader)
-9. [Creating Custom DTO Classes](#creating-custom-dto-classes)
-    - [Creating JSON DTOs](#creating-json-dtos)
-    - [Type Resolution: CRITICAL Requirement in Your Org](#type-resolution-critical-requirement-in-your-org)
-        - [Type Resolution Option 3: Custom Type Resolver (RECOMMENDED)](#type-resolution-option-3-custom-type-resolver-recommended)
-    - [Implementing populate() Methods](#implementing-populate-methods)
-    - [Implementing transform() Methods](#implementing-transform-methods)
-10. [What else can it do?](#what-else-can-it-do)
-    - [JsonPath for Reflective Access](#jsonpath-for-reflective-access)
-    - [Sorting DTOs](#sorting-dtos)
-    - [DTO Collections and Equality](#dto-collections-and-equality)
-11. [How do I connect it to my code?](#how-do-i-connect-it-to-my-code)
-    - [DTOs in REST APIs](#dtos-in-rest-apis)
-    - [DTOs in LWC Components](#dtos-in-lwc-components)
-        - [Passing Complex DTOs as @AuraEnabled Parameters](#passing-complex-dtos-as-auraenabled-parameters)
-    - [DTOs in Flow Invocables](#dtos-in-flow-invocables)
-12. [Testing](#testing)
-13. [Anti-Patterns](#anti-patterns)
-14. [Best Practices](#best-practices)
-    - [Use Appropriate DTO Type](#use-appropriate-dto-type)
-    - [Implement getObjectType() for Private Classes (OR Use Type Resolver)](#implement-getobjecttype-for-private-classes-or-use-type-resolver)
-    - [Use @AuraEnabled for LWC](#use-auraenabled-for-lwc)
-    - [Initialize Collections](#initialize-collections)
-    - [Handle Null Values](#handle-null-values)
-    - [Use Clear Naming](#use-clear-naming)
-    - [Document Complex DTOs](#document-complex-dtos)
-    - [Validate DTO Data](#validate-dto-data)
-    - [Keep DTOs Focused](#keep-dtos-focused)
-15. [Troubleshooting](#troubleshooting)
-    - [Issue: "Type cannot be deserialized as it is not globally visible" or "System.JSONException: Type cannot be constructed"](#issue-type-cannot-be-deserialized-as-it-is-not-globally-visible-or-systemjsonexception-type-cannot-be-constructed)
-    - [Issue: "Unable to deserialize to specified type"](#issue-unable-to-deserialize-to-specified-type)
-    - [Issue: "Null pointer exception when accessing DTO fields"](#issue-null-pointer-exception-when-accessing-dto-fields)
-    - [Issue: "DTO fields not visible in LWC"](#issue-dto-fields-not-visible-in-lwc)
-16. [Reference](#reference)
-    - [DTO Framework Classes](#dto-framework-classes)
-    - [Key Methods](#key-methods)
-17. [Related Documentation](#related-documentation)
-
-</details>
-
----
-
-## Quick Navigation
-
-| I am a...     | I need to...                | Go to...                                                            |
-|---------------|-----------------------------|--------------------------------------------------------------------|
-| **Architect** | Understand how DTOs work    | [How does it work?](#how-does-it-work)                             |
-| **Architect** | Choose integration patterns | [How do I connect it to my code?](#how-do-i-connect-it-to-my-code) |
-| **Developer** | Create my first DTO         | [Quick Start](#quick-start)                                        |
-| **Developer** | Build custom DTO classes    | [Creating Custom DTO Classes](#creating-custom-dto-classes)        |
-| **Developer** | Implement advanced patterns | [What else can it do?](#what-else-can-it-do)                       |
-| **Analyst**   | Know when to use DTOs       | [Use this when / Don't use this when](#use-this-when--dont-use-this-when) |
+You use DTOs when building APIs, sending structured data to the front end, or passing parameters into flows.
 
 ---
 
 ## Mental model
 
-Think of a DTO as a shipping container for your data. You pack exactly the items you want to send (the fields), the container has a standard shape both ends understand, and it converts to a flat manifest (JSON) for the journey and back into labelled items on arrival. The contents inside your warehouse (your SObjects) can be arranged however you like; the container is what crosses the boundary.
+Think of a DTO as a shipping container for your data. You pack exactly the items you want to send (the fields), and the container has a standard shape both ends understand. It converts to a flat manifest (JSON) for the journey and back into labelled items on arrival.
+
+The contents inside your warehouse (your SObjects) can be arranged however you like; the container is what crosses the boundary.
 
 ---
 
 ## Use this when / Don't use this when
 
-Before the mechanics, decide whether a DTO is the right tool. Reach for one when data crosses a boundary; stay with plain Salesforce objects when it does not.
+Reach for a DTO when data crosses a boundary; stay with plain Salesforce objects when it does not.
 
 ### Use DTOs when
 
@@ -202,79 +217,9 @@ DML_Builder.newTransaction().doInsert(account).execute();
 
 ---
 
-## Quick Start
-
-Most of the time you want a JSON DTO for an API integration or a Lightning component response. Here is the shortest path from nothing to a working DTO:
-
-```apex
-@JsonAccess(serializable='always' deserializable='always')
-public class DTO_OrderSummary extends DTO_JsonBase
-{
-	@AuraEnabled public String orderId;
-	@AuraEnabled public Decimal totalAmount;
-}
-
-// Create and serialize
-DTO_OrderSummary summary = new DTO_OrderSummary();
-summary.orderId = 'ORD-001';
-summary.totalAmount = 250.00;
-String json = summary.serialize();
-
-// Deserialize from JSON
-DTO_OrderSummary parsed = (DTO_OrderSummary)new DTO_OrderSummary().deserialize(json);
-```
-
-> **When KernDX is installed as a managed package:** Always include `@JsonAccess(serializable='always' deserializable='always')` on every DTO that extends a managed package base class. Without it, serialization fails at runtime. See [Type Resolution](#type-resolution-critical-requirement-in-your-org) for the other requirement.
-
-For deeper coverage, continue reading the sections below.
-
----
-
-## Why choose this over the built-in option?
-
-Apex already gives you `JSON.serialize()` and `Map<String, Object>` for moving data around, and for a quick one-off they are fine. DTOs earn their place once the shape of the data becomes a contract that the front end, an external system, or a flow depends on. Here is what you get for the small amount of structure they add.
-
-- **Keep external formats separate from your database.** The shape an outside system sees is decoupled from your internal SObject structure, so you can reshape one without breaking the other.
-- **Catch shape mistakes at compile time.** Strongly-typed fields mean a wrong field name or type is a compile error, not a runtime surprise from an untyped map.
-- **Change an API without touching SObjects.** You can keep an API contract stable while your objects evolve underneath it.
-- **Reshape data between representations.** Convert between an internal format and the one an external API expects in one place.
-- **Test data shapes easily.** DTOs are simple to mock and verify in unit tests, so you can pin down the exact payload your code produces.
-
-> **DTO Framework Scope:** a set of base classes plus built-in DTOs (JSON, name-value, datatable, picklist, and CDC change-event header), supporting JSON serialization, SObject transformation, JsonPath
-> navigation, and sorted DTO collections.
-
-> **Responsibilities:** DTOs transport data between layers (Apex to LWC, Apex to external APIs, Flow to Apex). They do not contain business
-> logic, perform DML, or query data. Population logic in `populate()` should be limited to mapping fields from selectors and parameters.
-
-DTOs cover the common ways data leaves Apex:
-
-- **Web Service Integration** - REST request and response payloads
-- **Lightning Web Components** - Structured data from Apex to LWC
-- **Flow Integration** - Complex data structures in invocable methods
-- **Data Transformation** - Converting between SObjects and external formats
-- **Testing** - Creating consistent test data structures
-
-### What you gain
-
-- **Separation of Concerns** - Decouple external data formats from internal SObject structure
-- **Type Safety** - Strongly-typed data structures prevent runtime errors
-- **Versioning** - Maintain API contracts without changing SObjects
-- **Flexibility** - Transform data between different representations
-- **Testability** - Easy to mock and verify in unit tests
-
-### What are the moving parts?
-
-The KernDX framework provides:
-
-1. **Base Classes** - [`DTO_Base`](reference/apex/DTO_Base.md), [`DTO_JsonBase`](reference/apex/DTO_JsonBase.md)
-2. **Specialized DTOs** - [`DTO_NameValues`](reference/apex/DTO_NameValues.md), [`DTO_BaseTable`](reference/apex/DTO_BaseTable.md), [`DTO_PickList`](reference/apex/DTO_PickList.md)
-3. **Utility Integration** - JsonPath, comparators, serialization helpers
-
----
-
 ## How does it work?
 
-You want every DTO to behave the same way: serialize to JSON, parse back, compare for equality, and load itself from a record, without you re-writing that plumbing each time. KernDX gets you this by having all DTOs inherit from one shared base class. So you write only the fields and logic that are specific to your data, and the common behaviour comes for free.
+All DTOs inherit from one shared base class, so every DTO behaves the same way: it serializes to JSON, parses back, compares for equality, and loads itself from a record. You write only the fields and logic that are specific to your data; the common behaviour comes for free.
 
 The framework sits between your business logic and the things that consume your data (REST APIs, Lightning components, and flows). That position keeps your internal Salesforce object structure separate from the data formats outside systems expect, so a change to one does not force a change to the other.
 
@@ -283,6 +228,9 @@ The key building blocks are:
 - **`DTO_Base`**: the virtual base class everything builds on. It provides `serialize()`, `deserialize()`, `populate()`, `transform()`, `equals()`, and `hashCode()`.
 - **`DTO_JsonBase`**: the JSON-specific class. It adds readable (pretty-printed) JSON output and JsonPath integration for reading fields by path.
 - **Built-in DTOs** ready to use: `DTO_NameValues` (key-value parameters), `DTO_BaseTable` (Lightning datatable), `DTO_PickList` (picklist metadata), and `DTO_ChangeEventHeader` (the change-event header from Change Data Capture).
+
+> **Responsibilities:** DTOs transport data between layers (Apex to LWC, Apex to external APIs, Flow to Apex). They do not contain business
+> logic, perform DML, or query data. Population logic in `populate()` should be limited to mapping fields from selectors and parameters.
 
 ### DTO Class Hierarchy
 
@@ -297,6 +245,512 @@ Standalone DTOs (no inheritance):
 +-- DTO_NameValue (Single name-value pair)
 +-- DTO_PickList (Picklist metadata)
 +-- DTO_PicklistValue (Single picklist value)
+```
+
+---
+
+## Creating Custom DTO Classes
+
+### Creating JSON DTOs
+
+**One required step when KernDX is installed as a managed package**
+
+When your DTO extends a class from an installed managed package (such as `DTO_JsonBase`), you **must** add the [`@JsonAccess`](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_annotation_JsonAccess.htm) annotation to your DTO class. The annotation gives the package's code permission to serialize and deserialize the DTO classes in your org.
+
+**Why it matters:** without `@JsonAccess`, serialization and deserialization fail at runtime with a security error.
+
+```apex
+// CORRECT: @JsonAccess annotation required for managed package DTOs
+@JsonAccess(serializable='always' deserializable='always')
+public class DTO_CustomerOrder extends DTO_JsonBase
+{
+	// ...
+}
+
+// WRONG: Missing @JsonAccess annotation
+public class DTO_CustomerOrder extends DTO_JsonBase
+{
+	// Will fail at runtime when managed package tries to serialize!
+}
+```
+
+**When to use `@JsonAccess`:**
+
+- `Serializable='always'` - Required when managed package code calls `serialize()` on your DTO
+- `Deserializable='always'` - Required when managed package code calls `deserialize()` on your DTO
+- Use both when DTOs are used in bidirectional scenarios (request + response)
+
+---
+
+### Type Resolution: CRITICAL Requirement in Your Org
+
+When KernDX runs as an installed managed package, you have to point it at your DTO classes. Skip this and deserialization fails at runtime.
+
+The reason: when the framework parses JSON back into a DTO, it has to build an instance of the right class by name. Its code lives in a different namespace from yours, so it cannot find your classes on its own. With a Type Resolver, you tell the framework where to find the Apex classes in your namespace.
+
+**Where this matters:**
+
+- Parsing JSON back into a DTO, through `DTO_JsonBase.deserialize()`.
+- Building a class by name, where framework code uses `Type.forName()`.
+- Working with mixed-type collections, such as factory patterns that create types on the fly.
+
+**Pick exactly one of these three approaches:**
+
+1. **Make all DTOs `global`.** Global classes are always visible to the package's code. Simple, but it exposes the classes more widely than you may want.
+2. **Implement `getObjectType()` in every DTO.** You override one method per class to return its own type. Explicit, but repetitive across many DTOs.
+3. **Register a Type Resolver (recommended).** You set this up once, and the framework then resolves every DTO automatically. The most flexible and maintainable option.
+
+**Without one of these, you will hit runtime errors like this:**
+
+```text
+System.IllegalArgumentException: Unable to resolve type for class "DTO_CustomerRequest".
+To deserialize this DTO you must implement the virtual method "getObjectType()", or make the DTO class global
+```
+
+#### Type Resolution Option 3: Custom Type Resolver (RECOMMENDED)
+
+Rather than override `getObjectType()` in every DTO or make all your classes global, you can register one **custom type resolver** that handles the lookup for all DTOs automatically. You set it up once and then forget it.
+
+Your classes stay better encapsulated, because they need not be `global`, and the type-resolution logic lives in one
+place, with less boilerplate to write and maintain.
+
+**How it works:**
+
+1. **Create a custom type resolver class:**
+
+```apex
+/**
+ * @description Custom type resolver for the DTOs in your org
+ *
+ * @see UTIL_TypeResolver
+ */
+global with sharing class CustomDTOTypeResolver extends kern.UTIL_TypeResolver.BaseClassResolver
+{
+	/**
+	 * @description Resolves a Type object from a class name
+	 *
+	 * @param className The name of the class to resolve
+	 *
+	 * @return Type The resolved Type object or null if not found
+	 */
+	public override Type resolveType(String className)
+	{
+		return getTypeForClassName(className) ?? (Type)nextResolver?.resolveType(className);
+	}
+
+	/**
+	 * @description Resolves the Type for a given class name, handling namespaces and nested classes
+	 *
+	 * @param className The class name to resolve
+	 *
+	 * @return The resolved Type object, or null if not found
+	 */
+	private static Type getTypeForClassName(String className)
+	{
+		return String.isBlank(className) ? null : Type.forName(className);
+	}
+}
+```
+
+2. **Register the resolver in custom metadata:**
+
+Create a [`ClassTypeResolver__mdt`](reference/metadata/ClassTypeResolver__mdt.md) record:
+
+- **Label:** Custom DTO Type Resolver
+- **DeveloperName:** CustomDTOTypeResolver
+- **ClassName__c:** CustomDTOTypeResolver
+
+3. **Simplify your DTOs:**
+
+```apex
+// WITH Type Resolver: No getObjectType() override needed!
+@JsonAccess(serializable='always' deserializable='always')
+public class DTO_CustomerOrder extends DTO_JsonBase
+{
+	@AuraEnabled
+	public String orderId;
+
+	@AuraEnabled
+	public String customerName;
+
+	// No getObjectType() method needed!
+}
+
+// WITHOUT Type Resolver: Must override in every DTO
+@JsonAccess(serializable='always' deserializable='always')
+public class DTO_CustomerOrder extends DTO_JsonBase
+{
+	@AuraEnabled
+	public String orderId;
+
+	public override Type getObjectType()  // Repetitive boilerplate
+	{
+		return DTO_CustomerOrder.class;
+	}
+}
+```
+
+**When to use Type Resolver:**
+
+- Your org, when it has many custom DTOs (reduces boilerplate)
+- Teams wanting centralized type resolution logic
+- Complex namespace scenarios
+
+**When to override `getObjectType()`:**
+
+- Single DTO or small number of DTOs
+- Private inner classes requiring specific resolution
+- No custom metadata configuration desired
+
+---
+
+**Step 1: Define DTO Structure**
+
+```apex
+/**
+ * @description Custom DTO for complex data structure
+ *
+ * IMPORTANT: @JsonAccess required because this extends managed package class DTO_JsonBase
+ */
+@JsonAccess(serializable='always' deserializable='always')
+public class DTO_CustomerOrder extends DTO_JsonBase
+{
+	@AuraEnabled
+	public String orderId;
+
+	@AuraEnabled
+	public String customerName;
+
+	@AuraEnabled
+	public Date orderDate;
+
+	@AuraEnabled
+	public Decimal totalAmount;
+
+	@AuraEnabled
+	public String status;
+
+	@AuraEnabled
+	public DTO_Address shippingAddress;
+
+	@AuraEnabled
+	public List<DTO_OrderItem> lineItems;
+
+	/**
+	 * @description Constructor initializes collections
+	 */
+	public DTO_CustomerOrder()
+	{
+		lineItems = new List<DTO_OrderItem>();
+	}
+
+	/**
+	 * @description Required for deserialization of private classes
+	 *
+	 * NOTE: This override is only required if your DTO class is private/not globally visible.
+	 * If you register a custom type resolver via UTIL_TypeResolver and ClassTypeResolver__mdt,
+	 * you can skip implementing this method in all your DTOs.
+	 *
+	 * @see UTIL_TypeResolver
+	 * @see ClassTypeResolver__mdt
+	 */
+	public override Type getObjectType()
+	{
+		return DTO_CustomerOrder.class;
+	}
+}
+
+/**
+ * @description Nested DTO for address
+ *
+ * IMPORTANT: @JsonAccess required for ALL nested DTOs extending managed package classes
+ *
+ * NOTE: getObjectType() override optional if custom type resolver registered in ClassTypeResolver__mdt
+ */
+@JsonAccess(serializable='always' deserializable='always')
+public class DTO_Address extends DTO_JsonBase
+{
+	@AuraEnabled
+	public String street;
+
+	@AuraEnabled
+	public String city;
+
+	@AuraEnabled
+	public String state;
+
+	@AuraEnabled
+	public String postalCode;
+
+	public override Type getObjectType()
+	{
+		return DTO_Address.class;
+	}
+}
+
+/**
+ * @description Nested DTO for line items
+ *
+ * IMPORTANT: @JsonAccess required for ALL nested DTOs extending managed package classes
+ *
+ * NOTE: getObjectType() override optional if custom type resolver registered in ClassTypeResolver__mdt
+ */
+@JsonAccess(serializable='always' deserializable='always')
+public class DTO_OrderItem extends DTO_JsonBase
+{
+	@AuraEnabled
+	public String productName;
+
+	@AuraEnabled
+	public Integer quantity;
+
+	@AuraEnabled
+	public Decimal unitPrice;
+
+	@AuraEnabled
+	public Decimal totalPrice;
+
+	public override Type getObjectType()
+	{
+		return DTO_OrderItem.class;
+	}
+}
+```
+
+**Step 2: Use the DTO**
+
+```apex
+// Create DTO
+DTO_CustomerOrder order = new DTO_CustomerOrder();
+order.orderId = 'ORD-12345';
+order.customerName = 'John Doe';
+order.orderDate = Date.today();
+order.status = 'Processing';
+
+// Add shipping address
+DTO_Address address = new DTO_Address();
+address.street = '123 Main St';
+address.city = 'San Francisco';
+address.state = 'CA';
+address.postalCode = '94105';
+order.shippingAddress = address;
+
+// Add line items
+DTO_OrderItem item1 = new DTO_OrderItem();
+item1.productName = 'Widget A';
+item1.quantity = 2;
+item1.unitPrice = 25.00;
+item1.totalPrice = 50.00;
+order.lineItems.add(item1);
+
+DTO_OrderItem item2 = new DTO_OrderItem();
+item2.productName = 'Widget B';
+item2.quantity = 1;
+item2.unitPrice = 75.00;
+item2.totalPrice = 75.00;
+order.lineItems.add(item2);
+
+order.totalAmount = 125.00;
+
+// Serialize
+String json = order.serialize();
+
+// Deserialize
+DTO_CustomerOrder parsedOrder = (DTO_CustomerOrder)
+	new DTO_CustomerOrder().deserialize(json);
+```
+
+---
+
+### Implementing populate() Methods
+
+Sometimes you have a record ID and want a DTO filled in from that record's data. The `populate()` method does exactly that: you give it a Salesforce record ID and it loads the DTO's fields from the matching record. This lets you build the DTO only when you actually need its data.
+
+**One rule when you write `populate()`:** read the record through a [SEL_Base](reference/apex/SEL_Base.md) selector (its `query` property is a [QRY_Builder](reference/apex/QRY_Builder.md) when you need more than the ready-made methods), never inline SOQL. Doing it this way buys you several things:
+
+- Field selection lives in one place, not scattered across DTOs.
+- The query logic is reusable.
+- Tests can mock the data, so you can test without touching the database.
+- The query stays safe to run on many records at once.
+- Your code follows the same convention as the rest of the framework.
+
+```apex
+/**
+ * @description Account DTO with populate implementation
+ */
+@JsonAccess(serializable='always' deserializable='always')
+public class DTO_Account extends DTO_JsonBase
+{
+	public String accountName;
+	public String industry;
+	public Decimal annualRevenue;
+	public Integer employeeCount;
+	public List<DTO_Contact> contacts;
+
+	public DTO_Account()
+	{
+		contacts = new List<DTO_Contact>();
+	}
+
+	/**
+	 * @description Populate DTO from Account ID
+	 *
+	 * @param recordId The Account record ID
+	 */
+	public override void populate(Id recordId)
+	{
+		populate(recordId, null);
+	}
+
+	/**
+	 * @description Populate with optional parameters
+	 *
+	 * @param recordId The Account record ID
+	 * @param dtoRequestParameters Optional parameters controlling population behavior
+	 */
+	public override void populate(Id recordId, DTO_NameValues dtoRequestParameters)
+	{
+		// CORRECT: Use SEL_* selector pattern
+		Account account = (Account)new SEL_Accounts().findById(recordId);
+
+		if(account == null)
+		{
+			LOG_Builder.build()
+				.error('Account not found: ' + recordId)
+				.emitAt('DTO_Account.populate');
+			return;
+		}
+
+		// Populate fields
+		this.accountName = account.Name;
+		this.industry = account.Industry;
+		this.annualRevenue = account.AnnualRevenue;
+		this.employeeCount = account.NumberOfEmployees;
+
+		// Check optional parameters
+		Boolean includeContacts = true;
+		if(dtoRequestParameters != null && dtoRequestParameters.exists('includeContacts'))
+		{
+			includeContacts = Boolean.valueOf(dtoRequestParameters.get('includeContacts'));
+		}
+
+		// Populate related contacts
+		if(includeContacts && account.Contacts != null)
+		{
+			for(Contact contact : account.Contacts)
+			{
+				DTO_Contact contactDto = new DTO_Contact();
+				contactDto.firstName = contact.FirstName;
+				contactDto.lastName = contact.LastName;
+				contactDto.email = contact.Email;
+				this.contacts.add(contactDto);
+			}
+		}
+	}
+}
+
+// Usage
+DTO_Account accountDto = new DTO_Account();
+accountDto.populate(accountId);
+
+// With parameters
+DTO_NameValues params = new DTO_NameValues();
+params.add('includeContacts', 'false');
+accountDto.populate(accountId, params);
+```
+
+---
+
+### Implementing transform() Methods
+
+Sometimes the shape your code uses internally is not the shape an outside system expects. The `transform()` method converts one DTO into another, mapping and reshaping fields as it goes.
+
+**A common case:** turn an internal DTO into the format an external API wants, for example renaming fields or bucketing a number into a category.
+
+```apex
+/**
+ * @description Internal Account DTO
+ */
+@JsonAccess(serializable='always' deserializable='always')
+public class DTO_AccountInternal extends DTO_JsonBase
+{
+	public String name;
+	public String industryCode;
+	public Decimal revenue;
+
+	public override Type getObjectType()
+	{
+		return DTO_AccountInternal.class;
+	}
+}
+
+/**
+ * @description External API Account DTO
+ */
+@JsonAccess(serializable='always' deserializable='always')
+public class DTO_AccountExternal extends DTO_JsonBase
+{
+	public String companyName;
+	public String industry;
+	public String revenueCategory;
+
+	/**
+	 * @description Transform internal DTO to external format
+	 */
+	public override void transform(DTO_Base dtoBase)
+	{
+		if(dtoBase instanceof DTO_AccountInternal)
+		{
+			DTO_AccountInternal internal = (DTO_AccountInternal)dtoBase;
+
+			// Map fields
+			this.companyName = internal.name;
+
+			// Transform industry code to readable name
+			this.industry = getIndustryName(internal.industryCode);
+
+			// Categorize revenue
+			this.revenueCategory = categorizeRevenue(internal.revenue);
+		}
+	}
+
+	private String getIndustryName(String code)
+	{
+		Map<String, String> industryMap = new Map<String, String>
+		{
+			'TECH' => 'Technology',
+			'FIN' => 'Financial Services',
+			'HEALTH' => 'Healthcare'
+		};
+		return industryMap.get(code);
+	}
+
+	private String categorizeRevenue(Decimal revenue)
+	{
+		if(revenue == null) return 'Unknown';
+		if(revenue < 1000000) return 'Small';
+		if(revenue < 10000000) return 'Medium';
+		return 'Large';
+	}
+
+	public override Type getObjectType()
+	{
+		return DTO_AccountExternal.class;
+	}
+}
+
+// Usage
+DTO_AccountInternal internalDto = new DTO_AccountInternal();
+internalDto.name = 'Acme Corp';
+internalDto.industryCode = 'TECH';
+internalDto.revenue = 5000000;
+
+DTO_AccountExternal externalDto = new DTO_AccountExternal();
+externalDto.transform(internalDto);
+
+// externalDto.companyName: Acme Corp
+// externalDto.industry: Technology
+// externalDto.revenueCategory: Medium
 ```
 
 ---
@@ -368,7 +822,7 @@ public class DTO_Person extends DTO_JsonBase
 	public Date birthDate;
 	public Decimal salary;
 
-	protected override Type getObjectType()
+	public override Type getObjectType()
 	{
 		return DTO_Person.class;
 	}
@@ -402,7 +856,14 @@ String firstName = path.findNode('firstName').getStringValue();
 
 **Important: Override getObjectType() for Private Classes**
 
-When the framework parses JSON back into your DTO, it needs to know which class to build. For a `global` class it can work that out on its own. For a `public` class it can only do so when you register a Type Resolver (see [Type Resolution](#type-resolution-critical-requirement-in-your-org)). For a `private` class it cannot, so you tell it: if your DTO class is `private`, or `public` with no Type Resolver registered, you **must** override `getObjectType()` to name the class:
+If your DTO class is `private`, or `public` with no Type Resolver registered, you **must** override `getObjectType()` to name the class. When the framework parses JSON back into your DTO, it needs to know which class to build:
+
+| Your DTO class | Can the framework find it? | Override `getObjectType()`? |
+|---|---|---|
+| `global` | Yes, on its own | No |
+| `public`, with a Type Resolver registered (see [Type Resolution](#type-resolution-critical-requirement-in-your-org)) | Yes | No |
+| `public`, with no Type Resolver | No | **Yes** |
+| `private` | No | **Yes** |
 
 ```apex
 // Private DTO class
@@ -411,14 +872,12 @@ private class DTO_InternalData extends DTO_JsonBase
 	public String data;
 
 	// REQUIRED for private classes
-	protected override Type getObjectType()
+	public override Type getObjectType()
 	{
 		return DTO_InternalData.class;
 	}
 }
 ```
-
-For a `global` class, or a `public` class covered by a registered Type Resolver, you can skip this override, because the framework then finds the type on its own.
 
 ---
 
@@ -807,519 +1266,13 @@ public class Request
 
 ---
 
-## Creating Custom DTO Classes
-
-### Creating JSON DTOs
-
-**One required step when KernDX is installed as a managed package**
-
-You want your DTO to serialize and deserialize without failing at runtime. To get that, add one annotation. When your DTO extends a class from an installed managed package (such as `DTO_JsonBase`), you **must** add the [`@JsonAccess`](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_classes_annotation_JsonAccess.htm) annotation to your DTO class. The annotation gives the package's code permission to serialize and deserialize the DTO classes in your org.
-
-**Why it matters:** without `@JsonAccess`, serialization and deserialization fail with a security error.
-
-```apex
-// CORRECT: @JsonAccess annotation required for managed package DTOs
-@JsonAccess(serializable='always' deserializable='always')
-public class DTO_CustomerOrder extends DTO_JsonBase
-{
-	// ...
-}
-
-// WRONG: Missing @JsonAccess annotation
-public class DTO_CustomerOrder extends DTO_JsonBase
-{
-	// Will fail at runtime when managed package tries to serialize!
-}
-```
-
-**When to use `@JsonAccess`:**
-
-- `Serializable='always'` - Required when managed package code calls `serialize()` on your DTO
-- `Deserializable='always'` - Required when managed package code calls `deserialize()` on your DTO
-- Use both when DTOs are used in bidirectional scenarios (request + response)
-
----
-
-### Type Resolution: CRITICAL Requirement in Your Org
-
-When the framework parses JSON back into a DTO, it has to build an instance of the right class by name. With a Type Resolver, you tell the framework where to find the Apex classes in your namespace. When KernDX runs as an installed managed package, its code lives in a different namespace from yours, so it cannot find your classes on its own. You have to point it at them. Skip this and deserialization fails at runtime.
-
-**Where this matters:**
-
-- Parsing JSON back into a DTO, through `DTO_JsonBase.deserialize()`.
-- Building a class by name, where framework code uses `Type.forName()`.
-- Working with mixed-type collections, such as factory patterns that create types on the fly.
-
-**Pick exactly one of these three approaches:**
-
-1. **Make all DTOs `global`.** Global classes are always visible to the package's code. Simple, but it exposes the classes more widely than you may want.
-2. **Implement `getObjectType()` in every DTO.** You override one method per class to return its own type. Explicit, but repetitive across many DTOs.
-3. **Register a Type Resolver (recommended).** You set this up once, and the framework then resolves every DTO automatically. The most flexible and maintainable option.
-
-**Without one of these, you will hit runtime errors like this:**
-
-```text
-System.IllegalArgumentException: Unable to resolve type for class "DTO_CustomerRequest".
-To deserialize this DTO you must implement the virtual method "getObjectType()", or make the DTO class global
-```
-
-#### Type Resolution Option 3: Custom Type Resolver (RECOMMENDED)
-
-Rather than override `getObjectType()` in every DTO or make all your classes global, you can register one **custom type resolver** that handles the lookup for all DTOs automatically. You set it up once and then forget it.
-
-**What you gain:**
-
-- No repetitive `getObjectType()` override in each DTO.
-- No need to make classes `global`, so they stay better encapsulated.
-- One place that holds the type-resolution logic.
-- Less boilerplate to write and maintain.
-
-**How it works:**
-
-1. **Create a custom type resolver class:**
-
-```apex
-/**
- * @description Custom type resolver for the DTOs in your org
- *
- * @see UTIL_TypeResolver
- */
-global with sharing class CustomDTOTypeResolver extends kern.UTIL_TypeResolver.BaseClassResolver
-{
-	/**
-	 * @description Resolves a Type object from a class name
-	 *
-	 * @param className The name of the class to resolve
-	 *
-	 * @return Type The resolved Type object or null if not found
-	 */
-	public override Type resolveType(String className)
-	{
-		return getTypeForClassName(className) ?? (Type)nextResolver?.resolveType(className);
-	}
-
-	/**
-	 * @description Resolves the Type for a given class name, handling namespaces and nested classes
-	 *
-	 * @param className The class name to resolve
-	 *
-	 * @return The resolved Type object, or null if not found
-	 */
-	private static Type getTypeForClassName(String className)
-	{
-		return String.isBlank(className) ? null : Type.forName(className);
-	}
-}
-```
-
-2. **Register the resolver in custom metadata:**
-
-Create a [`ClassTypeResolver__mdt`](reference/metadata/ClassTypeResolver__mdt.md) record:
-
-- **Label:** Custom DTO Type Resolver
-- **DeveloperName:** CustomDTOTypeResolver
-- **ClassName__c:** CustomDTOTypeResolver
-
-3. **Simplify your DTOs:**
-
-```apex
-// WITH Type Resolver: No getObjectType() override needed!
-@JsonAccess(serializable='always' deserializable='always')
-public class DTO_CustomerOrder extends DTO_JsonBase
-{
-	@AuraEnabled
-	public String orderId;
-
-	@AuraEnabled
-	public String customerName;
-
-	// No getObjectType() method needed!
-}
-
-// WITHOUT Type Resolver: Must override in every DTO
-@JsonAccess(serializable='always' deserializable='always')
-public class DTO_CustomerOrder extends DTO_JsonBase
-{
-	@AuraEnabled
-	public String orderId;
-
-	protected override Type getObjectType()  // Repetitive boilerplate
-	{
-		return DTO_CustomerOrder.class;
-	}
-}
-```
-
-**When to use Type Resolver:**
-
-- Your org, when it has many custom DTOs (reduces boilerplate)
-- Teams wanting centralized type resolution logic
-- Complex namespace scenarios
-
-**When to override `getObjectType()`:**
-
-- Single DTO or small number of DTOs
-- Private inner classes requiring specific resolution
-- No custom metadata configuration desired
-
----
-
-**Step 1: Define DTO Structure**
-
-```apex
-/**
- * @description Custom DTO for complex data structure
- *
- * IMPORTANT: @JsonAccess required because this extends managed package class DTO_JsonBase
- */
-@JsonAccess(serializable='always' deserializable='always')
-public class DTO_CustomerOrder extends DTO_JsonBase
-{
-	@AuraEnabled
-	public String orderId;
-
-	@AuraEnabled
-	public String customerName;
-
-	@AuraEnabled
-	public Date orderDate;
-
-	@AuraEnabled
-	public Decimal totalAmount;
-
-	@AuraEnabled
-	public String status;
-
-	@AuraEnabled
-	public DTO_Address shippingAddress;
-
-	@AuraEnabled
-	public List<DTO_OrderItem> lineItems;
-
-	/**
-	 * @description Constructor initializes collections
-	 */
-	public DTO_CustomerOrder()
-	{
-		lineItems = new List<DTO_OrderItem>();
-	}
-
-	/**
-	 * @description Required for deserialization of private classes
-	 *
-	 * NOTE: This override is only required if your DTO class is private/not globally visible.
-	 * If you register a custom type resolver via UTIL_TypeResolver and ClassTypeResolver__mdt,
-	 * you can skip implementing this method in all your DTOs.
-	 *
-	 * @see UTIL_TypeResolver
-	 * @see ClassTypeResolver__mdt
-	 */
-	protected override Type getObjectType()
-	{
-		return DTO_CustomerOrder.class;
-	}
-}
-
-/**
- * @description Nested DTO for address
- *
- * IMPORTANT: @JsonAccess required for ALL nested DTOs extending managed package classes
- *
- * NOTE: getObjectType() override optional if custom type resolver registered in ClassTypeResolver__mdt
- */
-@JsonAccess(serializable='always' deserializable='always')
-public class DTO_Address extends DTO_JsonBase
-{
-	@AuraEnabled
-	public String street;
-
-	@AuraEnabled
-	public String city;
-
-	@AuraEnabled
-	public String state;
-
-	@AuraEnabled
-	public String postalCode;
-
-	protected override Type getObjectType()
-	{
-		return DTO_Address.class;
-	}
-}
-
-/**
- * @description Nested DTO for line items
- *
- * IMPORTANT: @JsonAccess required for ALL nested DTOs extending managed package classes
- *
- * NOTE: getObjectType() override optional if custom type resolver registered in ClassTypeResolver__mdt
- */
-@JsonAccess(serializable='always' deserializable='always')
-public class DTO_OrderItem extends DTO_JsonBase
-{
-	@AuraEnabled
-	public String productName;
-
-	@AuraEnabled
-	public Integer quantity;
-
-	@AuraEnabled
-	public Decimal unitPrice;
-
-	@AuraEnabled
-	public Decimal totalPrice;
-
-	protected override Type getObjectType()
-	{
-		return DTO_OrderItem.class;
-	}
-}
-```
-
-**Step 2: Use the DTO**
-
-```apex
-// Create DTO
-DTO_CustomerOrder order = new DTO_CustomerOrder();
-order.orderId = 'ORD-12345';
-order.customerName = 'John Doe';
-order.orderDate = Date.today();
-order.status = 'Processing';
-
-// Add shipping address
-DTO_Address address = new DTO_Address();
-address.street = '123 Main St';
-address.city = 'San Francisco';
-address.state = 'CA';
-address.postalCode = '94105';
-order.shippingAddress = address;
-
-// Add line items
-DTO_OrderItem item1 = new DTO_OrderItem();
-item1.productName = 'Widget A';
-item1.quantity = 2;
-item1.unitPrice = 25.00;
-item1.totalPrice = 50.00;
-order.lineItems.add(item1);
-
-DTO_OrderItem item2 = new DTO_OrderItem();
-item2.productName = 'Widget B';
-item2.quantity = 1;
-item2.unitPrice = 75.00;
-item2.totalPrice = 75.00;
-order.lineItems.add(item2);
-
-order.totalAmount = 125.00;
-
-// Serialize
-String json = order.serialize();
-
-// Deserialize
-DTO_CustomerOrder parsedOrder = (DTO_CustomerOrder)
-	new DTO_CustomerOrder().deserialize(json);
-```
-
----
-
-### Implementing populate() Methods
-
-Sometimes you have a record ID and want a DTO filled in from that record's data. The `populate()` method does exactly that: you give it a Salesforce record ID and it loads the DTO's fields from the matching record. This lets you build the DTO only when you actually need its data.
-
-**One rule when you write `populate()`:** read the record through a [SEL_Base](reference/apex/SEL_Base.md) selector or [QRY_Builder](reference/apex/QRY_Builder.md), never inline SOQL. Doing it this way buys you several things:
-
-- Field selection lives in one place, not scattered across DTOs.
-- The query logic is reusable.
-- Tests can mock the data, so you can test without touching the database.
-- The query stays safe to run on many records at once.
-- Your code follows the same convention as the rest of the framework.
-
-```apex
-/**
- * @description Account DTO with populate implementation
- */
-@JsonAccess(serializable='always' deserializable='always')
-public class DTO_Account extends DTO_JsonBase
-{
-	public String accountName;
-	public String industry;
-	public Decimal annualRevenue;
-	public Integer employeeCount;
-	public List<DTO_Contact> contacts;
-
-	public DTO_Account()
-	{
-		contacts = new List<DTO_Contact>();
-	}
-
-	/**
-	 * @description Populate DTO from Account ID
-	 *
-	 * @param recordId The Account record ID
-	 */
-	public override void populate(Id recordId)
-	{
-		populate(recordId, null);
-	}
-
-	/**
-	 * @description Populate with optional parameters
-	 *
-	 * @param recordId The Account record ID
-	 * @param dtoRequestParameters Optional parameters controlling population behavior
-	 */
-	public override void populate(Id recordId, DTO_NameValues dtoRequestParameters)
-	{
-		// CORRECT: Use SEL_* selector pattern
-		Account account = (Account)new SEL_Accounts().findById(recordId);
-
-		if(account == null)
-		{
-			LOG_Builder.build()
-				.error('Account not found: ' + recordId)
-				.emitAt('DTO_Account.populate');
-			return;
-		}
-
-		// Populate fields
-		this.accountName = account.Name;
-		this.industry = account.Industry;
-		this.annualRevenue = account.AnnualRevenue;
-		this.employeeCount = account.NumberOfEmployees;
-
-		// Check optional parameters
-		Boolean includeContacts = true;
-		if(dtoRequestParameters != null && dtoRequestParameters.exists('includeContacts'))
-		{
-			includeContacts = Boolean.valueOf(dtoRequestParameters.get('includeContacts'));
-		}
-
-		// Populate related contacts
-		if(includeContacts && account.Contacts != null)
-		{
-			for(Contact contact : account.Contacts)
-			{
-				DTO_Contact contactDto = new DTO_Contact();
-				contactDto.firstName = contact.FirstName;
-				contactDto.lastName = contact.LastName;
-				contactDto.email = contact.Email;
-				this.contacts.add(contactDto);
-			}
-		}
-	}
-}
-
-// Usage
-DTO_Account accountDto = new DTO_Account();
-accountDto.populate(accountId);
-
-// With parameters
-DTO_NameValues params = new DTO_NameValues();
-params.add('includeContacts', 'false');
-accountDto.populate(accountId, params);
-```
-
----
-
-### Implementing transform() Methods
-
-Sometimes the shape your code uses internally is not the shape an outside system expects. The `transform()` method converts one DTO into another, mapping and reshaping fields as it goes.
-
-**A common case:** turn an internal DTO into the format an external API wants, for example renaming fields or bucketing a number into a category.
-
-```apex
-/**
- * @description Internal Account DTO
- */
-@JsonAccess(serializable='always' deserializable='always')
-public class DTO_AccountInternal extends DTO_JsonBase
-{
-	public String name;
-	public String industryCode;
-	public Decimal revenue;
-
-	protected override Type getObjectType()
-	{
-		return DTO_AccountInternal.class;
-	}
-}
-
-/**
- * @description External API Account DTO
- */
-@JsonAccess(serializable='always' deserializable='always')
-public class DTO_AccountExternal extends DTO_JsonBase
-{
-	public String companyName;
-	public String industry;
-	public String revenueCategory;
-
-	/**
-	 * @description Transform internal DTO to external format
-	 */
-	public override void transform(DTO_Base dtoBase)
-	{
-		if(dtoBase instanceof DTO_AccountInternal)
-		{
-			DTO_AccountInternal internal = (DTO_AccountInternal)dtoBase;
-
-			// Map fields
-			this.companyName = internal.name;
-
-			// Transform industry code to readable name
-			this.industry = getIndustryName(internal.industryCode);
-
-			// Categorize revenue
-			this.revenueCategory = categorizeRevenue(internal.revenue);
-		}
-	}
-
-	private String getIndustryName(String code)
-	{
-		Map<String, String> industryMap = new Map<String, String>
-		{
-			'TECH' => 'Technology',
-			'FIN' => 'Financial Services',
-			'HEALTH' => 'Healthcare'
-		};
-		return industryMap.get(code);
-	}
-
-	private String categorizeRevenue(Decimal revenue)
-	{
-		if(revenue == null) return 'Unknown';
-		if(revenue < 1000000) return 'Small';
-		if(revenue < 10000000) return 'Medium';
-		return 'Large';
-	}
-
-	protected override Type getObjectType()
-	{
-		return DTO_AccountExternal.class;
-	}
-}
-
-// Usage
-DTO_AccountInternal internalDto = new DTO_AccountInternal();
-internalDto.name = 'Acme Corp';
-internalDto.industryCode = 'TECH';
-internalDto.revenue = 5000000;
-
-DTO_AccountExternal externalDto = new DTO_AccountExternal();
-externalDto.transform(internalDto);
-
-// externalDto.companyName: Acme Corp
-// externalDto.industry: Technology
-// externalDto.revenueCategory: Medium
-```
-
----
-
 ## What else can it do?
 
 ### JsonPath for Reflective Access
 
-Sometimes you want to read a field out of a DTO by its path rather than through a property, for example when the field is buried inside a nested object or an array. Serialize the DTO and wrap it in [`UTIL_JsonPath`](reference/apex/UTIL_JsonPath.md), then read fields by path. Each node gives you a typed getter that matches the field's type: `getStringValue()`, `getIntegerValue()`, `getDecimalValue()`, `getBooleanValue()`, `getDateValue()`, `getDatetimeValue()`, and `getIdValue()`. There is no untyped `getValue()`, so you always read the value as the type you expect.
+To read a field out of a DTO by its path, serialize the DTO and wrap it in [`UTIL_JsonPath`](reference/apex/UTIL_JsonPath.md), then read fields by path. This helps when the field is buried inside a nested object or an array, where a property is awkward to reach.
+
+Each node gives you a typed getter that matches the field's type: `getStringValue()`, `getIntegerValue()`, `getDecimalValue()`, `getBooleanValue()`, `getDateValue()`, `getDatetimeValue()`, and `getIdValue()`. There is no untyped `getValue()`, so you always read the value as the type you expect.
 
 ```apex
 /**
@@ -1406,7 +1359,7 @@ To sort by a different field, or in the other direction, write another comparato
 
 ### DTO Collections and Equality
 
-When you want to drop DTOs into a Set to remove duplicates, or use one as a Map key, the platform needs a way to tell whether two DTOs are the same. DTOs handle this for you: they implement `equals()` and `hashCode()`, treating two DTOs as equal when their serialized content matches. So Sets and Maps work as you would expect.
+DTOs implement `equals()` and `hashCode()`, treating two DTOs as equal when their serialized content matches. So you can drop DTOs into a Set to remove duplicates, or use one as a Map key, and Sets and Maps work as you would expect.
 
 ```apex
 /**
@@ -1452,7 +1405,7 @@ public static void demonstrateCollections()
 
 ### DTOs in REST APIs
 
-When you build a REST endpoint, DTOs give you a clear contract for the request you accept and the response you return. The example below shows a full inbound REST API built on the [API_Inbound](reference/apex/API_Inbound.md) base class: a request DTO carries the incoming data, and a response DTO carries what you send back.
+When you build a REST endpoint, DTOs give you a clear contract for the request you accept and the response you return. Here is a full inbound REST API built on the [API_Inbound](reference/apex/API_Inbound.md) base class: a request DTO carries the incoming data, and a response DTO carries what you send back.
 
 ```apex
 /**
@@ -1606,7 +1559,7 @@ public class DTO_CustomerSummary extends DTO_JsonBase
 	@AuraEnabled
 	public String phone;
 
-	protected override Type getObjectType()
+	public override Type getObjectType()
 	{
 		return DTO_CustomerSummary.class;
 	}
@@ -1638,7 +1591,9 @@ export default class CustomerDashboard extends ComponentBuilder('controller')
 
 #### Passing Complex DTOs as `@AuraEnabled` Parameters
 
-**Never pass a complex DTO directly as an `@AuraEnabled` method parameter.** Here is why it breaks. LWC wraps reactive objects in a Proxy before serializing them. When the target type is a DTO that extends `DTO_JsonBase` (or any class with nested collections), Aura's parameter deserializer rejects that Proxy wrapper. The call then fails at runtime with messages such as "Unable to deserialize to specified type" or "cannot be deserialized from non-object type".
+**Never pass a complex DTO directly as an `@AuraEnabled` method parameter.** The call fails at runtime with messages such as "Unable to deserialize to specified type" or "cannot be deserialized from non-object type".
+
+Here is why it breaks. LWC wraps reactive objects in a Proxy before serializing them. When the target type is a DTO that extends `DTO_JsonBase` (or any class with nested collections), Aura's parameter deserializer rejects that Proxy wrapper.
 
 The pattern that works: accept a `String requestJson` parameter on the controller, then deserialize it with `JSON.deserialize(...)` inside the method. The client stringifies the DTO before calling. This is the pattern used throughout the framework.
 
@@ -1747,7 +1702,9 @@ global inherited sharing class FLOW_SendCustomEmail
 
 ## Testing
 
-You do not need to test the parts of a DTO that the framework already covers. The base classes (`DTO_Base`, `DTO_JsonBase`) come tested. So aim your tests at the behaviour you wrote: your `populate()` and `transform()` overrides, plus a quick round-trip check that your DTO survives serialize-then-deserialize. In practice you test DTOs through the place they are used: a web service test, a Lightning controller test, or a flow invocable test.
+Aim your tests at the behaviour you wrote: your `populate()` and `transform()` overrides, plus a quick round-trip check that your DTO survives serialize-then-deserialize. You do not need to test the parts of a DTO that the framework already covers: the base classes (`DTO_Base`, `DTO_JsonBase`) come tested.
+
+In practice you test DTOs through the place they are used: a web service test, a Lightning controller test, or a flow invocable test.
 
 **Testing serialize/deserialize round-trips:**
 
@@ -1814,7 +1771,7 @@ For DTOs used inside API classes, test through `API_OutboundTestHelper` assertio
 
 ## Anti-Patterns
 
-These are the common mistakes that bite people when working with DTOs, what goes wrong in each case, and what to do instead.
+The common mistakes with DTOs, what goes wrong in each case, and what to do instead:
 
 | Anti-Pattern                                                  | Why It's Wrong                                                                                                                     | Instead                                                                                                                                                   |
 |---------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -1829,7 +1786,7 @@ These are the common mistakes that bite people when working with DTOs, what goes
 
 ## Best Practices
 
-A short checklist of habits that keep DTOs easy to read, test, and maintain. Each one is shown with a quick good-versus-bad example.
+Habits that keep DTOs easy to read, test, and maintain.
 
 ### Use Appropriate DTO Type
 
@@ -1849,7 +1806,7 @@ private class DTO_InternalData extends DTO_JsonBase
 {
 	public String data;
 
-	protected override Type getObjectType()
+	public override Type getObjectType()
 	{
 		return DTO_InternalData.class;
 	}
@@ -1874,7 +1831,7 @@ private class DTO_InternalData extends DTO_JsonBase
 {
 	public String data;
 
-	protected override Type getObjectType()
+	public override Type getObjectType()
 	{
 		return DTO_InternalData.class;
 	}
@@ -1991,7 +1948,7 @@ public class DTO_Everything extends DTO_JsonBase
 
 ## Troubleshooting
 
-The errors below cover almost every problem people run into with DTOs. Each entry names the likely cause and the fix.
+These errors cover almost every problem people run into with DTOs.
 
 ### Issue: "Type cannot be deserialized as it is not globally visible" or "System.JSONException: Type cannot be constructed"
 
@@ -2024,7 +1981,7 @@ When your code extends a managed package class (for example `YourNamespace.DTO_J
 **Solution Option 1 - Override `getObjectType()` in each DTO:**
 
 ```apex
-protected override Type getObjectType()
+public override Type getObjectType()
 {
 	return DTO_MyClass.class;
 }
@@ -2032,7 +1989,7 @@ protected override Type getObjectType()
 
 **Solution Option 2 - Register custom type resolver (recommended for 10+ DTOs):**
 
-1. Create custom resolver (see complete implementation above in "Type Resolution" section)
+1. Create custom resolver (see the complete implementation in [Type Resolution](#type-resolution-critical-requirement-in-your-org))
 2. Register in [`ClassTypeResolver__mdt`](reference/metadata/ClassTypeResolver__mdt.md) with `ClassName__c = 'CustomDTOTypeResolver'`
 3. Remove `getObjectType()` from all DTOs - type resolution is now automatic!
 

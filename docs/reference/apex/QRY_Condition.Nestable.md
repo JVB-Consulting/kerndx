@@ -3,13 +3,14 @@ title: "QRY_Condition.Nestable"
 type: class
 pageClass: reference
 description: "Interface for condition containers that support adding nested conditions. Extends Evaluable so groups can be passed to QRY_Builder.addCondition()."
+group: "Query Infrastructure"
 since: "1.0"
 category: apex
 ---
 
 # QRY_Condition.Nestable
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 

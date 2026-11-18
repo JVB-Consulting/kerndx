@@ -1,145 +1,73 @@
 ---
 navOrder: 68
+navLabel: "Test Data (records for tests)"
+searchTerms: {"users-and-permission-sets":["run as another user", "System.runAs"]}
+movedAnchors: {"why-choose-this-over-hand-written-records": "/#test-data", "how-it-compares-to-hand-written-records": "/#test-data", "capability-matrix-for-analysts": "/#test-data"}
 ---
 
 # Test Data - Guide
 
-**Framework:** KernDX
-**Package Type:** Managed Package
+**Who this page is for:** developers who build the records their Apex unit tests run against (single records,
+relationships, mock Ids and bulk data), and the architects who give a whole team one short, consistent way to set up
+tests.
 
-> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
-> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
-> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+New to it? Try the [Test Data Fast Start](Fast%20Start%20-%20Test%20Data.md) first: a full build-and-test cycle, plus
+`TST_Mock` for query testing with no saved records. Deciding whether to use KernDX? See [Why KernDX](/).
 
-**Target Audience:**
+## Copy this first
 
-- **Developers** - Building test records, relationships, mock Ids, and bulk data for Apex unit tests
-- **Architects** - Designing a consistent, low-boilerplate test-data strategy across a team
-- **Business Analysts** - Understanding what the test-data layer guarantees and where its limits are
+```apex
+// Build and insert a single Account; required fields are auto-populated
+Account account = (Account)kern.TST_Builder.of(Account.SObjectType)
+		.withOverride(Account.Industry, 'Technology')
+		.build();
+```
 
----
+**What this does:** saves one account in your test with Industry set to Technology. You name only the fields your
+test checks, and the builder fills every other required field (such as Name) with a valid value. To keep the record
+in memory without saving it, add `.withoutInsertion()` before `.build()`.
 
-## What problem does this solve?
-
-Every Apex unit test needs example records to run against, and setting them up by hand is slow and
-fragile. You fill in fields the test does not care about, that setup breaks every time a field is
-renamed, and saving many records inside a loop quickly hits Salesforce's safety limits.
-
-This layer builds those records for you. You name only the fields your test actually checks, and it
-fills in the rest, then either saves the records or keeps them in memory.
-
-Developers use it for every test that needs data. Architects use it to give the whole team one
-consistent way to set up tests. Use it whenever a test needs records, and skip it when a single
-plain `new Account(...)` would do.
-
-## Mental model
-
-Think of it as ordering a coffee. You say what you actually care about (a flat white, oat milk),
-and the barista fills in everything else (cup, lid, water, machine settings) to defaults so the
-order is complete. The builder works the same way: you name the few fields your test asserts on,
-and it supplies valid values for the rest so the record saves.
-
-## Use this when
-
-- a test needs records and you only care about a handful of fields on them
-- you need many records at once, saved in a single statement, to stay within Salesforce's limits
-- you want records in memory (with or without an Id) so the test never touches the database
-- you need a parent and its children built and saved together as one all-or-nothing unit
-- the whole team should set up the same kind of record (a user on a profile, an active flag) the same way
-- you want a sandbox or scratch org filled with realistic records to click through, built the same way as your test data
-
-## Don't use this when
-
-- a single throwaway record in one test is all you need: a plain `new Account(...)` then `insert` is simpler and familiar to everyone (Salesforce has no built-in test-data factory, so this is the standard approach)
-- you need an `AggregateResult` object itself: it has no public constructor and cannot be built. For an aggregate query you run through `kern.QRY_Builder`, register the rows it returns instead (see [Mocking an aggregate query](Selectors%20-%20Guide.md#mocking-an-aggregate-query))
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Quick Navigation](#quick-navigation)
-2. [Quick Start](#quick-start)
-3. [How to opt out](#how-to-opt-out)
-4. [What is it?](#what-is-it)
-    - [Why choose this over hand-written records?](#why-choose-this-over-hand-written-records)
-5. [How does it work?](#how-does-it-work)
-    - [How it compares to hand-written records](#how-it-compares-to-hand-written-records)
-    - [Layer 1: TST_Builder](#layer-1-tst_builder)
-    - [Layer 2: TST_Factory](#layer-2-tst_factory)
-6. [Building Records](#building-records)
-    - [A Single Record](#a-single-record)
-    - [Overriding Fields](#overriding-fields)
-    - [Token Maps vs String Maps](#token-maps-vs-string-maps)
-    - [Building by API Name](#building-by-api-name)
-    - [Defaulting Optional Fields](#defaulting-optional-fields)
-    - [Marking Fields Optional](#marking-fields-optional)
-    - [Record Types](#record-types)
-7. [Bulk Creation](#bulk-creation)
-    - [withCount and buildList](#withcount-and-buildlist)
-    - [Cycling Values Across Records](#cycling-values-across-records)
-8. [Insertion Modes](#insertion-modes)
-    - [Insert (Default)](#insert-default)
-    - [In-Memory, No Id](#in-memory-no-id)
-    - [In-Memory with Mock Ids](#in-memory-with-mock-ids)
-    - [Choosing a Mode](#choosing-a-mode)
-9. [Relationships](#relationships)
-    - [Adding Child Records](#adding-child-records)
-    - [Child Builders](#child-builders)
-    - [Explicit Relationship Names](#explicit-relationship-names)
-    - [Mock Ids Across a Graph](#mock-ids-across-a-graph)
-10. [The Factory Pattern](#the-factory-pattern)
-    - [Why use a factory?](#why-use-a-factory)
-    - [Users and Permission Sets](#users-and-permission-sets)
-    - [Feature Flags](#feature-flags)
-    - [Framework Metadata: Triggers and Validations](#framework-metadata-triggers-and-validations)
-    - [Custom Metadata Records](#custom-metadata-records)
-    - [Logger Configuration](#logger-configuration)
-11. [How do I seed a sandbox or scratch org?](#how-do-i-seed-a-sandbox-or-scratch-org)
-12. [Extending the Defaults](#extending-the-defaults)
-    - [Custom Default Value Provider](#custom-default-value-provider)
-    - [Auto-Default Marker](#auto-default-marker)
-13. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
-14. [Anti-Patterns](#anti-patterns)
-15. [Best Practices](#best-practices)
-    - [Override Only What Matters](#override-only-what-matters)
-    - [Prefer In-Memory Builds for Pure Logic](#prefer-in-memory-builds-for-pure-logic)
-    - [Bulk With One DML](#bulk-with-one-dml)
-    - [Use Mock Ids Only When the Code Needs an Id](#use-mock-ids-only-when-the-code-needs-an-id)
-    - [Build Relationships With withChildren](#build-relationships-with-withchildren)
-    - [Prefer Token Overloads in Hand-Written Tests](#prefer-token-overloads-in-hand-written-tests)
-    - [Centralise Shared Setup in TST_Factory](#centralise-shared-setup-in-tst_factory)
-    - [Assert on User-Facing Text Through Custom Labels](#assert-on-user-facing-text-through-custom-labels)
-    - [Let Salesforce Reset Static State](#let-salesforce-reset-static-state)
-16. [Related Documentation](#related-documentation)
-
-</details>
+**Read next:** [Many records at once](#bulk-creation), [Records that are not saved](#insertion-modes),
+[A parent with its children](#relationships), [Shared setup for your team](#the-factory-pattern).
 
 ---
 
 ## Quick Navigation
 
-| I am a...     | I need to...                      | Go to...                                                                           |
-|---------------|-----------------------------------|------------------------------------------------------------------------------------|
-| **Developer** | Build one record fast             | [Quick Start](#quick-start)                                                        |
-| **Developer** | Build records in bulk             | [Bulk Creation](#bulk-creation)                                                    |
-| **Developer** | Build records with no DML         | [Insertion Modes](#insertion-modes)                                                |
-| **Developer** | Build parent-child graphs         | [Relationships](#relationships)                                                    |
-| **Developer** | Seed an org with realistic data   | [How do I seed a sandbox or scratch org?](#how-do-i-seed-a-sandbox-or-scratch-org) |
-| **Architect** | Standardise team test data        | [The Factory Pattern](#the-factory-pattern)                                        |
-| **Architect** | Customise auto-populated defaults | [Extending the Defaults](#extending-the-defaults)                                  |
-| **Analyst**   | Understand guarantees and limits  | [Capability Matrix](#capability-matrix-for-analysts)                               |
+| I need to...                                                                | Go to...                                                                                     |
+|-----------------------------------------------------------------------------|----------------------------------------------------------------------------------------------|
+| Set several fields at once, or a field whose name is only known at run time | [Token Maps vs String Maps](#token-maps-vs-string-maps)                                      |
+| Fill in a field that is not required                                        | [Defaulting Optional Fields](#defaulting-optional-fields)                                    |
+| Leave a required field empty                                                | [Marking Fields Optional](#marking-fields-optional)                                          |
+| Set a record type                                                           | [Record Types](#record-types)                                                                |
+| Build many records with one save                                            | [Bulk Creation](#bulk-creation)                                                              |
+| Build records without saving them, with or without an Id                    | [Insertion Modes](#insertion-modes)                                                          |
+| Build a parent with its children                                            | [Relationships](#relationships)                                                              |
+| Create a test user, or give users a permission set                          | [Users and Permission Sets](#users-and-permission-sets)                                      |
+| Turn a feature flag on for a test                                           | [Feature Flags](#feature-flags)                                                              |
+| Test a trigger action or a validation rule                                  | [Framework Metadata: Triggers and Validations](#framework-metadata-triggers-and-validations) |
+| Test a masking rule, or other behaviour set up by custom metadata records   | [Custom Metadata Records](#custom-metadata-records)                                          |
+| Check what a test logged                                                    | [Logger Configuration](#logger-configuration)                                                |
+| Fill a sandbox or scratch org with records to click through                 | [How do I seed a sandbox or scratch org?](#how-do-i-seed-a-sandbox-or-scratch-org)           |
+| Change the values the builder fills in                                      | [Extending the Defaults](#extending-the-defaults)                                            |
+| Test an aggregate query, or step outside the builder                        | [How to opt out](#how-to-opt-out)                                                            |
+| Look up every builder method                                                | [Layer 1: TST_Builder](#layer-1-tst_builder)                                                 |
+| Look up every factory method                                                | [Layer 2: TST_Factory](#layer-2-tst_factory)                                                 |
+| Avoid the common mistakes                                                   | [Anti-Patterns](#anti-patterns)                                                              |
+| See why KernDX is worth using                                               | [Why KernDX](/)                                                                              |
 
 ---
 
 ## Quick Start
 
-Use [`TST_Builder`](reference/apex/TST_Builder.md) directly. No custom class is required.
+Pick the class that fits the records your test needs. No custom class is required for any of them.
 
-> **Step-by-step walkthrough:** the [Test Data Fast Start](Fast%20Start%20-%20Test%20Data.md) covers
-> a full build-and-test cycle, plus `TST_Mock` for DML-free query testing.
+- **Records of any type, saved or kept in memory:** [`TST_Builder`](reference/apex/TST_Builder.md) directly, as in
+  the sample below.
+- **A user, a permission set assignment or a feature flag, set up the same way in every test:**
+  [`TST_Factory`](reference/apex/TST_Factory.md), see [The Factory Pattern](#the-factory-pattern).
+- **Records that a `kern.QRY_Builder` query returns, with nothing saved:** `kern.TST_Mock`, see the
+  [Test Data Fast Start](Fast%20Start%20-%20Test%20Data.md).
 
 ```apex
 // Build and insert a single Account; required fields are auto-populated
@@ -153,207 +81,74 @@ System.debug('Id: ' + account.Id + ', Industry: ' + account.Industry);
 `build()` returns one record (saved to the database by default). `buildList()` returns a
 `List<SObject>` and respects `withCount(n)`. Cast the result to your concrete type.
 
-For deeper coverage, continue reading the sections below.
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 ---
 
-## How to opt out
+## What problem does this solve?
 
-Sometimes you want to step outside the builder, and you can. The test-data layer is opt-in: when it
-does not fit, plain Apex record creation still works exactly as it always has. Nothing in the
-framework gets in the way.
+Every Apex unit test needs example records to run against, and setting them up by hand is slow and
+fragile. You fill in fields the test does not care about, that setup breaks every time a field is
+renamed, and saving many records inside a loop quickly hits Salesforce's safety limits.
 
-| You need                                                                  | Use                                                                                                | See                                                       |
-|---------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|-----------------------------------------------------------|
-| **A plain record with no auto-population**                                | `new Account(Name = 'X')` then `insert` (standard Apex, no wrapper).                               | —                                                         |
-| **One field that the builder shouldn't default**                          | `withOptionalField(field)` to skip a required field, or build the record by hand.                  | [Marking Fields Optional](#marking-fields-optional)       |
-| **DML-free query interception (records flow through `kern.QRY_Builder`)** | `kern.TST_Mock` (same chained build calls as `TST_Builder`, auto-registers for query mocking).     | [Test Data Fast Start](Fast%20Start%20-%20Test%20Data.md) |
-| **Aggregate-query test data**                                             | `kern.TST_Mock.registerAggregateRows` hands the query the rows it returns, so nothing is inserted. | [Mocking an aggregate query](Selectors%20-%20Guide.md#mocking-an-aggregate-query) |
-| **Custom default values for a field type**                                | Extend `kern.UTIL_SObjectBuilderDefaultProvider` and assign `kern.TST_Builder.defaultValueProvider`. | [Extending the Defaults](#extending-the-defaults)         |
+This layer builds those records for you. You name only the fields your test actually checks, and it
+fills in the rest, then either saves the records or keeps them in memory.
 
-The builder saves you time; it does not lock you in. Use it when its features earn their keep, and
-skip it when they don't.
+Use it whenever a test needs records. A plain `new Account(...)` is fine only for a record the test never saves, such
+as an argument it hands straight to a method.
+
+## Mental model
+
+Think of it as ordering a coffee. You say what you actually care about (a flat white, oat milk),
+and the barista fills in everything else (cup, lid, water, machine settings) to defaults so the
+order is complete.
+
+The builder works the same way: you name the few fields your test asserts on, and it supplies valid
+values for the rest so the record saves.
+
+## Use this when
+
+- a test needs records and you only care about a handful of fields on them
+- you need many records at once, saved in a single statement, to stay within Salesforce's limits
+- you want records in memory (with or without an Id) so the test never touches the database
+- you need a parent and its children built and saved together as one all-or-nothing unit
+- the whole team should set up the same kind of record (a user on a profile, an active flag) the same way
+- you want a sandbox or scratch org filled with realistic records to click through, built the same way as your test data
+
+## Don't use this when
+
+- you need an `AggregateResult` object itself: it has no public constructor and cannot be built. For an aggregate query you run through `kern.QRY_Builder`, register the rows it returns instead (see [Mocking an aggregate query](Selectors%20-%20Guide.md#mocking-an-aggregate-query))
 
 ---
 
 ## What is it?
 
-The Test Data layer builds the example records your Apex unit tests run against, and it keeps the
-setup short. You name the kind of record you want and override only the fields the test actually
-cares about. The framework fills in the rest of the required fields, saves the record (or keeps it
-in memory), and hands it back. So your test stays focused on what it is checking, not on the
-plumbing of constructing a valid record.
+The layer has two classes that work together. You configure each with short chained calls, then one call builds the
+record and returns it.
 
-**Calling it from your org:**
+1. **[`TST_Builder`](reference/apex/TST_Builder.md)** is the primary tool. It works for any SObject and handles
+   overrides, bulk creation, cycling values across records, parent-child relationships, and three ways of saving (or not
+   saving) the record.
+2. **[`TST_Factory`](reference/apex/TST_Factory.md)** is a convenience layer on top. It offers ready-made builders for
+   records nearly every test needs (users, permission set assignments, feature flags), plus builders for API call
+   records, API settings and content versions. Trigger settings and validation rules are not built by the factory: you
+   deploy them as XML.
 
-This framework is exposed as `global` classes in a managed package. When calling these classes from
-your org's Apex, use the `kern.` namespace prefix, for example `kern.TST_Builder` and
-`kern.TST_Factory`. The framework source is also available if you build and manage the package
-yourself.
+From your org's Apex, call them with the `kern.` namespace prefix, for example `kern.TST_Builder` and
+`kern.TST_Factory`: they are `global` classes in a managed package. The framework source is also available if you
+build and manage the package yourself.
 
-The layer has two classes that work together:
-
-1. **[`TST_Builder`](reference/apex/TST_Builder.md)** is the primary tool. You configure it with short
-   chained calls, then one call builds the record and returns it. It works for any SObject and
-   handles overrides, bulk creation, cycling values across records, parent-child relationships, and
-   three ways of saving (or not saving) the record.
-2. **[`TST_Factory`](reference/apex/TST_Factory.md)** is a convenience layer on top. It offers ready-made
-   builders for records nearly every test needs (users, permission set assignments, feature flags),
-   plus builders for API call records, API settings and content versions. Trigger settings and
-   validation rules are not built by the factory: you deploy them as XML.
-
-> **Scope:** This guide is the deep reference for the test-data layer. There is also a way to feed
-> in-memory records to a query without touching the database, so `kern.QRY_Builder` returns them as
-> if it had run a real query. That is handled by `TST_Mock`, which shares the same chained build
-> calls as `TST_Builder`; the [Test Data Fast Start](Fast%20Start%20-%20Test%20Data.md) covers it end to
-> end.
-
-> **Responsibilities:** This layer only builds records (and optionally saves them) for tests. It does
-> not run production business logic, and most of it is meant to be called from test code (`@IsTest`).
-> `TST_Builder` and the `TST_Factory` methods run from anonymous Apex and from an `@IsTest` class
-> in your org, which is also how you fill a sandbox with records to click through (see
-> [How do I seed a sandbox or scratch org?](#how-do-i-seed-a-sandbox-or-scratch-org)). To set up
-> framework configuration records (trigger settings, validation rules, masking) for your tests,
-> deploy the relevant `CustomMetadata` records via XML (see
-> [Framework Metadata](#framework-metadata-triggers-and-validations)).
-
-### Why choose this over hand-written records?
-
-Each point below is what you get, and why it helps:
-
-- **Write less setup code.** Override only what matters; required fields are filled in for you, so the test reads as what it is checking.
-- **Catch field typos at compile time.** Pass the field as a token (`SObjectField`) and the compiler flags a misspelled or renamed field before the test ever runs.
-- **Stay within Salesforce's limits in bulk.** `withCount(n).buildList()` creates many records with a single save, so a large data set doesn't blow the per-transaction limits.
-- **Skip the database when you don't need it.** Build records in memory, with or without mock Ids, for fast tests that never touch the database.
-- **Build a parent and its children in one go.** They save as one all-or-nothing unit: they all commit, or none do (register related records, save them together; a Unit of Work).
-- **Set the team's shared setup up once.** `TST_Factory` keeps the setup every test class would otherwise repeat in one place.
-
----
-
-## How does it work?
-
-If you want to know how the pieces fit before using them, here is the shape. Your test code calls
-either the convenience layer (`TST_Factory`) or the builder directly (`TST_Builder`); the builder
-fills in field defaults through a part you can replace if you need to (`DefaultValueProvider`). The
-diagram below shows that flow, top to bottom.
-
-```text
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                          TEST DATA LAYER ARCHITECTURE                         │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                               │
-│   @IsTest CODE (and anonymous Apex for TST_Builder)                           │
-│   ==================================================                          │
-│           │                                                                   │
-│           ▼                                                                   │
-│   ┌───────────────────────────────────────────────────────────────────────┐  │
-│   │  TST_Factory (Convenience — pre-configured builders for common records)│  │
-│   │  - newUser, createPermissionSetAssignments, newFeatureFlag             │  │
-│   │  - newContentVersion, newApiCall, newOutboundApiSetting                │  │
-│   └───────────────────────────────┬───────────────────────────────────────┘  │
-│                                   │ delegates to                              │
-│                                   ▼                                           │
-│   ┌───────────────────────────────────────────────────────────────────────┐  │
-│   │  TST_Builder (Primary — fluent builder for any SObject)                │  │
-│   │  - of(type).withOverride(...).withCount(n).build()/buildList()         │  │
-│   │  - auto-populated required fields, cycling, relationships, mock Ids    │  │
-│   └───────────────────────────────┬───────────────────────────────────────┘  │
-│                                   │ pluggable                                 │
-│                                   ▼                                           │
-│   ┌───────────────────────────────────────────────────────────────────────┐  │
-│   │  DefaultValueProvider (extension point for custom field defaults)      │  │
-│   └───────────────────────────────────────────────────────────────────────┘  │
-│                                                                               │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### How it compares to hand-written records
-
-Salesforce has no built-in test-data factory. The standard approach is to hand-construct records:
-
-```apex
-Account account = new Account(Name = 'Test', Industry = 'Technology');
-insert account;
-```
-
-That works, and for a single throwaway record it is the simplest thing to do. The builder earns its
-keep once you need bulk records, relationships, in-memory builds, or shared team setup.
-
-<details>
-<summary>Side-by-side comparison</summary>
-
-| Feature                       | KernDX Test Data Layer                                             | Hand-Written Test Data                                      |
-|-------------------------------|--------------------------------------------------------------------|-------------------------------------------------------------|
-| **Required-field population** | ✅ Auto-populated; override only what the test needs                | ❌ Every required field set by hand on every record          |
-| **Field type safety**         | ✅ `SObjectField` token overloads (`withOverride(Account.Name, …)`) | ✅ Direct field access is compile-checked too                |
-| **Bulk creation**             | ✅ `withCount(n).buildList()` (single DML statement)                | ⚠️ Manual loop; easy to accidentally DML inside the loop    |
-| **Cycling values**            | ✅ `withCycle(field, values)` rotates across records                | ❌ Manual index arithmetic                                   |
-| **In-memory / mock Ids**      | ✅ `withoutInsertion()` / `withoutInsertion(true)`                  | ⚠️ Manual; mock Ids require a separate helper               |
-| **Parent-child graphs**       | ✅ `withChildren(...)` (parent and children saved as one unit)      | ⚠️ Insert parent, set foreign keys, insert children by hand |
-| **Consistency across a team** | ✅ `TST_Factory` centralises shared setup                           | ⚠️ Each test class repeats its own boilerplate              |
-| **Simplicity for one field**  | ⚠️ Builder API to learn                                            | ✅ A single `new` expression is familiar to everyone         |
-
-</details>
-
-Use the builder when its features earn their keep (bulk, relationships, no-DML, shared setup). For a
-single throwaway record in one test, a plain `new` expression is perfectly fine.
-
-### Layer 1: [TST_Builder](reference/apex/TST_Builder.md)
-
-**Purpose:** Build a valid record without listing every required field. You configure it with short
-chained calls, then one call builds the record (and saves it, unless you ask it not to). It fills in
-the fields Salesforce requires for you.
-
-**When to Use:** For building records in any test. One caveat in your org: if you have added
-custom validation rules, a record may need extra `withOverride()` calls to satisfy them, beyond the
-Salesforce-required fields the builder already fills in.
-
-**Where you start a build:**
-
-- `kern.TST_Builder.of(SObjectType)`: start a build for a typed SObject.
-- `kern.TST_Builder.of(String)`: start a build by SObject API name (resolved via describe).
-
-**How you configure it** (every call below chains onto the previous one and returns the `Builder`):
-
-- `withOverride(field, value)` / `withOverride(fieldName, value)`: set one field.
-- `withOverrides(Map<SObjectField, Object>)` / `withOverrides(Map<String, Object>)`: set many.
-- `withCycle(field, values)` / `withCycle(fieldName, values)`: rotate values across `buildList()`.
-- `withDefaultedField(...)` / `withDefaultedFields(List<Object>)`: also default a non-required field.
-- `withOptionalField(...)` / `withOptionalFields(List<Object>)`: skip auto-populating a field.
-- `withCount(Integer)`: number of records for `buildList()`.
-- `withRecordType(String developerName)`: set the record type by developer name.
-- `withChildren(...)`: attach child records (several overloads).
-- `withoutInsertion()` / `withoutInsertion(Boolean)`: control DML and mock Ids.
-
-**The call that finishes the build and returns the records:**
-
-- `build()`: returns a single `SObject`.
-- `buildList()`: returns a `List<SObject>` of `withCount(n)` records.
-
-### Layer 2: [TST_Factory](reference/apex/TST_Factory.md)
-
-**Purpose:** Skip the repeated setup. These are ready-made builders for the records nearly every
-test needs: users, permission set assignments, feature flags, API call records, API settings and
-content versions.
-
-**When to Use:** When a record needs the same setup across many tests (a `User` on a given profile, a
-permission set assignment, an active feature flag).
-
-**Methods you can call:**
-
-- `kern.TST_Factory.insertUser(profileName)` / `insertUser(profileName, companyName)`: a saved `User`, ready for `System.runAs`.
-- `kern.TST_Factory.insertUsers(profileName, count)` / `insertUsers(users)`: a saved batch, or users you shaped yourself, saved.
-- `kern.TST_Factory.newUser(profileName)` / `newUser(profileName, companyName)`: an unsaved `User` (you choose when to insert it).
-- `kern.TST_Factory.newUsers(profileName, count)`: a list of unsaved `User` records.
-- `kern.TST_Factory.newUserWithPermissionSet(profileName, companyName, permissionSetName)`: saves a
-  user and assigns a permission set (or permission set group).
-- `kern.TST_Factory.createPermissionSetAssignments(users, permissionSetOrGroupName)`: assign a
-  permission set to saved users.
-- `kern.TST_Factory.newFeatureFlag(flagName)`: register an active feature flag for the transaction.
-
-To set up framework configuration (trigger settings, trigger actions, and validation rules) for a
-test, deploy the relevant `CustomMetadata` records via XML (see
-[Framework Metadata](#framework-metadata-triggers-and-validations)).
+> **What this layer does, and what it does not:**
+>
+> - It only builds records (and optionally saves them) for tests. It does not run production business logic, and most
+>   of it is meant to be called from test code (`@IsTest`).
+> - `TST_Builder` and the `TST_Factory` methods run from anonymous Apex and from an `@IsTest` class in your org. That
+>   is also how you fill a sandbox with records to click through (see
+>   [How do I seed a sandbox or scratch org?](#how-do-i-seed-a-sandbox-or-scratch-org)).
+> - Framework configuration records for your tests (trigger settings, validation rules, masking) are deployed as
+>   `CustomMetadata` records via XML (see [Framework Metadata](#framework-metadata-triggers-and-validations)).
 
 ---
 
@@ -374,7 +169,7 @@ System.debug('Id: ' + account.Id); // populated because the record was inserted
 
 ### Overriding Fields
 
-Override only the fields the test cares about. Everything else the test doesn't name is either
+Override only the fields the test cares about, with `withOverride`. Everything else the test doesn't name is either
 auto-populated (if required) or left null.
 
 ```apex
@@ -388,7 +183,7 @@ Assert.areEqual('Acme Corp', account.Name, 'Name override should apply');
 
 ### Token Maps vs String Maps
 
-When you want to set several fields at once, pass a map. Prefer the field-token form
+When you want to set several fields at once, pass a map to `withOverrides`. Prefer the field-token form
 (`SObjectField`) so the compiler catches a misspelled or renamed field before the test runs. Use the
 `String` form only when the field name is not known until the test actually runs.
 
@@ -412,10 +207,6 @@ Account stringForm = (Account)kern.TST_Builder.of(Account.SObjectType)
 		})
 		.build();
 ```
-
-> Prefer the `SObjectField` token overloads in hand-written tests so the compiler catches renamed or
-> deleted fields. Use the `String` overloads only when the field name genuinely varies at
-> runtime.
 
 ### Building by API Name
 
@@ -464,7 +255,8 @@ Assert.isNull(account.Name, 'Name should be left unpopulated');
 
 ### Record Types
 
-When a record needs a specific record type, set it by its developer name. An unknown developer name
+When a record needs a specific record type, set it by its developer name with
+`withRecordType(developerName)`. An unknown developer name
 throws an `IllegalArgumentException`. A blank name is ignored.
 
 ```apex
@@ -500,10 +292,11 @@ Assert.areEqual(200, accounts.size(), 'Should build 200 accounts in one DML stat
 
 ### Cycling Values Across Records
 
-Sometimes you want a batch of records to cover several variations of one field, say a few different
-industries, without writing a separate test method for each. `withCycle(field, values)` does that:
-it rotates your list of values across the records that `buildList()` produces. If there are more
-records than values, the values repeat from the start. The value list must not be null or empty.
+`withCycle(field, values)` rotates your list of values across the records that `buildList()` produces, so one batch
+covers several variations of one field (say a few different industries) without a separate test method for each.
+
+- If there are more records than values, the values repeat from the start.
+- The value list must not be null or empty.
 
 ```apex
 List<SObject> records = kern.TST_Builder.of(Account.SObjectType)
@@ -517,9 +310,9 @@ List<SObject> records = kern.TST_Builder.of(Account.SObjectType)
 
 ## Insertion Modes
 
-Not every test needs to save its records. Some only read fields, so saving them is wasted time and
-governor-limit cost. You pick one of three modes, depending on whether the record needs to reach the
-database and whether your code needs an Id on it.
+Pick one of three modes, depending on whether the record needs to reach the database and whether your code needs an
+Id on it ([Choosing a Mode](#choosing-a-mode) compares them). Not every test needs to save its records: some only read
+fields, so saving them is wasted time and governor-limit cost.
 
 ### Insert (Default)
 
@@ -577,11 +370,12 @@ Assert.isNotNull(account.Id, 'Mock Id is generated without DML');
 
 ## Relationships
 
-Tests often need a parent record with related children, and wiring the foreign keys by hand is
-fiddly. The builder constructs the whole parent-child graph for you. When you save it, parent and
-children commit together as one all-or-nothing unit (a Unit of Work): they all save, or none do.
-When you build in memory instead, the child relationship is filled in so it reads back just like a
-subquery result.
+The builder constructs a whole parent-child graph for you, so you never wire the foreign keys by hand.
+
+| You build it    | What you get                                                                                               |
+|-----------------|------------------------------------------------------------------------------------------------------------|
+| Saved (default) | Parent and children commit together as one all-or-nothing unit (a Unit of Work): they all save, or none do |
+| In memory       | The child relationship is filled in, so it reads back just like a subquery result                          |
 
 ### Adding Child Records
 
@@ -675,7 +469,11 @@ these cases so the setup lives in one place instead of being copied across every
 ### Users and Permission Sets
 
 Most tests need a second user to run as. `insertUser` gives you a saved one on the profile you name,
-ready for `System.runAs`:
+ready for `System.runAs`.
+
+To run as another user in a test, put the test code inside a `System.runAs(user)` block, as the sample below shows.
+The code inside the block runs as that user, so record sharing follows that user. A KernDX read or save in user mode
+(the mode that checks the running user's access) also checks that user's object and field permissions.
 
 ```apex
 @IsTest
@@ -695,12 +493,19 @@ private static void shouldRunAsStandardUser()
 }
 ```
 
-Two platform rules sit behind this, and the factory handles the first for you. Salesforce will not
-save "setup" records (users, permission set assignments) and ordinary records (accounts, your own
-objects) in the same stretch of a transaction. The factory saves its own setup records apart from
-everything else, so your test can create ordinary records before or after any factory call without a
-wrapper of its own. The second rule is yours to keep: Salesforce forbids saving `User` records in
-parallel tests, so remove `IsParallel=true` from the test class header whenever the test saves a user.
+Two platform rules sit behind this:
+
+- **Setup records and ordinary records are saved apart (the factory handles this).** Salesforce will not save "setup"
+  records (users, permission set assignments) and ordinary records (accounts, your own objects) in the same stretch of
+  a transaction.
+  - If you try, the save fails with the platform's mixed DML error, which reads like this:
+    `MIXED_DML_OPERATION, DML operation on setup object is not permitted after you have updated a non-setup object (or vice versa)`.
+  - In a test, a save inside a `System.runAs` block counts as a separate stretch, so the error does not happen there.
+    That is how the factory avoids it.
+  - The factory saves its own setup records apart from everything else, so your test can create ordinary records
+    before or after any factory call without a wrapper of its own.
+- **No user saves in parallel tests (yours to keep).** Salesforce forbids saving `User` records in parallel tests, so
+  remove `IsParallel=true` from the test class header whenever the test saves a user.
 
 A saved user needs a free seat for its profile's licence. If your org is at its limit for a licence,
 choose a profile whose licence has seats to spare; otherwise the platform reports the licence limit
@@ -782,22 +587,16 @@ private static void shouldRunFlagGatedPath()
 
 ### Framework Metadata: Triggers and Validations
 
-To exercise framework trigger or validation behaviour in your tests, deploy the relevant framework
-configuration (trigger settings, trigger actions, validation rules, and validation rule groups) as
-`CustomMetadata` records via XML. Those records are in place for every test that runs against the
-org, so a test simply builds a record and asserts on the resulting trigger or validation behaviour.
+Deploy the framework configuration your tests rely on (trigger settings, trigger actions, validation rules, and
+validation rule groups: the `TriggerSetting__mdt`, `TriggerAction__mdt`, `ValidationRule__mdt` and related records) as
+`CustomMetadata` records via XML. The [Trigger Actions Fast Start](Fast%20Start%20-%20Trigger%20Actions.md) and
+[Custom Validations Fast Start](Fast%20Start%20-%20Custom%20Validations.md) show that pattern.
 
-> **Setting up framework metadata for tests.** Deploy the `TriggerSetting__mdt`,
-> `TriggerAction__mdt`, `ValidationRule__mdt`, and related records your tests rely on as
-> `CustomMetadata` via XML. See the
-> [Trigger Actions Fast Start](Fast%20Start%20-%20Trigger%20Actions.md) and
-> [Custom Validations Fast Start](Fast%20Start%20-%20Custom%20Validations.md) for that pattern.
+Those records are in place for every test that runs against the org, so a test simply builds a record and asserts on
+the resulting trigger or validation behaviour. This example uses the `TRG_AccountSetDefaults` action from the Trigger
+Actions Fast Start, which fills in a blank Description when an Account is created.
 
-Once the trigger action metadata is deployed, a test builds a record and asserts on a field the
-action sets. This example uses the `TRG_AccountSetDefaults` action from the
-[Trigger Actions Fast Start](Fast%20Start%20-%20Trigger%20Actions.md), which fills in a blank
-Description when an Account is created. A before-insert change is not copied back to the record in
-your test, so the test reads the saved record again:
+A before-insert change is not copied back to the record in your test, so the test reads the saved record again:
 
 ```apex
 @IsTest
@@ -877,10 +676,9 @@ private static void shouldMaskContactEmail()
 
 ### Logger Configuration
 
-The logging framework runs inside tests using your org's configuration, so the logs you generate in
-a test go through the same code path as in production. By default it discards log records during
-tests, to avoid cluttering them. When a test needs to check what was logged, set the global
-`kern.LOG_Builder.ignoreTestMode` flag to `true`:
+When a test needs to check what was logged, set the global `kern.LOG_Builder.ignoreTestMode` flag to `true`. By
+default the logging framework discards log records during tests, to avoid cluttering them. It still runs inside tests
+using your org's configuration, so the logs you generate in a test go through the same code path as in production.
 
 ```apex
 kern.LOG_Builder.ignoreTestMode = true;
@@ -893,10 +691,9 @@ kern.LOG_Builder.ignoreTestMode = true;
 
 ## How do I seed a sandbox or scratch org?
 
-The builder and the factory that set up a unit test can also fill a fresh sandbox or scratch org
-with records to click through, demo, or test by hand. There is nothing to install or switch on:
-both are ordinary production classes, so a script run from your command line saves records exactly
-as a test would, except that they stay.
+Run the builder and the factory from a script: they fill a fresh sandbox or scratch org with records to click through,
+demo, or test by hand. There is nothing to install or switch on. Both are ordinary production classes, so a script
+run from your command line saves records exactly as a test would, except that they stay.
 
 ```apex
 // Three accounts, each with two contacts, saved together as one all-or-nothing unit
@@ -917,11 +714,15 @@ Save it as `seed.apex` and run it against the org:
 sf apex run --file seed.apex -o YourOrgAlias
 ```
 
-Afterwards the org holds three accounts named Northwind Traders, Contoso and Fabrikam, two contacts
-under each with the last name Seeded, and an active Standard User whose company name is
-`seed-reviewer`. Every field Salesforce requires carries a valid generated value; fields it does not
-require are left empty. The seeded user needs a free seat for its profile's licence, and a profile
-with that exact name; see [Users and Permission Sets](#users-and-permission-sets).
+Afterwards the org holds:
+
+- three accounts named Northwind Traders, Contoso and Fabrikam;
+- two contacts under each, with the last name Seeded;
+- an active Standard User whose company name is `seed-reviewer`.
+
+Every field Salesforce requires carries a valid generated value; fields it does not require are left empty. The seeded
+user needs a free seat for its profile's licence, and a profile with that exact name; see
+[Users and Permission Sets](#users-and-permission-sets).
 
 **Before you run it, know how a seeding run differs from a test:**
 
@@ -935,10 +736,10 @@ with that exact name; see [Users and Permission Sets](#users-and-permission-sets
   not edit on screen. Record sharing is unchanged. Check the result as the people who will use the
   org, not as yourself.
 - **Defaults are random, and only required fields are filled.** Every required field you do not
-  override gets a valid random value: names, emails, dates, picklist entries. Fields Salesforce does
-  not require stay empty, so list the ones people will see on screen with `withDefaultedField` (see
-  [Defaulting Optional Fields](#defaulting-optional-fields)), and override the ones whose value
-  matters, as the script does with the account names, the industry and the contacts' last names.
+  override gets a valid random value: names, emails, dates, picklist entries.
+- **Fields Salesforce does not require stay empty.** List the ones people will see on screen with
+  `withDefaultedField` (see [Defaulting Optional Fields](#defaulting-optional-fields)), and override the ones whose
+  value matters, as the script does with the account names, the industry and the contacts' last names.
 - **Running it twice creates a second set.** A second run inserts three more accounts and another
   user, and a duplicate rule on your objects may refuse the second copy. Usernames never collide,
   though: each run draws a fresh random base for the user's email and username.
@@ -968,7 +769,7 @@ script. A run that updates a user and then deletes ordinary records is refused w
 The values the builder fills in come from a default value provider. If you need to change how those
 defaults are generated (say, to satisfy an unusual required-field setup), extend
 `kern.UTIL_SObjectBuilderDefaultProvider` and assign an instance to
-`kern.TST_Builder.defaultValueProvider`. It is a `global virtual` class rather than an interface, so
+`kern.TST_Builder.defaultValueProvider`. `UTIL_SObjectBuilderDefaultProvider` is a `global virtual` class rather than an interface, so
 the framework can add methods in future releases without breaking your subclass.
 
 Extend that class, not the bare `kern.TST_Builder.DefaultValueProvider` it is built on.
@@ -985,7 +786,7 @@ Override whichever of these hooks you need:
 | `get<Type>DefaultValue(DescribeFieldResult, Integer)` | The value generated for one field type, for example `getEmailDefaultValue` or `getTextDefaultValue` |
 
 ```apex
-public class MyDefaultProvider extends kern.UTIL_SObjectBuilderDefaultProvider
+public inherited sharing class MyDefaultProvider extends kern.UTIL_SObjectBuilderDefaultProvider
 {
 	public override Set<SObjectField> defineSObjectRequiredFields(SObjectType sObjectType)
 	{
@@ -1007,8 +808,9 @@ kern.TST_Builder.defaultValueProvider = new MyDefaultProvider();
 ```
 
 > **If you override `defineSObjectOptionalFields`, end it with the `super` call.** Return
-> `super.defineSObjectOptionalFields(sObjectType)` for every type you are not handling yourself. The
-> inherited behaviour marks each `UserPermissions` field on `User` as optional, and that is what keeps
+> `super.defineSObjectOptionalFields(sObjectType)` for every type you are not handling yourself.
+>
+> The inherited behaviour marks each `UserPermissions` field on `User` as optional, and that is what keeps
 > the builder from tripping over the permission fields your org's licences control when it creates a
 > `User`. Replace the method outright and building a `User` starts to fail.
 
@@ -1023,8 +825,8 @@ public override Set<SObjectField> defineSObjectOptionalFields(SObjectType sObjec
 }
 ```
 
-> A custom provider is set per transaction. Salesforce resets static state between test methods, so
-> the assignment does not leak into other tests.
+> A custom provider is set per transaction, so the assignment does not leak into other tests (see
+> [Let Salesforce Reset Static State](#let-salesforce-reset-static-state)).
 
 ### Auto-Default Marker
 
@@ -1044,31 +846,102 @@ Account account = (Account)kern.TST_Builder.of(Account.SObjectType)
 
 ---
 
-## Capability Matrix (for Analysts)
+## How to opt out
 
-If you are evaluating what this layer does without reading the code, this table is your summary. Each
-row names a capability, the method that provides it, and anything worth knowing about its limits.
+The test-data layer is opt-in: when part of it does not fit, step outside that part and keep the rest.
 
-| Capability                        | How it is expressed                            | Notes                                                              |
-|-----------------------------------|------------------------------------------------|--------------------------------------------------------------------|
-| Auto-populate required fields     | Default behaviour of `build()` / `buildList()` | Custom validation rules may require additional overrides           |
-| Override specific fields          | `withOverride` / `withOverrides`               | Token overloads are compile-checked                                |
-| Bulk creation, single DML         | `withCount(n).buildList()`                     | Keeps tests within governor limits                                 |
-| Rotate values across records      | `withCycle(field, values)`                     | Repeats the list when records exceed values                        |
-| Build without DML                 | `withoutInsertion()`                           | No Id; fastest path                                                |
-| Build without DML, with an Id     | `withoutInsertion(true)`                       | Valid mock Id for `Id != null` logic and query mocking             |
-| Parent-child graphs               | `withChildren(...)`                            | Single Unit of Work on insert; in-memory linkage without insert    |
-| Record types                      | `withRecordType(developerName)`                | An unknown name throws. A blank name keeps the master record type  |
-| Common records (users, flags)     | `TST_Factory` methods                          | Centralises repeated setup                                         |
-| Framework metadata for tests      | Deploy `CustomMetadata` records via XML        | Sets up trigger and validation behaviour for your tests           |
-| Customise auto-populated defaults | Extend `UTIL_SObjectBuilderDefaultProvider`    | Per-transaction; reset between test methods                        |
+| You need                                                                  | Use                                                                                                | See                                                       |
+|---------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------|-----------------------------------------------------------|
+| **A plain record with no auto-population**                                | `new Account(Name = 'X')`, saved with `kern.DML_Builder.newTransaction().doInsert(record).execute()`, so the save still goes through KernDX. | —                                                         |
+| **One field that the builder shouldn't default**                          | `withOptionalField(field)` to skip a required field, or build the record by hand.                  | [Marking Fields Optional](#marking-fields-optional)       |
+| **DML-free query interception (records flow through `kern.QRY_Builder`)** | `kern.TST_Mock` (same chained build calls as `TST_Builder`, auto-registers for query mocking).     | [Test Data Fast Start](Fast%20Start%20-%20Test%20Data.md) |
+| **Aggregate-query test data**                                             | `kern.TST_Mock.registerAggregateRows` hands the query the rows it returns, so nothing is inserted. | [Mocking an aggregate query](Selectors%20-%20Guide.md#mocking-an-aggregate-query) |
+| **Custom default values for a field type**                                | Extend `kern.UTIL_SObjectBuilderDefaultProvider` and assign `kern.TST_Builder.defaultValueProvider`. | [Extending the Defaults](#extending-the-defaults)         |
+
+---
+
+## How does it work?
+
+Your test code calls either the convenience layer (`TST_Factory`) or the builder directly (`TST_Builder`). The builder
+fills in field defaults through a part you can replace if you need to (`DefaultValueProvider`).
+
+```text
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          TEST DATA LAYER ARCHITECTURE                         │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                               │
+│   @IsTest CODE (and anonymous Apex for TST_Builder)                           │
+│   ==================================================                          │
+│           │                                                                   │
+│           ▼                                                                   │
+│   ┌───────────────────────────────────────────────────────────────────────┐  │
+│   │  TST_Factory (Convenience — pre-configured builders for common records)│  │
+│   │  - newUser, createPermissionSetAssignments, newFeatureFlag             │  │
+│   │  - newContentVersion, newApiCall, newOutboundApiSetting                │  │
+│   └───────────────────────────────┬───────────────────────────────────────┘  │
+│                                   │ delegates to                              │
+│                                   ▼                                           │
+│   ┌───────────────────────────────────────────────────────────────────────┐  │
+│   │  TST_Builder (Primary — fluent builder for any SObject)                │  │
+│   │  - of(type).withOverride(...).withCount(n).build()/buildList()         │  │
+│   │  - auto-populated required fields, cycling, relationships, mock Ids    │  │
+│   └───────────────────────────────┬───────────────────────────────────────┘  │
+│                                   │ pluggable                                 │
+│                                   ▼                                           │
+│   ┌───────────────────────────────────────────────────────────────────────┐  │
+│   │  DefaultValueProvider (extension point for custom field defaults)      │  │
+│   └───────────────────────────────────────────────────────────────────────┘  │
+│                                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Layer 1: [TST_Builder](reference/apex/TST_Builder.md)
+
+`TST_Builder` builds a valid record without you listing every required field: it fills in the fields Salesforce
+requires, and it saves the record unless you ask it not to. Use it for building records in any test. One caveat in
+your org: if you have added custom validation rules, a record may need extra `withOverride()` calls to satisfy them.
+
+You start a build, chain any configure calls (each returns the `Builder`), then finish it with the call that builds the
+records and returns them:
+
+| Step      | Method                                                                            | What it does                                              |
+|-----------|-----------------------------------------------------------------------------------|-----------------------------------------------------------|
+| Start     | `kern.TST_Builder.of(SObjectType)`                                                | Start a build for a typed SObject                         |
+| Start     | `kern.TST_Builder.of(String)`                                                     | Start a build by SObject API name (resolved via describe) |
+| Configure | `withOverride(field, value)` / `withOverride(fieldName, value)`                   | Set one field                                             |
+| Configure | `withOverrides(Map<SObjectField, Object>)` / `withOverrides(Map<String, Object>)` | Set many                                                  |
+| Configure | `withCycle(field, values)` / `withCycle(fieldName, values)`                       | Rotate values across `buildList()`                        |
+| Configure | `withDefaultedField(...)` / `withDefaultedFields(List<Object>)`                   | Also default a non-required field                         |
+| Configure | `withOptionalField(...)` / `withOptionalFields(List<Object>)`                     | Skip auto-populating a field                              |
+| Configure | `withCount(Integer)`                                                              | Number of records for `buildList()`                       |
+| Configure | `withRecordType(String developerName)`                                            | Set the record type by developer name                     |
+| Configure | `withChildren(...)`                                                               | Attach child records (several overloads)                  |
+| Configure | `withoutInsertion()` / `withoutInsertion(Boolean)`                                | Control DML and mock Ids                                  |
+| Finish    | `build()`                                                                         | Returns a single `SObject`                                |
+| Finish    | `buildList()`                                                                     | Returns a `List<SObject>` of `withCount(n)` records       |
+
+### Layer 2: [TST_Factory](reference/apex/TST_Factory.md)
+
+`TST_Factory` skips the setup a record needs in test after test (a `User` on a given profile, a permission set
+assignment, an active feature flag). It offers ready-made builders for users, permission set assignments, feature
+flags, API call records, API settings and content versions. The methods you call most:
+
+| Method                                                                                   | What you get                                                        |
+|------------------------------------------------------------------------------------------|---------------------------------------------------------------------|
+| `kern.TST_Factory.insertUser(profileName)` / `insertUser(profileName, companyName)`      | A saved `User`, ready for `System.runAs`                            |
+| `kern.TST_Factory.insertUsers(profileName, count)` / `insertUsers(users)`                | A saved batch, or users you shaped yourself, saved                  |
+| `kern.TST_Factory.newUser(profileName)` / `newUser(profileName, companyName)`            | An unsaved `User` (you choose when to insert it)                    |
+| `kern.TST_Factory.newUsers(profileName, count)`                                          | A list of unsaved `User` records                                    |
+| `kern.TST_Factory.newUserWithPermissionSet(profileName, companyName, permissionSetName)` | Saves a user and assigns a permission set (or permission set group) |
+| `kern.TST_Factory.createPermissionSetAssignments(users, permissionSetOrGroupName)`       | Assigns a permission set to saved users                             |
+| `kern.TST_Factory.newFeatureFlag(flagName)`                                              | Registers an active feature flag for the transaction                |
+
+Trigger settings, trigger actions and validation rules: see
+[Framework Metadata](#framework-metadata-triggers-and-validations).
 
 ---
 
 ## Anti-Patterns
-
-These are the common mistakes worth avoiding. Each row pairs a tempting shortcut with the problem it
-causes and the safer approach to use instead.
 
 | Anti-Pattern                                               | Why It's Wrong                                                                           | Instead                                                                 |
 |------------------------------------------------------------|------------------------------------------------------------------------------------------|-------------------------------------------------------------------------|
@@ -1097,27 +970,26 @@ Account account = (Account)kern.TST_Builder.of(Account.SObjectType)
 
 ### Prefer In-Memory Builds for Pure Logic
 
-If the code under test only reads fields, `withoutInsertion()` skips DML entirely, giving you faster
-tests at no governor cost.
+If the code under test only reads fields, use `withoutInsertion()`: see [In-Memory, No Id](#in-memory-no-id).
 
 ### Bulk With One DML
 
-Always create many records with `withCount(n).buildList()`, never a loop of `build()` calls.
+Always create many records with `withCount(n).buildList()`, never a loop of `build()` calls (see
+[withCount and buildList](#withcount-and-buildlist)).
 
 ### Use Mock Ids Only When the Code Needs an Id
 
-Choose `withoutInsertion(true)` when logic checks `Id != null`, keys a map by Id, or registers a
-query mock. Otherwise use `withoutInsertion()`.
+Choose `withoutInsertion(true)` only when the code needs an Id, and `withoutInsertion()` otherwise: see
+[Choosing a Mode](#choosing-a-mode).
 
 ### Build Relationships With `withChildren`
 
-Let the builder set the foreign keys for you. On insert it saves the whole graph as one all-or-nothing
-unit (a Unit of Work). In memory it links the graph so children read back like subquery results.
+Let the builder set the foreign keys for you: see [Relationships](#relationships) for what a saved graph and an
+in-memory graph give you.
 
 ### Prefer Token Overloads in Hand-Written Tests
 
-`withOverride(Account.Name, …)` is compile-checked. Use the `String` overloads only when the field
-name is genuinely dynamic.
+`withOverride(Account.Name, …)` is compile-checked: see [Token Maps vs String Maps](#token-maps-vs-string-maps).
 
 ### Centralise Shared Setup in `TST_Factory`
 

@@ -3,13 +3,14 @@ title: "UTIL_CircuitBreaker.Provider"
 type: class
 pageClass: reference
 description: "Interface for code that needs circuit breaker protection (with return value) Implement this interface when your action needs to return data. Use ProtectedAction if no return value is needed."
+group: "Resilience"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_CircuitBreaker.Provider
 
-**Class**
+**Class** · Group: `Resilience`
 
 <div class="apex-member apex-class">
 

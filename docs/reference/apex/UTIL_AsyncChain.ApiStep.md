@@ -3,13 +3,14 @@ title: "UTIL_AsyncChain.ApiStep"
 type: class
 pageClass: reference
 description: "Chain step adapter that executes any API_Outbound handler as part of an async chain. Wraps the full web service lifecycle (validation, callout, response parsing, DML, ApiCall__c persistence) via UTIL_"
+group: "Async"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_AsyncChain.ApiStep
 
-**Class**
+**Class** · Group: `Async`
 
 <div class="apex-member apex-class">
 

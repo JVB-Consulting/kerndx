@@ -3,13 +3,14 @@ title: "FLOW_CheckTriggerBypassed.DTO_Request"
 type: class
 pageClass: reference
 description: "A DTO indicating what action has been bypassed"
+group: "Triggers"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_CheckTriggerBypassed.DTO_Request
 
-**Class**
+**Class** · Group: `Triggers`
 
 <div class="apex-member apex-class">
 

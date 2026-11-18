@@ -3,13 +3,14 @@ title: "UTIL_HttpClient.FailureAction"
 type: class
 pageClass: reference
 description: "Defines the action to take when an HTTP call fails."
+group: "Web Services"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_HttpClient.FailureAction
 
-**Class**
+**Class** · Group: `Web Services`
 
 <div class="apex-member apex-class">
 

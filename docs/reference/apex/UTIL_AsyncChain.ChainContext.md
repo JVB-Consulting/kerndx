@@ -3,13 +3,14 @@ title: "UTIL_AsyncChain.ChainContext"
 type: class
 pageClass: reference
 description: "Shared state container passed between chain steps. Provides key-value storage for inter-step communication and access to chain metadata such as execution ID and correlation ID."
+group: "Async"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_AsyncChain.ChainContext
 
-**Class**
+**Class** · Group: `Async`
 
 <div class="apex-member apex-class">
 

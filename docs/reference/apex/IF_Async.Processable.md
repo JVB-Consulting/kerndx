@@ -3,13 +3,14 @@ title: "IF_Async.Processable"
 type: class
 pageClass: reference
 description: "Interface for defining the core processing logic to be executed by an asynchronous job."
+group: "Async Processing"
 since: "1.0"
 category: apex
 ---
 
 # IF_Async.Processable
 
-**Class**
+**Class** · Group: `Async Processing`
 
 <div class="apex-member apex-class">
 

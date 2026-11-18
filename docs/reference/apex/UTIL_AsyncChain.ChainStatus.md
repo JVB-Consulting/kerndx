@@ -3,13 +3,14 @@ title: "UTIL_AsyncChain.ChainStatus"
 type: class
 pageClass: reference
 description: "Typed, read-only snapshot of a chain execution returned by getChainStatus. A structured alternative to the getStatus(Id) map: each tracked field is a named property and the lifecycle can be checked th"
+group: "Async"
 since: "1.2"
 category: apex
 ---
 
 # UTIL_AsyncChain.ChainStatus
 
-**Class**
+**Class** · Group: `Async`
 
 <div class="apex-member apex-class">
 

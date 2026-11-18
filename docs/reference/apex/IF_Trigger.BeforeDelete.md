@@ -3,13 +3,14 @@ title: "IF_Trigger.BeforeDelete"
 type: class
 pageClass: reference
 description: "Handler contract for the before-delete trigger event."
+group: "Triggers"
 since: "1.0"
 category: apex
 ---
 
 # IF_Trigger.BeforeDelete
 
-**Class**
+**Class** · Group: `Triggers`
 
 <div class="apex-member apex-class">
 

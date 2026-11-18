@@ -3,13 +3,14 @@ title: "UTIL_Cache.Status"
 type: class
 pageClass: reference
 description: "Operation status enumeration"
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_Cache.Status
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

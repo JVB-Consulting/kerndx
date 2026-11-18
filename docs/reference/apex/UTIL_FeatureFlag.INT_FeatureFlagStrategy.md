@@ -3,13 +3,14 @@ title: "UTIL_FeatureFlag.INT_FeatureFlagStrategy"
 type: class
 pageClass: reference
 description: "The global interface for all feature evaluation strategies. Implement this interface and reference your class from FeatureFlagStrategy__mdt.CustomHandler__c to replace any built-in strategy. This is t"
+group: "Feature Flags"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_FeatureFlag.INT_FeatureFlagStrategy
 
-**Class**
+**Class** · Group: `Feature Flags`
 
 <div class="apex-member apex-class">
 

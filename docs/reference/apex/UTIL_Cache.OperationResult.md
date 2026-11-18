@@ -3,13 +3,14 @@ title: "UTIL_Cache.OperationResult"
 type: class
 pageClass: reference
 description: "Result of a cache operation with detailed status information"
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_Cache.OperationResult
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

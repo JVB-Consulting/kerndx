@@ -3,13 +3,14 @@ title: "TRG_Base.BypassType"
 type: class
 pageClass: reference
 description: "Indicates the type of trigger bypass being applied."
+group: "Triggers"
 since: "1.0"
 category: apex
 ---
 
 # TRG_Base.BypassType
 
-**Class**
+**Class** · Group: `Triggers`
 
 <div class="apex-member apex-class">
 

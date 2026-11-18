@@ -226,8 +226,8 @@ placeholder. Replace each one with your own team's historical figures before you
 
 #### Migrating from fflib to KernDX
 
-> **Before you migrate: check the Domain / Service / Application layer.** [`fflib`](https://github.com/apex-enterprise-patterns/fflib-apex-common) ships a Domain layer and a Service /
-> Application factory. KernDX ships neither. So if your code relies on `fflib_SObjectDomain` lifecycle hooks (`onApplyDefaults`, `onValidate`, `onBeforeInsert`), or on the
+> **Before you migrate: check the Domain / Service / Application layer.** [`fflib`](https://github.com/apex-enterprise-patterns/fflib-apex-common) ships a Domain class layer and a Service /
+> Application factory. KernDX ships its domain layer through trigger actions (not `fflib_SObjectDomain` lifecycle hooks), and no service layer or application factory. So if your code relies on `fflib_SObjectDomain` lifecycle hooks (`onApplyDefaults`, `onValidate`, `onBeforeInsert`), or on the
 > `fflib_Application` factory that binds `SObjectType → Selector / Domain / UnitOfWork`, you are moving away from capabilities KernDX does not have. You have two options: rewrite that
 > domain lifecycle logic as trigger actions, or keep `fflib` installed alongside KernDX. The two can coexist indefinitely.
 
@@ -388,7 +388,7 @@ inert. The real costs of installing the full package are the namespace prefix on
 - **Security posture and code quality:** Internal code-quality scans show 0 real-issue findings under the standard ruleset, and every security-category suppression carries a
   documented compensating-control rationale. On security posture: reads and writes both enforce the running user's permissions by default (FLS = field-level security, CRUD =
   object create/read/update/delete permissions); the data masking framework is on by default, with a single master off-switch you can flip in an incident; session encryption is
-  shipped; every time a safety check is bypassed the framework writes a structured audit event; and the repository ships a top-level `SECURITY.md` reporting channel. One nuance
+  shipped; every bypass made through the builders, every trigger bypass and every validation-rule bypass writes a structured audit event, and so do the three lower-level save methods; and the repository ships a top-level `SECURITY.md` reporting channel. One nuance
   remains: per-SObject masking is opt-in for custom objects, and the Data Masking Advisor surfaces the custom objects that need it. This is a matter of discoverability, not a gap
   in runtime enforcement.
 - **Licence:** Apache License 2.0, an open-source licence approved by the Open Source Initiative (OSI). There are no third-party dependencies beyond the Salesforce platform itself.

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Factory class that builds test data for your unit tests. It has helpers for: users (new or inserted, with or without a permission set), permission set assignments, feature flag records, API call recor"
 author: "Jason Van Beukering"
 group: "Testing"
-date: "February 2026, October 2026"
+date: "February 2026, November 2026"
 since: "1.0"
 category: apex
 ---

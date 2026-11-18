@@ -3,13 +3,14 @@ title: "UTIL_AsyncChain.StepResult"
 type: class
 pageClass: reference
 description: "Immutable result object returned by each ChainStep to indicate success or failure. Use the static factory methods to create instances."
+group: "Async"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_AsyncChain.StepResult
 
-**Class**
+**Class** · Group: `Async`
 
 <div class="apex-member apex-class">
 

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Provides a simplified, static entry point for running complex asynchronous jobs using the UTIL_AdaptiveAsynchronousProcessor engine."
 author: "Jason Van Beukering"
 group: "Async Processing"
-date: "September 2025, October 2026"
+date: "September 2025, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -68,6 +68,12 @@ transaction, it uses Batch Apex.
 
 **Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — The ID of the started asynchronous job.
 
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | Salesforce refused to start a job. Catch it as Exception. For a queueable job, getCause() returns the error Salesforce raised. |
+
 **Example**
 
 ```apex
@@ -99,6 +105,12 @@ The job size controls how many records are processed in each batch execution or 
 
 **Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — The ID of the started asynchronous job.
 
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | Salesforce refused to start a job. Catch it as Exception. For a queueable job, getCause() returns the error Salesforce raised. |
+
 **Example**
 
 ```apex
@@ -120,6 +132,8 @@ global static Id process(UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest
 Starts an adaptive asynchronous job with full configuration control via a request object.
 This method provides maximum flexibility, allowing you to configure batch size, queueable job size,
 execution strategy, and other advanced settings through the DTO_AsynchronousJobRequest object.
+A processor that implements IF_Async.Finishable cannot be forced to run as PARALLEL_QUEUEABLES: its finish step
+would run once for every job. That request is refused before any job is started.
 
 **Parameters**
 
@@ -129,6 +143,13 @@ execution strategy, and other advanced settings through the DTO_AsynchronousJobR
 | `processor` | [IF_Async.Processable](IF_Async.Processable.md) | An instance of a class that implements Processable. |
 
 **Returns** [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) — The ID of the started asynchronous job.
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [Exception](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | Salesforce refused to start a job. Catch it as Exception. For a queueable job, getCause() returns the error Salesforce raised. |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | The request forces PARALLEL_QUEUEABLES and the processor implements IF_Async.Finishable. |
 
 **Example**
 

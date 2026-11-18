@@ -3,13 +3,14 @@ title: "API_MockFactory.MockBuilder"
 type: class
 pageClass: reference
 description: "Fluent builder for constructing and registering mock responses."
+group: "Web Services"
 since: "1.0"
 category: apex
 ---
 
 # API_MockFactory.MockBuilder
 
-**Class**
+**Class** · Group: `Web Services`
 
 <div class="apex-member apex-class">
 

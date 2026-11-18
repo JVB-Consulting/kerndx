@@ -1,21 +1,60 @@
 ---
 navOrder: 92
+navLabel: "E2E Testing (browser tests)"
 ---
 
 # E2E Testing - Guide
 
-**Framework:** KernDX
-**Package Type:** Managed Package
+**Who this page is for:** developers and QA engineers who build and run Playwright end-to-end (E2E) tests against
+Salesforce orgs with KernDX, and the architects who design E2E test strategies for Lightning applications.
+
+New to it? [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md) gets three tests passing in about 20
+minutes.
+
+## Quick Navigation
+
+| I need to...                                                                           | Go to...                                                                                |
+|----------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------|
+| Get started quickly                                                                    | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)                         |
+| Set up my own suite beside my source                                                   | [How do I set up the project?](#how-do-i-set-up-the-project)                            |
+| Point the suite at my org                                                              | [Org Alias](#org-alias)                                                                 |
+| Understand the authentication flow                                                     | [Authentication](#authentication)                                                       |
+| Fix tests that fail because the session expired                                        | [Expired Sessions](#expired-sessions)                                                   |
+| Move the test org to a new package version                                             | [Package Upgrade in E2E Context](#package-upgrade-in-e2e-context)                       |
+| Handle Lightning-specific challenges (shadow DOM, spinners, toasts, modals, picklists) | [Salesforce Lightning Challenges](#salesforce-lightning-challenges)                     |
+| Look up a helper function                                                              | [Helper Library Reference](#helper-library-reference)                                   |
+| Run SOQL, anonymous Apex or a deploy from a test                                       | [sf-cli.js](#sf-clijs)                                                                  |
+| Write page objects                                                                     | [Page Object Patterns](#page-object-patterns)                                           |
+| Write tests for a specific feature                                                     | [Testing Common Salesforce Features](#testing-common-salesforce-features)               |
+| Check a log entry in the browser                                                       | [Log Entry Verification](#log-entry-verification)                                       |
+| Check an API call record in the browser                                                | [API Call Verification](#api-call-verification)                                         |
+| Test the Streaming Event Monitor                                                       | [Streaming and Change Data Capture Monitor](#streaming-and-change-data-capture-monitor) |
+| Create and clean up test data                                                          | [Data Management](#data-management)                                                     |
+| Turn a metadata-driven feature on or off for a test                                    | [Custom Metadata States](#custom-metadata-states)                                       |
+| Debug a failing test                                                                   | [Debugging](#debugging)                                                                 |
+| Set up CI/CD                                                                           | [CI/CD Integration](#cicd-integration)                                                  |
+| Fix a common issue                                                                     | [Troubleshooting](#troubleshooting)                                                     |
+
+---
+
+## Quick start
+
+Pick where your suite lives:
+
+- **The fastest way in:** the ready-made suite in the `release-testing/e2e` folder of the framework repository you
+  cloned, as the [Fast Start](Fast%20Start%20-%20E2E%20Testing.md) does.
+- **Your own suite:** create an `e2e/` folder beside your `force-app/` source (see
+  [How do I set up the project?](#how-do-i-set-up-the-project)).
+
+Then, either way:
+
+1. Install Playwright.
+2. Point the suite at your org by its alias and let global setup log in for you once (see [Authentication](#authentication)).
+3. Write your first spec using the navigation and wait helpers, so the test waits for Lightning to settle instead of guessing (see [Helper Library Reference](#helper-library-reference)).
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
-
-**Target Audience:**
-
-- **Developers** - Building and running Playwright E2E tests against Salesforce orgs with KernDX
-- **Architects** - Designing E2E test strategies for Lightning applications
-- **QA Engineers** - Automating browser-based verification of Salesforce features
 
 ---
 
@@ -25,13 +64,15 @@ Some failures only show up once a real person clicks through your app. A unit te
 
 This guide shows you how to test a real Salesforce screen end to end: log in, click through pages, and confirm what a user actually sees. It uses Playwright, a browser automation tool, with a set of ready-made helpers tuned for Salesforce Lightning.
 
-Read it if you build, design, or verify Lightning features (developers, architects, and QA engineers). Use it whenever a unit test cannot prove that the user-facing result is correct.
+Use it whenever a unit test cannot prove that the user-facing result is correct.
 
 ---
 
 ## Mental model
 
-Think of an end-to-end test as a robot stand-in for one of your users. It opens a browser, signs in, walks through the same screens a person would, and checks that the right things appear. The helpers in this guide are the parts of that journey Salesforce always makes awkward (waiting for a page to settle, finding an element inside a Lightning component, catching a toast before it vanishes) packaged up so you do not write them every time.
+Think of an end-to-end test as a robot stand-in for one of your users. It opens a browser, signs in, walks through the same screens a person would, and checks that the right things appear.
+
+The helpers in this guide are the parts of that journey Salesforce always makes awkward (waiting for a page to settle, finding an element inside a Lightning component, catching a toast before it vanishes) packaged up so you do not write them every time.
 
 ---
 
@@ -47,202 +88,6 @@ Think of an end-to-end test as a robot stand-in for one of your users. It opens 
 - A unit test can already prove the result. Apex `@IsTest` and LWC Jest tests are faster and steadier; use them first and keep E2E for what they cannot reach.
 - You would be testing Salesforce's own platform behaviour rather than your custom features. That wastes time and breaks on platform updates.
 - You only need to set up or check data. Do that through the `sf` CLI or anonymous Apex, not the browser. Drive the browser only for the thing you are actually verifying.
-
-## Quick start
-
-The fastest way in is the companion [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md), which gets three tests passing in about 20 minutes. In short, the path is:
-
-1. Install Playwright and use the ready-made suite in the `release-testing/e2e` folder of the framework repository you cloned, as the Fast Start does. To build your own suite instead, create an `e2e/` folder beside your `force-app/` source (see [How do I set up the project?](#how-do-i-set-up-the-project)).
-2. Point the suite at your org by its alias and let global setup log in for you once (see [Authentication](#authentication)).
-3. Write your first spec using the navigation and wait helpers, so the test waits for Lightning to settle instead of guessing (see [Helper Library Reference](#helper-library-reference)).
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [What problem does this solve?](#what-problem-does-this-solve)
-2. [Mental model](#mental-model)
-3. [Use this when](#use-this-when)
-4. [Don't use this when](#dont-use-this-when)
-5. [Quick start](#quick-start)
-6. [Quick Navigation](#quick-navigation)
-7. [Why test in the browser at all?](#why-test-in-the-browser-at-all)
-    - [Why E2E Testing for Salesforce?](#why-e2e-testing-for-salesforce)
-    - [Why Playwright?](#why-playwright)
-    - [How does it work?](#how-does-it-work)
-    - [Key Design Decisions](#key-design-decisions)
-8. [How do I set up the project?](#how-do-i-set-up-the-project)
-    - [Directory Structure](#directory-structure)
-    - [Dependencies](#dependencies)
-    - [Configuration Deep Dive](#configuration-deep-dive)
-    - [Org Alias](#org-alias)
-9. [Authentication](#authentication)
-    - [How Frontdoor URL Works](#how-frontdoor-url-works)
-    - [Global Setup Flow](#global-setup-flow)
-    - [Session State Reuse](#session-state-reuse)
-    - [Re-authentication Mid-Test](#re-authentication-mid-test)
-    - [Expired Sessions](#expired-sessions)
-    - [Package Upgrade in E2E Context](#package-upgrade-in-e2e-context)
-10. [Salesforce Lightning Challenges](#salesforce-lightning-challenges)
-    - [Shadow DOM](#shadow-dom)
-    - [Spinners and Loading States](#spinners-and-loading-states)
-    - [Toasts](#toasts)
-    - [Navigation and Page Loading](#navigation-and-page-loading)
-    - [List Views](#list-views)
-    - [Record Pages](#record-pages)
-    - [Modals](#modals)
-    - [Combobox and Picklist](#combobox-and-picklist)
-11. [Helper Library Reference](#helper-library-reference)
-    - [sf-auth.js](#sf-authjs)
-    - [sf-cli.js](#sf-clijs)
-    - [sf-navigation.js](#sf-navigationjs)
-    - [wait-helpers.js](#wait-helpersjs)
-    - [sf-selectors.js](#sf-selectorsjs)
-12. [Page Object Patterns](#page-object-patterns)
-    - [Why Page Objects for Salesforce](#why-page-objects-for-salesforce)
-    - [Base Structure](#base-structure)
-    - [Locator Strategies](#locator-strategies)
-    - [Dynamic Content Handling](#dynamic-content-handling)
-    - [Example: List View Page](#example-list-view-page)
-    - [Example: Record Page](#example-record-page)
-    - [Example: Custom LWC Page](#example-custom-lwc-page)
-13. [Testing Common Salesforce Features](#testing-common-salesforce-features)
-    - [Record CRUD and Field Verification](#record-crud-and-field-verification)
-    - [Trigger Side Effects](#trigger-side-effects)
-    - [Validation Error Messages](#validation-error-messages)
-    - [List View Filtering](#list-view-filtering)
-    - [Related Lists](#related-lists)
-    - [LWC Component Interaction](#lwc-component-interaction)
-    - [Toast Assertions](#toast-assertions)
-    - [Modal Workflows](#modal-workflows)
-    - [Log Entry Verification](#log-entry-verification)
-    - [API Call Verification](#api-call-verification)
-    - [Streaming and Change Data Capture Monitor](#streaming-and-change-data-capture-monitor)
-    - [Event Usage Metrics](#event-usage-metrics)
-14. [Data Management](#data-management)
-    - [Creating Test Data](#creating-test-data)
-    - [SOQL Queries with Namespace](#soql-queries-with-namespace)
-    - [Cleanup Patterns](#cleanup-patterns)
-    - [Deploying Metadata](#deploying-metadata)
-    - [Custom Metadata States](#custom-metadata-states)
-15. [Debugging](#debugging)
-    - [Headed Mode](#headed-mode)
-    - [Debug Mode](#debug-mode)
-    - [Trace Viewer](#trace-viewer)
-    - [Screenshots and Video](#screenshots-and-video)
-    - [Browser Console](#browser-console)
-    - [Lightning DOM Inspection](#lightning-dom-inspection)
-16. [CI/CD Integration](#cicd-integration)
-    - [GitHub Actions Workflow](#github-actions-workflow)
-    - [Scratch Org Lifecycle](#scratch-org-lifecycle)
-    - [Session Management in CI](#session-management-in-ci)
-    - [Artifact Collection](#artifact-collection)
-17. [Best Practices](#best-practices)
-18. [Anti-Patterns](#anti-patterns)
-19. [Troubleshooting](#troubleshooting)
-20. [Related Documentation](#related-documentation)
-
-</details>
-
----
-
-## Quick Navigation
-
-| I want to...                         | Go to                                                                     |
-|--------------------------------------|---------------------------------------------------------------------------|
-| Get started quickly                  | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)           |
-| Understand the authentication flow   | [Authentication](#authentication)                                         |
-| Handle Lightning-specific challenges | [Salesforce Lightning Challenges](#salesforce-lightning-challenges)       |
-| Look up a helper function            | [Helper Library Reference](#helper-library-reference)                     |
-| Write page objects                   | [Page Object Patterns](#page-object-patterns)                             |
-| Write tests for a specific feature   | [Testing Common Salesforce Features](#testing-common-salesforce-features) |
-| Debug a failing test                 | [Debugging](#debugging)                                                   |
-| Set up CI/CD                         | [CI/CD Integration](#cicd-integration)                                    |
-| Fix a common issue                   | [Troubleshooting](#troubleshooting)                                       |
-
----
-
-## Why test in the browser at all?
-
-### Why E2E Testing for Salesforce?
-
-Some failures only appear when a real user clicks through your app, and a unit test will never see them. A unit test (Apex `@IsTest`, LWC Jest) checks one component on its own. An E2E test plays out the whole user journey in a real browser: logging in, moving between pages, watching data render, clicking components, and confirming the side effects.
-
-That broader view is the point. For Salesforce apps, E2E tests catch problems unit tests cannot:
-
-- Lightning page layout rendering after metadata changes
-- Trigger side effects visible in the UI after record creation
-- Cross-component interactions on record pages
-- Toast messages and validation errors shown to users
-- Custom LWC behaviour when embedded in Lightning pages
-- Navigation flows across multiple pages
-
-### Why Playwright?
-
-| Feature                                                          | Benefit for Salesforce                                          |
-|------------------------------------------------------------------|-----------------------------------------------------------------|
-| [Auto-waiting](https://playwright.dev/docs/actionability)        | Handles Lightning's dynamic DOM without explicit sleeps         |
-| [CSS + text locators](https://playwright.dev/docs/locators)      | Works with Lightning component selectors and visible text       |
-| [Browser contexts](https://playwright.dev/docs/browser-contexts) | Session state management via `storageState`                     |
-| [Trace viewer](https://playwright.dev/docs/trace-viewer)         | Visual debugging of Lightning page interactions                 |
-| Cross-browser                                                    | Chromium, Firefox, WebKit (Chromium recommended for Salesforce) |
-| [Network interception](https://playwright.dev/docs/network)      | Mock or monitor Salesforce API calls                            |
-
-### How does it work?
-
-```text
-┌─────────────────────────────────────────────────────┐
-│  Test Runner (npx playwright test)                  │
-├─────────────────────────────────────────────────────┤
-│  Global Setup                                       │
-│  ┌─────────────┐    ┌──────────────┐                │
-│  │ sf org open  │───>│ Frontdoor    │──> .auth/      │
-│  │ --url-only   │    │ URL auth     │    state.json  │
-│  └─────────────┘    └──────────────┘                │
-├─────────────────────────────────────────────────────┤
-│  Specs (two workers, shared-data specs serial)      │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
-│  │ login    │  │ record   │  │ trigger  │          │
-│  │ .spec.js │  │ .spec.js │  │ .spec.js │          │
-│  └──────────┘  └──────────┘  └──────────┘          │
-│       │              │              │                │
-│       ▼              ▼              ▼                │
-│  ┌─────────────────────────────────────┐            │
-│  │  Helpers (auth, cli, nav, wait, sel)│            │
-│  └─────────────────────────────────────┘            │
-│       │              │                               │
-│       ▼              ▼                               │
-│  ┌──────────┐  ┌──────────────┐                     │
-│  │ Browser  │  │ sf CLI       │                     │
-│  │ (Chrome) │  │ (SOQL, Apex) │                     │
-│  └──────────┘  └──────────────┘                     │
-└─────────────────────────────────────────────────────┘
-```
-
-| Layer            | Purpose                                                                    |
-|------------------|----------------------------------------------------------------------------|
-| **Global setup** | Authenticates once, saves session cookies to `.auth/<org alias>/state.json`            |
-| **Specs**        | Test files. Specs that share no records run side by side on two workers. Specs that change the same records run one at a time |
-| **Helpers**      | Reusable functions for auth, CLI, navigation, waiting, and selectors       |
-| **Browser**      | Chromium renders Lightning pages, Playwright interacts with the DOM        |
-| **sf CLI**       | Executes SOQL queries, anonymous Apex, and record CRUD outside the browser |
-
-### Key Design Decisions
-
-A few choices shape how this setup runs. Knowing the reasoning saves you from "fixing" something that is deliberate.
-
-1. **Run specs that change the same records one at a time.** Two spec files that create and clean up the same records race each other: one file's cleanup deletes a record the other is still waiting for. The shipped `release-testing/e2e/playwright.config.js` puts those specs in a project with a single worker, and runs the specs that share no records side by side on two workers. Every test reuses the one `sid` login cookie saved by global setup, so you log in once however the work is spread.
-
-2. **Log in with a one-time frontdoor URL, not a stored password.** `sf org open --url-only` generates a short-lived URL that signs you in through Salesforce's frontdoor.jsp endpoint. Nothing sensitive sits in the test code.
-
-3. **Set up and check data through the CLI, not the browser.** Creating records, running SOQL, and executing Apex through the `sf` CLI is faster and steadier than filling in forms. Drive the browser only for the thing you are actually verifying.
-
-4. **Allow generous timeouts.** A Lightning page makes several network calls and re-renders the DOM more than once before it settles. So the defaults are patient: 120 seconds for a whole test, 15 seconds for a single assertion.
-
-> **Extending framework classes from your org.** Your own Apex extends the `kern` framework classes through their public, namespaced API. For example: `public inherited sharing class CustomTriggerHandler extends kern.TRG_Base implements kern.IF_Trigger.BeforeInsert`. The same pattern applies to the `kern.SEL_Base` selectors and the `kern.UTIL_*` utilities. The Triggers, Selectors, and DML Developer Guides cover this in full.
 
 ---
 
@@ -381,6 +226,89 @@ sf config set target-org=YourOrgAlias
 
 ---
 
+## Why test in the browser at all?
+
+### Why E2E Testing for Salesforce?
+
+An E2E test plays out the whole user journey in a real browser: logging in, moving between pages, watching data render, clicking components, and confirming the side effects. A unit test checks one component on its own (see [What problem does this solve?](#what-problem-does-this-solve)).
+
+For Salesforce apps, E2E tests catch problems unit tests cannot:
+
+- Lightning page layout rendering after metadata changes
+- Trigger side effects visible in the UI after record creation
+- Cross-component interactions on record pages
+- Toast messages and validation errors shown to users
+- Custom LWC behaviour when embedded in Lightning pages
+- Navigation flows across multiple pages
+
+### Why Playwright?
+
+| Feature                                                          | Benefit for Salesforce                                          |
+|------------------------------------------------------------------|-----------------------------------------------------------------|
+| [Auto-waiting](https://playwright.dev/docs/actionability)        | Handles Lightning's dynamic DOM without explicit sleeps         |
+| [CSS + text locators](https://playwright.dev/docs/locators)      | Works with Lightning component selectors and visible text       |
+| [Browser contexts](https://playwright.dev/docs/browser-contexts) | Session state management via `storageState`                     |
+| [Trace viewer](https://playwright.dev/docs/trace-viewer)         | Visual debugging of Lightning page interactions                 |
+| Cross-browser                                                    | Chromium, Firefox, WebKit (Chromium recommended for Salesforce) |
+| [Network interception](https://playwright.dev/docs/network)      | Mock or monitor Salesforce API calls                            |
+
+### How does it work?
+
+```text
+┌─────────────────────────────────────────────────────┐
+│  Test Runner (npx playwright test)                  │
+├─────────────────────────────────────────────────────┤
+│  Global Setup                                       │
+│  ┌─────────────┐    ┌──────────────┐                │
+│  │ sf org open  │───>│ Frontdoor    │──> .auth/      │
+│  │ --url-only   │    │ URL auth     │    state.json  │
+│  └─────────────┘    └──────────────┘                │
+├─────────────────────────────────────────────────────┤
+│  Specs (two workers, shared-data specs serial)      │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐          │
+│  │ login    │  │ record   │  │ trigger  │          │
+│  │ .spec.js │  │ .spec.js │  │ .spec.js │          │
+│  └──────────┘  └──────────┘  └──────────┘          │
+│       │              │              │                │
+│       ▼              ▼              ▼                │
+│  ┌─────────────────────────────────────┐            │
+│  │  Helpers (auth, cli, nav, wait, sel)│            │
+│  └─────────────────────────────────────┘            │
+│       │              │                               │
+│       ▼              ▼                               │
+│  ┌──────────┐  ┌──────────────┐                     │
+│  │ Browser  │  │ sf CLI       │                     │
+│  │ (Chrome) │  │ (SOQL, Apex) │                     │
+│  └──────────┘  └──────────────┘                     │
+└─────────────────────────────────────────────────────┘
+```
+
+| Layer            | Purpose                                                                    |
+|------------------|----------------------------------------------------------------------------|
+| **Global setup** | Authenticates once, saves session cookies to `.auth/<org alias>/state.json`            |
+| **Specs**        | Test files. Specs that share no records run side by side on two workers. Specs that change the same records run one at a time |
+| **Helpers**      | Reusable functions for auth, CLI, navigation, waiting, and selectors       |
+| **Browser**      | Chromium renders Lightning pages, Playwright interacts with the DOM        |
+| **sf CLI**       | Executes SOQL queries, anonymous Apex, and record CRUD outside the browser |
+
+### Key Design Decisions
+
+These choices are deliberate; knowing the reasoning saves you from "fixing" them.
+
+1. **Run specs that change the same records one at a time.** Two spec files that create and clean up the same records race each other: one file's cleanup deletes a record the other is still waiting for.
+   - The shipped `release-testing/e2e/playwright.config.js` puts those specs in a project with a single worker, and runs the specs that share no records side by side on two workers.
+   - Every test reuses the one `sid` login cookie saved by global setup, so you log in once however the work is spread.
+
+2. **Log in with a one-time frontdoor URL, not a stored password.** `sf org open --url-only` generates a short-lived URL that signs you in through Salesforce's frontdoor.jsp endpoint. Nothing sensitive sits in the test code.
+
+3. **Set up and check data through the CLI, not the browser.** Creating records, running SOQL, and executing Apex through the `sf` CLI is faster and steadier than filling in forms. Drive the browser only for the thing you are actually verifying.
+
+4. **Allow generous timeouts.** A Lightning page makes several network calls and re-renders the DOM more than once before it settles. So the defaults are patient: 120 seconds for a whole test, 15 seconds for a single assertion.
+
+> **Extending framework classes from your org.** Your own Apex extends the `kern` framework classes through their public, namespaced API. For example: `public inherited sharing class CustomTriggerHandler extends kern.TRG_Base implements kern.IF_Trigger.BeforeInsert`. The same pattern applies to the `kern.SEL_Base` selectors and the `kern.UTIL_*` utilities. The Triggers, Selectors, and DML Developer Guides cover this in full.
+
+---
+
 ## Authentication
 
 ### How Frontdoor URL Works
@@ -478,7 +406,9 @@ For long-running test suites (>2 hours), consider lowering the test count per ru
 
 ### Package Upgrade in E2E Context
 
-A beta (unpromoted) package version cannot be upgraded over an existing install: Salesforce only supports in-place upgrades for promoted versions. So when you move to a new version, recreate the scratch org from scratch and clear the cached login files. Run these three commands from the top folder of your KernDX checkout. The create line passes `--no-namespace` so the new org carries no namespace even when your project declares one: an org that carries the package's namespace cannot install the package.
+When you move to a new package version, recreate the scratch org from scratch and clear the cached login files. A beta (unpromoted) package version cannot be upgraded over an existing install: Salesforce only supports in-place upgrades for promoted versions.
+
+Run these three commands from the top folder of your KernDX checkout. The create line passes `--no-namespace` so the new org carries no namespace even when your project declares one: an org that carries the package's namespace cannot install the package.
 
 ```shell
 sf org delete scratch -o YourOrgAlias --no-prompt
@@ -488,20 +418,22 @@ sf package install -o YourOrgAlias --package YourPackageVersionId --wait 30 --no
 
 Then delete the two cached login files, `.auth/<org alias>/state.json` and `.auth/<org alias>/instance.json`, from the `release-testing/e2e` folder.
 
-Deleting the `.auth/` files is a safety net. Playwright's `globalSetup` rewrites both of them the next time you run `npm run test:e2e`, so the test run itself is fine either way. The risk is a development workflow that calls the helpers directly with `node` before that next run: without the clear, it could pick up a stale instance URL or expired login cookies from the org you just deleted.
+Deleting the `.auth/` files is a safety net. Playwright's `globalSetup` rewrites both of them the next time you run `npm run test:e2e`, so the test run itself is fine either way.
+
+The risk is a development workflow that calls the helpers directly with `node` before that next run: without the clear, it could pick up a stale instance URL or expired login cookies from the org you just deleted.
 
 ---
 
 ## Salesforce Lightning Challenges
 
-A handful of things about Lightning trip up browser automation and make tests flaky if you do not know about them. The good news: each has a known fix. The sections below follow the same shape every time, so you can scan for the symptom you are hitting: the problem, why it happens, and the fix that works.
+A handful of things about Lightning trip up browser automation and make tests flaky if you do not know about them. Each has a known fix. Scan for the symptom you are hitting: each entry gives the problem and why it happens, then the fix that works.
 
 ### Shadow DOM
 
-**Problem:** Lightning Web Components render inside Shadow DOM, making elements invisible to standard CSS selectors.
-
-**Why:** LWC uses native Shadow DOM for style and DOM encapsulation. Standard Playwright selectors can't pierce
-shadow boundaries.
+**Problem:** Lightning builds its components inside shadow roots, so a plain `document.querySelector` or an XPath
+selector does not reach the elements inside them.
+**Why:** LWC uses Shadow DOM for style and DOM encapsulation. XPath and plain DOM queries stop at each shadow
+boundary, while Playwright's `locator()` with a CSS or text selector goes inside open shadow roots.
 
 **Solution:** Playwright's default `locator()` pierces shadow DOM automatically. Use standard CSS selectors:
 
@@ -521,7 +453,6 @@ const field = card.locator('lightning-formatted-text').first();
 ### Spinners and Loading States
 
 **Problem:** Interacting with elements while a spinner is visible causes flaky tests.
-
 **Why:** Lightning shows spinners during server calls. The DOM is present but not interactive.
 
 **Solution:** Wait for spinners to disappear before interacting:
@@ -539,7 +470,6 @@ it continues immediately.
 ### Toasts
 
 **Problem:** Toast notifications appear briefly and auto-dismiss, making assertions unreliable.
-
 **Why:** Salesforce toasts have a ~5 second display time. If the assertion runs after the toast disappears, the
 test fails.
 
@@ -563,7 +493,6 @@ await dismissToast(page);
 ### Navigation and Page Loading
 
 **Problem:** `page.goto()` resolves before Lightning finishes rendering. Interacting immediately causes timeouts.
-
 **Why:** Lightning loads in stages: the DOM first, then the components, then the data. `domcontentloaded` fires at the very start of that.
 
 **Solution:** Use navigation helpers that wait for Lightning-specific indicators:
@@ -584,7 +513,6 @@ list view manager) before returning.
 ### List Views
 
 **Problem:** List views load asynchronously. The table might be empty or still loading when assertions run.
-
 **Why:** Lightning fetches list view data via a separate API call after the page structure loads.
 
 **Solution:** Wait for the list view component and spinner to finish:
@@ -602,7 +530,6 @@ await expect(rows.first()).toBeVisible();
 ### Record Pages
 
 **Problem:** Record page fields render asynchronously. The highlights panel loads before detail sections.
-
 **Why:** Lightning record pages use multiple components that load independently.
 
 **Solution:** Wait for the record page layout to attach:
@@ -620,7 +547,6 @@ await expect(page.getByText('Account Name')).toBeVisible();
 ### Modals
 
 **Problem:** Modal animations and delayed rendering cause interaction failures.
-
 **Why:** SLDS modals use CSS transitions. The DOM element exists before the animation completes.
 
 **Solution:** Wait for the modal to be visible, then interact:
@@ -637,7 +563,6 @@ await page.locator('lightning-input[field-name="Name"] input').fill('New Account
 ### Combobox and Picklist
 
 **Problem:** Picklist options load dynamically when the combobox opens. Clicking an option before it renders fails.
-
 **Why:** Lightning combobox fetches options on demand and renders them in a dropdown overlay.
 
 **Solution:** Click to open, wait for options, then select:
@@ -912,7 +837,9 @@ const {TOAST, SPINNER, NAV_BAR, RECORD_HEADER} = require('../helpers/sf-selector
 
 ### Why Page Objects for Salesforce
 
-A Lightning page has a deeply nested DOM, auto-generated class names, and a component tree that shifts at runtime. Pin a test directly to those details and a single Salesforce change can break it. A page object solves that: it keeps all the locators for a page in one class. When Salesforce changes the DOM, you fix that one file instead of hunting through every test that touched the page.
+A page object keeps all the locators for a page in one class. When Salesforce changes the DOM, you fix that one file instead of hunting through every test that touched the page.
+
+A Lightning page has a deeply nested DOM, auto-generated class names, and a component tree that shifts at runtime. Pin a test directly to those details and a single Salesforce change can break it.
 
 ### Base Structure
 
@@ -1088,7 +1015,7 @@ module.exports = CustomDashboardPage;
 
 ## Testing Common Salesforce Features
 
-This section is a recipe book. Each entry is a thing you commonly need to verify in a Salesforce app, with a short, copy-ready test. The recurring shape is the same throughout: set the data up through the CLI, drive the browser only to check what the user sees.
+Each entry is a thing you commonly need to verify in a Salesforce app, with a short, copy-ready test. The shape is the same throughout: set the data up through the CLI, drive the browser only to check what the user sees.
 
 ### Record CRUD and Field Verification
 
@@ -1318,7 +1245,10 @@ test('should log API call record', async ({page}) =>
 
 ### Streaming and Change Data Capture Monitor
 
-KernDX ships a live **Streaming Event Monitor** (the `kern-streaming-monitor` component) that subscribes to Platform Events, Change Data Capture channels, PushTopics, and Generic events. Launch it from the **Kern Home** tool cards. Its controls carry stable `data-testid` hooks, so target those rather than SLDS classes (which shift between releases). The test pattern is the same as any event test: subscribe to a channel, emit an event from outside the page, then assert the received-event count goes up.
+KernDX ships a live **Streaming Event Monitor** (the `kern-streaming-monitor` component) that subscribes to Platform Events, Change Data Capture channels, PushTopics, and Generic events. Launch it from the **Kern Home** tool cards.
+
+- Its controls carry stable `data-testid` hooks, so target those rather than SLDS classes (which shift between releases).
+- The test pattern is the same as any event test: subscribe to a channel, emit an event from outside the page, then assert the received-event count goes up.
 
 ```javascript
 const {test, expect} = require('@playwright/test');
@@ -1457,8 +1387,9 @@ test('Event usage metrics renders its controls', async ({page}) =>
 ### Creating Test Data
 
 **Rule: only use the browser to test the browser.** Set up all test data through the CLI helpers or anonymous
-Apex, never by filling in browser forms. Creating data through the browser is slow and flaky, and it ties your data setup
-to the page layout, so a layout change can break setup that has nothing to do with what you are testing. Keep browser interaction for the assertions you actually care about.
+Apex, never by filling in browser forms. Keep browser interaction for the assertions you actually care about.
+
+Creating data through the browser is slow and flaky, and it ties your data setup to the page layout, so a layout change can break setup that has nothing to do with what you are testing.
 
 Use CLI helpers for data creation:
 
@@ -1708,8 +1639,9 @@ A CI environment starts fresh on every run, so there is never a cached `.auth/<o
 - **Timeout:** CI environments can be slower. Consider increasing `timeout` to `180_000`
 - **Headless:** Always `true` in CI (default)
 - **Ephemeral orgs:** If your pipeline spins up temporary orgs (scratch orgs, sandboxes), set `SF_SUBSCRIBER_ORG_ALIAS` to the alias that run uses, then log the org in
-  with `sf org login sfdx-url` under that alias. The helpers follow the alias rather than a URL, so each run targets whichever
-  org is registered under it and nothing in the suite has to be edited between runs.
+  with `sf org login sfdx-url` under that alias.
+- **One alias, any org:** The helpers follow the alias rather than a URL, so each run targets whichever org is registered
+  under it and nothing in the suite has to be edited between runs.
 
 ### Artifact Collection
 
@@ -1735,7 +1667,8 @@ Artifacts include screenshots, videos (for failures), and trace files.
 - Use CLI helpers (`createRecord`, `soqlQuery`) for data setup, rather than filling forms through the browser
 - Use SOQL for data assertions: it is faster and more reliable than reading field values from the DOM
 - Clean up test data in `test.afterAll` so data does not pile up across runs
-- Use `test.describe.serial`, because Salesforce tests must run in order within a describe block
+- Use `test.describe.serial` when the tests in one file build on each other (one creates a record the next checks), as
+  the shipped specs do.
 - Use page objects for pages you test often: it keeps locator maintenance in one place
 - Wait for Lightning-specific indicators: nav bar, record page, list view, spinner gone
 - Use `getByText()` and `getByRole()`: they hold up better than CSS selectors
@@ -1751,7 +1684,9 @@ Artifacts include screenshots, videos (for failures), and trace files.
 - Don't rely on CSS class names, because SLDS classes change between Salesforce releases
 - Don't test Salesforce platform behaviour; focus on your custom features
 
-**Scaling further:** Two workers sharing one login suit the shipped suite. To run many more workers, or to run tests as different users, give each worker its own login: authenticate several distinct Salesforce users, then assign each one to a separate Playwright worker with its own `storageState` file. The cost is setup: you have to provision dedicated test users with the right profiles and permission sets.
+**Scaling further:** Two workers sharing one login suit the shipped suite. To run many more workers, or to run tests as different users, give each worker its own login: authenticate several distinct Salesforce users, then assign each one to a separate Playwright worker with its own `storageState` file.
+
+The cost is setup: you have to provision dedicated test users with the right profiles and permission sets.
 
 ---
 

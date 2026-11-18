@@ -1,5 +1,6 @@
 ---
 navOrder: 60
+navLabel: "Glossary (terms explained)"
 ---
 
 # Strategic Guide — Glossary

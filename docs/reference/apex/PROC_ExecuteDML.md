@@ -5,7 +5,7 @@ pageClass: reference
 description: "Processor for generic DML operations using the adaptive async framework. Implements IF_Async.Processable to enable automatic selection between Queueable and Batch execution. Supports INSERT, UPDATE, D"
 author: "Jason Van Beukering"
 group: "Bulk DML"
-date: "February 2026, October 2026"
+date: "February 2026, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -145,9 +145,14 @@ global PROC_ExecuteDML(DML_Builder.DatabaseOperation operation, Boolean allOrNot
 ```
 
 Constructs a DML processor with an explicit `AccessLevel`. Use this constructor when the
-async save must use one access mode, whatever the `UserModeDml_Enabled` flag says. Framework utilities that
-manage their own records pass `AccessLevel.SYSTEM_MODE`. `DML_Builder.async()` passes the access level the
-caller chose, so your `.withUserMode()` still applies when the job runs later.
+async save must use one access mode, whatever the `UserModeDml_Enabled` flag says. `DML_Builder.async()` keeps
+the access level the caller chose, so your `.withUserMode()` still applies when the job runs later.
+
+System mode skips the running user's object and field permission checks, so it is recorded in the bypass audit.
+When you pass `AccessLevel.SYSTEM_MODE`, the constructor writes one audit entry at once, while your code is still
+running and can be named as the caller. The records are not known yet, because they reach the processor later,
+often in a background job. So the entry's target is `system-mode` with no object name. The entry names the
+operation (`insert`, `update`, `delete`, `upsert` or `undelete`) and the class and method that built the processor.
 
 **Parameters**
 
@@ -155,7 +160,7 @@ caller chose, so your `.withUserMode()` still applies when the job runs later.
 |-----------|------|-------------|
 | `operation` | [DML_Builder.DatabaseOperation](DML_Builder.DatabaseOperation.md) | The DML operation to perform (DML_INSERT, DML_UPDATE, DML_DELETE, DML_UPSERT, DML_UNDELETE). |
 | `allOrNothing` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | If true, the entire transaction rolls back on any failure; if false, allows partial success. |
-| `accessLevel` | [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) | Explicit AccessLevel for the DML commit, or null to inherit the flag-driven default. |
+| `accessLevel` | [AccessLevel](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexcode/apex_bulk_sharing_creating_with_apex.htm) | Explicit AccessLevel for the DML commit, or null to inherit the flag-driven default. The job does not change the level you pass. A level that names a permission set is not turned into the default that the flag sets. |
 
 **Example**
 

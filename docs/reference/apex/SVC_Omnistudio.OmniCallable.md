@@ -3,13 +3,14 @@ title: "SVC_Omnistudio.OmniCallable"
 type: class
 pageClass: reference
 description: "A global inner interface that allows the SVC_Omnistudio class to instantiate a class and perform an operation within the Omnistudio framework. Classes implementing this interface are expected to defin"
+group: "Omnistudio"
 since: "1.0"
 category: apex
 ---
 
 # SVC_Omnistudio.OmniCallable
 
-**Class**
+**Class** · Group: `Omnistudio`
 
 <div class="apex-member apex-class">
 

@@ -6,61 +6,47 @@ navOrder: 60
 
 **Framework:** KernDX | **Total time:** ~25 minutes
 
-**What this is:** A way to stop bad data from being saved (required fields, conditional rules, cross-field checks) by writing formula rules as configuration records instead of Apex code. **Why it exists:** Standard Salesforce validation rules live one-per-object and are hard to test, bypass, or roll out gradually. KernDX rules are grouped, unit-testable without saving a record, and can run in a log-only "shadow" mode first. **Who should care:** developers and admins enforcing data quality, plus tech leads who want validation logic that is version-controlled and tested. **When to use it:** any time you would otherwise write a Salesforce validation rule but want testability, gradual rollout, and a single place to manage the rules for an object. If a single rule on one object is all you need and you'll never test or stage it, a standard Salesforce validation rule is simpler. Choose KernDX once you want any of those three things.
+- **What this is:** A way to stop bad data from being saved (required fields, conditional rules, cross-field checks) by writing formula rules as configuration records instead of Apex code.
+- **Why it exists:** Standard Salesforce validation rules live one-per-object and are hard to test, bypass, or roll out gradually. KernDX rules are grouped, unit-testable without saving a record, and can run in a log-only "shadow" mode first.
+- **Who should care:** developers and admins enforcing data quality, plus tech leads who want validation logic that is version-controlled and tested.
+- **When to use it:** any time you would otherwise write a Salesforce validation rule but want testability, gradual
+  rollout, and a single place to manage the rules for an object.
+  - If a single rule on one object is all you need and you'll never test or stage it, a standard Salesforce validation
+    rule is simpler. Choose KernDX once you want any of those three things.
+- **What you'll build:** Account validation rules that enforce required fields and conditional logic,
+  all configured through Custom Metadata, with a test class proving every rule works.
+- **Success looks like:** Two test methods pass (proving your rule fires when the record is invalid and
+  is satisfied when it's valid), and you can query your CMDT records to see exactly what's configured.
+- **In one line:** `kern.UTIL_ValidationTestHelper.assertRuleFails(record, 'MyRule');` tests any
+  metadata-configured rule without saving a record or running a trigger.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** Account validation rules that enforce required fields and conditional logic,
-all configured through Custom Metadata, with a test class proving every rule works.
+## Quick Navigation
 
-**Success looks like:** Two test methods pass (proving your rule fires when the record is invalid and
-is satisfied when it's valid), and you can query your CMDT records to see exactly what's configured.
-
-**In one line:** `kern.UTIL_ValidationTestHelper.assertRuleFails(record, 'MyRule');` tests any
-metadata-configured rule without saving a record or running a trigger.
+| I need to...                                         | Go to...                                                                          |
+|------------------------------------------------------|-----------------------------------------------------------------------------------|
+| Create my first rule, with no Apex                   | [Step 1: Create the three records](#step-1-create-the-three-records)              |
+| Run a rule against a record without saving it        | [Step 2: See the rule work](#step-2-see-the-rule-work)                            |
+| Test a rule in an Apex test                          | [Step 3: Write and run the test](#step-3-write-and-run-the-test)                  |
+| Run the rules every time a record is saved           | [Trigger integration](#trigger-integration)                                       |
+| Look up a formula function                           | [Formula reference](#formula-reference)                                           |
+| Switch rules off from Apex                           | [Bypass mechanisms](#bypass-mechanisms)                                           |
+| Try a rule without blocking saves                    | [Shadow mode](#shadow-mode)                                                       |
+| Turn a rule on or off with a feature flag            | [Feature flag integration](#feature-flag-integration)                             |
+| Remove the example from my org                       | [Clean up](#clean-up)                                                             |
+| Fix an error from a step                             | [Common Issues](#common-issues)                                                   |
 
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [Tier 1: See It Work (~5 minutes)](#tier-1-see-it-work-5-minutes)
-    - [Step 1: Create the three records](#step-1-create-the-three-records)
-    - [Step 2: See the rule work](#step-2-see-the-rule-work)
-3. [Tier 2: Test Your Rules (~10 minutes)](#tier-2-test-your-rules-10-minutes)
-    - [Step 3: Write and run the test](#step-3-write-and-run-the-test)
-    - [Key patterns](#key-patterns)
-4. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
-    - [Trigger integration](#trigger-integration)
-    - [Formula reference](#formula-reference)
-    - [Bypass mechanisms](#bypass-mechanisms)
-    - [Shadow mode](#shadow-mode)
-    - [Feature flag integration](#feature-flag-integration)
-    - [Execution strategies and error severity](#execution-strategies-and-error-severity)
-    - [Clean up](#clean-up)
-5. [Common Issues](#common-issues)
-    - [Step 1: Create the three records](#step-1-create-the-three-records-1)
-    - [Step 2: See the rule work](#step-2-see-the-rule-work-1)
-    - [Step 3: Write and run the test](#step-3-write-and-run-the-test-1)
-    - [Trigger integration](#trigger-integration-1)
-    - [Clean up](#clean-up-1)
-6. [What You Now Know](#what-you-now-know)
-7. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
@@ -79,9 +65,10 @@ TriggerSetting__mdt (Account)
 ### Step 1: Create the three records
 
 You author these records yourself: a fresh org ships with no Account rules. You create each one in Setup, parent
-first, then pull all three into your project so they are under source control with your code. The relationship
-fields (**Trigger Setting** on the group, **Validation Rule Group** on the rule) are lookups to the parent records,
-which is why the parent must exist first.
+first, then pull all three into your project so they are under source control with your code.
+
+The relationship fields (**Trigger Setting** on the group, **Validation Rule Group** on the rule) are lookups to the
+parent records, which is why the parent must exist first.
 
 #### Step 1.1: Create the trigger setting
 
@@ -145,36 +132,66 @@ Something went wrong? See [Common Issues, Step 1](#step-1-create-the-three-recor
 
 ### Step 2: See the rule work
 
-Query the records to see what's configured, then run the rule against a record in memory. The parent links are
-MetadataRelationship fields, so filter on the parent's `DeveloperName` through the `__r` relationship, **not** a
-string literal on the `__c` field.
+Read the records to see what's configured, then run the rule against a record in memory. Every read goes through a
+selector, so the script declares two short ones at the top; an Execute Anonymous script may declare classes. The
+parent links are MetadataRelationship fields, so filter on the parent's `DeveloperName` through the `__r`
+relationship, **not** a string literal on the `__c` field.
 
 **In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
 Anonymous Window, and run:
 
 ```apex
-List<kern__ValidationRuleGroup__mdt> groups =
-[
-    SELECT DeveloperName, kern__TriggerOperations__c, kern__ExecutionStrategy__c
-    FROM kern__ValidationRuleGroup__mdt
-    WHERE kern__TriggerSetting__r.DeveloperName = 'Account'
-    LIMIT 10
-];
-for(kern__ValidationRuleGroup__mdt grp : groups)
+public with sharing class SEL_ValidationRuleGroups extends kern.SEL_Base
 {
-    System.debug(grp.DeveloperName + ' — ' + grp.kern__TriggerOperations__c);
+	public SEL_ValidationRuleGroups()
+	{
+		super(kern__ValidationRuleGroup__mdt.SObjectType);
+	}
+
+	public override List<SObjectField> getFields()
+	{
+		return new List<SObjectField>{
+			kern__ValidationRuleGroup__mdt.DeveloperName,
+			kern__ValidationRuleGroup__mdt.kern__TriggerOperations__c,
+			kern__ValidationRuleGroup__mdt.kern__ExecutionStrategy__c
+		};
+	}
 }
 
-List<kern__ValidationRule__mdt> rules =
-[
-    SELECT DeveloperName, kern__RuleFormula__c, kern__ErrorMessage__c, kern__Severity__c
-    FROM kern__ValidationRule__mdt
-    WHERE kern__ValidationRuleGroup__r.DeveloperName = 'AccountValidation'
-    LIMIT 10
-];
+public with sharing class SEL_ValidationRules extends kern.SEL_Base
+{
+	public SEL_ValidationRules()
+	{
+		super(kern__ValidationRule__mdt.SObjectType);
+	}
+
+	public override List<SObjectField> getFields()
+	{
+		return new List<SObjectField>{
+			kern__ValidationRule__mdt.DeveloperName,
+			kern__ValidationRule__mdt.kern__RuleFormula__c,
+			kern__ValidationRule__mdt.kern__ErrorMessage__c,
+			kern__ValidationRule__mdt.kern__Severity__c
+		};
+	}
+}
+
+List<kern__ValidationRuleGroup__mdt> groups = new SEL_ValidationRuleGroups().query
+	.condition('kern__TriggerSetting__r.DeveloperName').equals('Account')
+	.withLimit(10)
+	.toList();
+for(kern__ValidationRuleGroup__mdt grp : groups)
+{
+	System.debug(grp.DeveloperName + ' — ' + grp.kern__TriggerOperations__c);
+}
+
+List<kern__ValidationRule__mdt> rules = new SEL_ValidationRules().query
+	.condition('kern__ValidationRuleGroup__r.DeveloperName').equals('AccountValidation')
+	.withLimit(10)
+	.toList();
 for(kern__ValidationRule__mdt rule : rules)
 {
-    System.debug(rule.DeveloperName + ': ' + rule.kern__ErrorMessage__c);
+	System.debug(rule.DeveloperName + ': ' + rule.kern__ErrorMessage__c);
 }
 ```
 
@@ -235,6 +252,7 @@ Something went wrong? See [Common Issues, Step 2](#step-2-see-the-rule-work-1).
 A test gives you confidence that each rule does what you think: it blocks an invalid record and lets a valid one
 through. Because the rules are configuration rather than your own Apex, there is no code of yours to cover,
 but a test still proves the behaviour and fails loudly if someone later breaks a rule.
+
 `kern.UTIL_ValidationTestHelper` evaluates a single deployed rule against a record in memory, with nothing
 saved and no trigger involved. Both helpers are `global`, so you can call them from your own `@IsTest` class.
 
@@ -328,11 +346,10 @@ configuration, so this test has no code of yours to cover.
 > be deployed and active (`kern__BypassExecution__c = false`, as in Tier 1). They evaluate the formula
 > directly and need no trigger file in place. `kern.TST_Builder.of(...).withoutInsertion()` builds a record
 > in memory (with no Id) so nothing is written to the database. Use `withoutInsertion(true)` if you need mock Ids.
-
-> **Test against your deployed rule.** Create the rule as a record in your org (Step 1), then assert against it with
-> `kern.UTIL_ValidationTestHelper.assertRuleFails` / `assertRulePasses`: both are `global` and callable
-> from your `@IsTest` class. They evaluate your deployed rule directly, so you don't need to register a rule
-> in memory. This is the supported path in your own org.
+>
+> `kern.UTIL_ValidationTestHelper.assertRuleFails` and `assertRulePasses` are both `global`, so you call them from your own `@IsTest` class. Because they evaluate the
+> rule you created as a record in Step 1 directly, you don't need to register a rule in memory. This is the supported
+> path in your own org.
 
 Something went wrong? See [Common Issues, Step 3](#step-3-write-and-run-the-test-1).
 
@@ -420,7 +437,7 @@ Something went wrong? See [Common Issues, Trigger integration](#trigger-integrat
 | `NOT(condition)`             | `NOT(ISBLANK(newRecord.Email))`                           | Negate a condition                        |
 | `AND(a, b)`                  | `AND(ISBLANK(newRecord.Phone), ISBLANK(newRecord.Email))` | Both conditions true                      |
 | `OR(a, b)`                   | `OR(ISBLANK(newRecord.Phone), ISBLANK(newRecord.Email))`  | Either condition true                     |
-| `ISCHANGED(old, new, field)` | `ISCHANGED(oldRecord, newRecord, Industry)`               | Field value changed on update             |
+| `newRecord.X <> oldRecord.X` | `TEXT(newRecord.Industry) <> TEXT(oldRecord.Industry)` | Field value changed on update (`ISCHANGED` is not available); wrap a picklist in `TEXT()` |
 
 Operators `&&`, `||`, `!`, `>`, `<`, `>=`, `<=`, `==`, `!=` work inline.
 
@@ -445,8 +462,9 @@ kern.UTIL_ValidationRule.clearAllBypasses();
 ### Shadow mode
 
 Shadow mode lets a new rule run watch-only in production: it logs what it would have blocked but doesn't
-block the save yet, so you can confirm a rule behaves before you let it stop real users. Set
-`ShadowMode__c = true` on a rule to turn this on. Violations appear in **App Launcher > Kern > Log Entries**
+block the save yet, so you can confirm a rule behaves before you let it stop real users.
+
+Set `ShadowMode__c = true` on a rule to turn this on. Violations appear in **App Launcher > Kern > Log Entries**
 with a `[SHADOW]` tag.
 
 To try it, open Setup, then Custom Metadata Types, then **Validation Rule**, then **Manage Validation Rules**, then
@@ -478,15 +496,18 @@ See [Validation - Guide](Validation%20-%20Guide.md) for the complete reference.
 
 ### Clean up
 
-If you built this example only to try the framework, run these three commands when you have finished the guide. Run
-them in this order: the org refuses to delete a validation rule group while a rule still points at it, and a trigger
-setting while a group still points at it. Skip the third if the trigger setting is from the Trigger Actions guide
-and you are keeping that example. If you also created the Tier 3 trigger action record, delete it in Setup before the
-third command, for the same reason, and delete the file you pulled for it from `force-app/main/default/customMetadata`
-too, or a later deploy would create the record again. Delete the Tier 3 trigger the way you created it. If the
-trigger is the Trigger Actions example's and you are keeping it, leave it (or put its events back to `before insert`)
-instead of deleting it. If you checked
-**Bypass Execution** on the Trigger Actions example's trigger action before the Tier 3 verify, clear it again.
+If you built this example only to try the framework, run these three commands when you have finished the guide. Before you run them:
+
+- **Run them in this order:** the org refuses to delete a validation rule group while a rule still points at it, and a
+  trigger setting while a group still points at it.
+- **Skip the third** if the trigger setting is from the Trigger Actions guide and you are keeping that example.
+- **The Tier 3 trigger action record:** if you created it, delete it in Setup before the third command, for the same
+  reason. Delete the file you pulled for it from `force-app/main/default/customMetadata` too, or a later deploy would
+  create the record again.
+- **The Tier 3 trigger:** delete it the way you created it. If the trigger is the Trigger Actions example's and you are
+  keeping it, leave it (or put its events back to `before insert`) instead of deleting it.
+- **The Trigger Actions example's trigger action:** if you checked **Bypass Execution** on it before the Tier 3 verify,
+  clear it again.
 
 **1. In the terminal**, delete the test class and the validation rule:
 
@@ -528,11 +549,15 @@ in, the wrong folder)? Those are answered once, in
 
 #### The form will not save
 
-The Validation Rule Group form needs **Description**, **Trigger Operations**, **Trigger Setting** and **Trigger
-Timing** before it saves. The Validation Rule form needs **Validation Rule Group**, **Description**, **Error
-Message**, **Rule Formula** and **Severity**. Fill in every value in the tables, then save
-again. Create the records in order, parent first (Step 1.1, then 1.2, then 1.3), so that each lookup can find its
-parent.
+Each form needs these values before it saves:
+
+- The Validation Rule Group form needs **Description**, **Trigger Operations**, **Trigger Setting** and **Trigger
+  Timing**.
+- The Validation Rule form needs **Validation Rule Group**, **Description**, **Error Message**, **Rule Formula** and
+  **Severity**.
+
+Fill in every value in the tables, then save again. Create the records in order, parent first (Step 1.1, then 1.2,
+then 1.3), so that each lookup can find its parent.
 
 #### The pull creates no file
 
@@ -587,9 +612,11 @@ blank Description first, so the rule has nothing to block: check **Bypass Execut
 
 The trigger action runs only for the event on its record, and the one in
 [Trigger integration](#trigger-integration) has **Event** `Before Insert` only. Create a second Trigger Action record
-with **Event** `Before Update`. Also check that the group's **Trigger Operations** (`kern__TriggerOperations__c`)
-includes `Update` (Step 1.2 sets `Insert;Update`). Also check that your `TRG_Account` trigger declares
-`before update`, as the [Trigger integration](#trigger-integration) block shows, and deploy it again if you add it.
+with **Event** `Before Update`. Then check two more things:
+
+- The group's **Trigger Operations** (`kern__TriggerOperations__c`) includes `Update` (Step 1.2 sets `Insert;Update`).
+- Your `TRG_Account` trigger declares `before update`, as the [Trigger integration](#trigger-integration) block shows.
+  Deploy it again if you add it.
 
 ### Clean up
 

@@ -5,7 +5,7 @@ pageClass: reference
 description: "The base class for trigger actions, designed to be extended and implement relevant interfaces. This class provides the core functionality for executing trigger actions based on the trigger context, wi"
 author: "Jason Van Beukering"
 group: "Triggers"
-date: "February 2026, July 2026"
+date: "February 2026, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -152,22 +152,24 @@ TRG_Base.bypass('TRG_SetDefaults', TRG_Base.BypassType.CLASS_NAME);
 global static void bypassAction(String actionClassName)
 ```
 
-Bypasses a specific trigger action class by name. The name is the class name as the trigger action
-record carries it: for one of your own actions, the bare class name; for an action the package ships, the name
-with the package prefix, such as 'kern.TRG_AsyncChainRunTransition'. A bare name for a packaged action matches
-nothing, and the action keeps running.
+Bypasses a specific trigger action class by name. Upper and lower case do not matter. For an action
+the package ships, give the bare class name, such as 'TRG_AsyncChainRunTransition': it works in an org where the
+package has a prefix and in one where it does not. The name with the prefix, such as
+'kern.TRG_AsyncChainRunTransition', works only in an org where the package has that prefix. If one of your own
+actions has exactly the name you give, the bypass is for your action.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `actionClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name of the trigger action to bypass, with the package prefix for a packaged action. |
+| `actionClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name of the trigger action to bypass. The package prefix is not needed. |
 
 **Example**
 
 ```apex
+kern.TRG_Base.bypassAction('TRG_AsyncChainRunTransition'); // an action the package ships
+kern.TRG_Base.bypassAction('kern.TRG_AsyncChainRunTransition'); // the same action, where the package prefix is kern
 kern.TRG_Base.bypassAction('TRG_SetFoobarDefaults'); // one of your own actions
-kern.TRG_Base.bypassAction('kern.TRG_AsyncChainRunTransition'); // an action the package ships
 Boolean isBypassed = kern.TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // true
 ```
 
@@ -181,20 +183,22 @@ Boolean isBypassed = kern.TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); //
 global static void clearActionBypass(String actionClassName)
 ```
 
-Clears the bypass for a specific trigger action class, allowing it to execute.
+Clears the bypass for a specific trigger action class, allowing it to execute. The name is matched
+the same way as in bypassAction: the bare class name works for an action the package ships, and case does not
+matter.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `actionClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name of the trigger action to clear from bypass. |
+| `actionClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name of the trigger action to clear from bypass. The package prefix is not needed. |
 
 **Example**
 
 ```apex
-TRG_Base.bypassAction('TRG_SetFoobarDefaults');
-TRG_Base.clearActionBypass('TRG_SetFoobarDefaults');
-Boolean isBypassed = TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // false
+kern.TRG_Base.bypassAction('TRG_SetFoobarDefaults');
+kern.TRG_Base.clearActionBypass('TRG_SetFoobarDefaults');
+Boolean isBypassed = kern.TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // false
 ```
 
 </div>
@@ -349,21 +353,22 @@ Boolean isBypassed = TRG_Base.isBypassed('Account'); // false
 global static Boolean isActionBypassed(String actionClassName)
 ```
 
-Checks if a specific trigger action class is bypassed.
+Checks if a specific trigger action class is bypassed. The name is matched the same way as in
+bypassAction: the bare class name works for an action the package ships, and case does not matter.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `actionClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name of the trigger action to check. |
+| `actionClassName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The class name of the trigger action to check. The package prefix is not needed. |
 
 **Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — Boolean True if the action class is bypassed, false otherwise.
 
 **Example**
 
 ```apex
-TRG_Base.bypassAction('TRG_SetFoobarDefaults');
-Boolean isBypassed = TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // true
+kern.TRG_Base.bypassAction('TRG_AsyncChainRunTransition');
+Boolean isBypassed = kern.TRG_Base.isActionBypassed('TRG_AsyncChainRunTransition'); // true
 ```
 
 </div>

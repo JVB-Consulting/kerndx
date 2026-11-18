@@ -5,7 +5,7 @@ pageClass: reference
 description: "Selector for Salesforce Group objects. Provides query methods for group lookup and recursive group membership resolution including role-based groups, role hierarchies, and nested group membership."
 author: "Jason Van Beukering"
 group: "Selectors"
-date: "October 2024, October 2026"
+date: "October 2024, November 2026"
 since: "1.0"
 category: apex
 ---

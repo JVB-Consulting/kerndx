@@ -3,13 +3,14 @@ title: "UTIL_TypeResolver.INT_ClassTypeResolver"
 type: class
 pageClass: reference
 description: "Interface for resolving Type objects from class names and chaining resolvers. Custom resolvers must be exception-safe. The default chain implementation (PackageClassResolver.resolveType) delegates to "
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_TypeResolver.INT_ClassTypeResolver
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

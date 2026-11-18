@@ -3,13 +3,14 @@ title: "UTIL_FormulaContext.LeadContext"
 type: class
 pageClass: reference
 description: "Formula evaluation context for Lead object. Provides typed access to Lead records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is blank. Can "
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_FormulaContext.LeadContext
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 
@@ -25,11 +26,11 @@ Formula evaluation context for Lead object. Provides typed access to Lead record
 
 ```apex
 // Trigger Action Framework formulas:
-// newRecord.Status = "Working"
-// newRecord.LeadSource <> oldRecord.LeadSource
+// TEXT(newRecord.Status) = "Working"
+// TEXT(newRecord.LeadSource) <> TEXT(oldRecord.LeadSource)
 // Direct Apex usage:
 FormulaEval.FormulaInstance formula = Formula.builder()
-    .withFormula('newRecord.IsConverted = false && newRecord.Status = "Qualified"')
+    .withFormula('newRecord.IsConverted = false && TEXT(newRecord.Status) = "Qualified"')
     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
     .withType(UTIL_FormulaContext.LeadContext.class)
     .build();

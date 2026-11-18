@@ -3,13 +3,14 @@ title: "FLOW_CheckObjectPermissions.DTO_Response"
 type: class
 pageClass: reference
 description: "DTO containing the permissions per object provided in request."
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_CheckObjectPermissions.DTO_Response
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

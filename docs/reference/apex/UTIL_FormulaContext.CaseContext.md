@@ -3,13 +3,14 @@ title: "UTIL_FormulaContext.CaseContext"
 type: class
 pageClass: reference
 description: "Formula evaluation context for Case object. Provides typed access to Case records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is blank. Can "
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_FormulaContext.CaseContext
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 
@@ -25,12 +26,12 @@ Formula evaluation context for Case object. Provides typed access to Case record
 
 ```apex
 // Trigger Action Framework formulas:
-// newRecord.Priority = "High"
-// newRecord.Status <> oldRecord.Status
+// TEXT(newRecord.Priority) = "High"
+// TEXT(newRecord.Status) <> TEXT(oldRecord.Status)
 // newRecord.IsClosed && NOT(oldRecord.IsClosed)
 // Direct Apex usage:
 FormulaEval.FormulaInstance formula = Formula.builder()
-    .withFormula('newRecord.IsEscalated && newRecord.Priority = "High"')
+    .withFormula('newRecord.IsEscalated && TEXT(newRecord.Priority) = "High"')
     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
     .withType(UTIL_FormulaContext.CaseContext.class)
     .build();

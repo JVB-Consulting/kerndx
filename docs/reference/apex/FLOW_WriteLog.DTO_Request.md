@@ -3,13 +3,14 @@ title: "FLOW_WriteLog.DTO_Request"
 type: class
 pageClass: reference
 description: "Data Transfer Object (DTO) for log requests, specifying log level, message details, and context."
+group: "Logging"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_WriteLog.DTO_Request
 
-**Class**
+**Class** · Group: `Logging`
 
 <div class="apex-member apex-class">
 

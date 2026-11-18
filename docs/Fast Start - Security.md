@@ -6,84 +6,45 @@ navOrder: 16
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-**What this is:** A way to have every database read and write automatically respect the running user's
-permissions, so you never hand-write a security check. **Why it matters:** Forgetting one of those checks
-is how data quietly leaks to someone who should not see it. KernDX makes the safe behaviour the default, so
-the gap can't happen by accident. **Who should follow this:** developers writing Apex that touches data, plus
-the architects and tech leads who set security standards for a team. **When to use it:** any time your
-code queries or saves records, which is nearly always.
-
-In plain terms: object create/read/update/delete permissions (CRUD) and field-level security (FLS) are
-enforced for you on every query and every write, with no manual `Security.stripInaccessible()` plumbing and
-no `WITH USER_MODE` clauses to remember.
+- **What this is:** a way to have every database read and write automatically respect the running user's
+  permissions, so you never hand-write a security check.
+- **Why it matters:** forgetting one of those checks is how data quietly leaks to someone who should not see it.
+  KernDX makes the safe behaviour the default, so the gap can't happen by accident.
+- **Who should follow this:** developers writing Apex that touches data, plus the architects and tech leads who set
+  security standards for a team.
+- **When to use it:** any time your code queries or saves records, which is nearly always.
+- **What you'll build:** a service class that reads and writes records through the framework. It gets object
+  create/read/update/delete permissions (CRUD) and field-level security (FLS) enforced against the running user by
+  default, all without writing a single `Security.stripInaccessible()` call or `WITH USER_MODE` clause.
+- **Along the way:** you also see how to get the rows back without the fields the user can't see, instead of an error.
+- **Success looks like:** your queries and DML respect the running user's permissions automatically, a
+  lower-permission user can't read or write fields they lack access to, and your test class has 100% coverage.
+- **In one line:** every `kern.QRY_Builder` query and `kern.DML_Builder` transaction runs in
+  `AccessLevel.USER_MODE` by default, so CRUD, field-level security, and sharing are enforced against the running
+  user with no extra code.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** A service class that reads and writes records through the framework. It gets CRUD and
-FLS enforced against the running user by default, all without writing a single `Security.stripInaccessible()`
-call or `WITH USER_MODE` clause. Along the way, you also see how to get the rows back without the fields the user
-can't see, instead of an error.
-
-**Success looks like:** Your queries and DML respect the running user's permissions automatically, a
-lower-permission user can't read or write fields they lack access to, and your test class has 100% coverage.
-
-**In one line:** Every `kern.QRY_Builder` query and `kern.DML_Builder` transaction runs in
-`AccessLevel.USER_MODE` by default, so CRUD, field-level security, and sharing are enforced against the running
-user with no extra code.
-
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-    - [Secure Query by Default](#secure-query-by-default)
-    - [Secure DML by Default](#secure-dml-by-default)
-    - [Strip Inaccessible Fields](#strip-inaccessible-fields)
-3. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
-    - [Step 1: Create the Service Class](#step-1-create-the-service-class)
-    - [Step 2: Execute](#step-2-execute)
-    - [Step 3: Write Tests](#step-3-write-tests)
-4. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
-    - [Query Security Methods](#query-security-methods)
-    - [DML Security Methods](#dml-security-methods)
-    - [When to Opt Out of USER_MODE](#when-to-opt-out-of-user_mode)
-    - [The Org-Wide Kill Switch](#the-org-wide-kill-switch)
-    - [Field Encryption](#field-encryption)
-    - [Clean up](#clean-up)
-5. [Common Issues](#common-issues)
-    - [Secure Query by Default](#secure-query-by-default-1)
-    - [Secure DML by Default](#secure-dml-by-default-1)
-    - [Step 1: Create the Service Class](#step-1-create-the-service-class-1)
-    - [Step 3: Write Tests](#step-3-write-tests-1)
-    - [Query Security Methods](#query-security-methods-1)
-    - [DML Security Methods](#dml-security-methods-1)
-    - [The Org-Wide Kill Switch](#the-org-wide-kill-switch-1)
-    - [Clean up](#clean-up-1)
-6. [What You Now Know](#what-you-now-know)
-7. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
 ## Tier 1: See It Work (~2 minutes)
 
 KernDX queries and DML are secure by default. You don't add a security call: you get one for free on every
-`kern.QRY_Builder` and `kern.DML_Builder` call. The sections below show what that means in practice.
+`kern.QRY_Builder` and `kern.DML_Builder` call.
+
+The tries below build each query in place, so that each runs on its own in one window. In your own classes, chain the
+same calls on a selector's `query`, as the [Tier 2](#tier-2-build-your-own-20-minutes) service does.
 
 ### Secure Query by Default
 
@@ -108,10 +69,12 @@ Rows returned: 5
 ```
 
 As a system administrator you see every field and every row, so this looks unremarkable. The difference shows
-up for a lower-permission user: if that user lacks read access on `AnnualRevenue`, the query throws a
-`System.QueryException` instead of silently leaking the value. That is USER_MODE doing its job. USER_MODE means
-the query runs with the current user's read and write permissions and record sharing enforced; SYSTEM_MODE
-skips the object and field permission checks only, and record sharing keeps following the calling class.
+up for a lower-permission user:
+
+- If that user lacks read access on `AnnualRevenue`, the query throws a `System.QueryException` instead of silently
+  leaking the value. That is USER_MODE doing its job.
+- **USER_MODE** means the query runs with the current user's read and write permissions and record sharing enforced.
+- **SYSTEM_MODE** skips the object and field permission checks only. Record sharing keeps following the calling class.
 
 > **Want to prove it?** USER_MODE and SYSTEM_MODE behave identically for an admin (you hold every
 > permission). The gap only appears when running as a lower-permission user, which is exactly what the
@@ -157,9 +120,12 @@ unreadable fields and keep going, for example when you query a generous field li
 user is actually allowed to see. Chain `.stripInaccessible()`.
 
 The strip runs after the query returns, so the query itself must not be refused first. In USER_MODE, the platform
-refuses the query before the strip can run. So this read uses `.withSystemMode()` to run in SYSTEM_MODE, and
-`.withSharing()` to keep record sharing. SYSTEM_MODE does not check the object permission, so use this form only for an
-object the user may read.
+refuses the query before the strip can run. So this read:
+
+- uses `.withSystemMode()` to run in SYSTEM_MODE;
+- uses `.withSharing()` to keep record sharing.
+
+SYSTEM_MODE does not check the object permission, so use this form only for an object the user may read.
 
 **In Salesforce**, in the same Execute Anonymous window, run:
 
@@ -241,7 +207,7 @@ force-app/main/default/classes/SVC_ContactDirectory.cls
  *
  * @group Services
  *
- * @date February 2026
+ * @date February 2026, November 2026
  */
 public with sharing class SVC_ContactDirectory
 {
@@ -255,8 +221,7 @@ public with sharing class SVC_ContactDirectory
 	 */
 	public List<Contact> findByLastName(String lastName)
 	{
-		return kern.QRY_Builder.selectFrom(Contact.SObjectType)
-				.fields(new List<SObjectField> {Contact.FirstName, Contact.LastName, Contact.Email})
+		return new SEL_Contacts().query
 				.condition(Contact.LastName).equals(lastName)
 				.toList();
 	}
@@ -277,6 +242,31 @@ public with sharing class SVC_ContactDirectory
 		return kern.DML_Builder.newTransaction()
 				.doInsert(newContact)
 				.execute();
+	}
+
+	/**
+	 * @description Reads Contacts with the fields this service returns. Every read goes through a selector, so the
+	 * fields live in one place and the read gets the framework's security, caching, logging and test mocks.
+	 */
+	private with sharing class SEL_Contacts extends kern.SEL_Base
+	{
+		/**
+		 * @description Creates the selector for Contacts.
+		 */
+		public SEL_Contacts()
+		{
+			super(Contact.SObjectType);
+		}
+
+		/**
+		 * @description The fields every read returns.
+		 *
+		 * @return First name, last name and email.
+		 */
+		public override List<SObjectField> getFields()
+		{
+			return new List<SObjectField> {Contact.FirstName, Contact.LastName, Contact.Email};
+		}
 	}
 }
 ```
@@ -325,8 +315,9 @@ Jane Directory
 
 **Why it works, the key patterns:**
 
-- **`kern.QRY_Builder.selectFrom(...)`**: the query runs in USER_MODE by default, so CRUD, FLS, and sharing are
-  enforced against the running user with no extra method call.
+- **`new SEL_Contacts().query`**: the read goes through a selector that extends `kern.SEL_Base`, so its fields live in
+  one place. The query runs in USER_MODE by default, so CRUD, FLS, and sharing are enforced against the running user
+  with no extra method call.
 - **A field the user can't read**: the query throws a `QueryException` rather than return it. If you would
   rather get the rows back without that field, see [Strip Inaccessible Fields](#strip-inaccessible-fields).
 - **`kern.DML_Builder.newTransaction()...execute()`**: the insert runs in USER_MODE by default, so the create
@@ -365,7 +356,7 @@ force-app/main/default/classes/SVC_ContactDirectory_TEST.cls
  *
  * @group Services
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @IsTest(isParallel=false)
 private class SVC_ContactDirectory_TEST
@@ -434,10 +425,7 @@ private class SVC_ContactDirectory_TEST
 	 */
 	private static User buildMinimumAccessUser()
 	{
-		Profile minimumAccess = (Profile)kern.QRY_Builder.selectFrom(Profile.SObjectType)
-				.fields(new List<SObjectField> {Profile.Id})
-				.condition(Profile.Name).equals('Minimum Access - Salesforce')
-				.getFirst();
+		Profile minimumAccess = new kern.SEL_Profile().findByName('Minimum Access - Salesforce');
 
 		return (User)kern.TST_Builder.of(User.SObjectType)
 				.withOverride(User.ProfileId, minimumAccess.Id)
@@ -471,13 +459,16 @@ sf apex run test -o YourOrgAlias -t SVC_ContactDirectory_TEST --code-coverage --
 You should see 3 tests passing and 100% coverage on `SVC_ContactDirectory`: all three tests show `Pass`, the summary
 line `Outcome` reads `Passed`, and the coverage table shows `SVC_ContactDirectory` at `100%`.
 
-> **About the annotations:** This class uses `@IsTest(isParallel=false)` because `buildMinimumAccessUser()`
-> inserts a `User`, and Salesforce blocks DML on setup objects like `User` inside *parallel* test runs. Most
-> test classes should prefer `@IsTest(isParallel=true)` for faster runs. Use `isParallel=false` only
-> when a test does setup-object DML, as this one does. `SeeAllData` defaults to `false`, so we omit it. The
-> `System.runAs()` block in the third test is the right habit for security code: it verifies the framework
-> enforces the *running user's* permissions, which is the entire point of USER_MODE. (The
-> `Minimum Access - Salesforce` profile must exist in your org; it ships with every org by default.)
+> **About the annotations:**
+>
+> - This class uses `@IsTest(isParallel=false)` because `buildMinimumAccessUser()` inserts a `User`, and Salesforce
+>   blocks DML on setup objects like `User` inside *parallel* test runs.
+> - Most test classes should prefer `@IsTest(isParallel=true)` for faster runs. Use `isParallel=false` only when a test
+>   does setup-object DML, as this one does.
+> - `SeeAllData` defaults to `false`, so we omit it.
+> - The `System.runAs()` block in the third test is the right habit for security code: it verifies the framework
+>   enforces the *running user's* permissions, which is the entire point of USER_MODE.
+> - The `Minimum Access - Salesforce` profile must exist in your org; it ships with every org by default.
 
 Something went wrong? See [Common Issues, Step 3](#step-3-write-tests-1).
 
@@ -487,7 +478,8 @@ Something went wrong? See [Common Issues, Step 3](#step-3-write-tests-1).
 
 ### Query Security Methods
 
-`kern.QRY_Builder` gives you independent security options you can combine.
+`kern.QRY_Builder` gives you independent security options you can combine. In your own classes, chain them on a
+selector's `query`, as the [Tier 2](#tier-2-build-your-own-20-minutes) service does.
 
 **In Salesforce**, run these in an Execute Anonymous window; each runs without an error:
 
@@ -536,14 +528,21 @@ The full menu of query security methods:
 | `.bypassSharing()`     | Uses a `without sharing` proxy. In USER_MODE the user's object and field permissions still apply: fields the user can't read are removed from the rows | Read records whatever their sharing (use with caution) |
 | `.withoutSecurity()`   | Waives object and field checks and record sharing in one call (SYSTEM_MODE plus the sharing bypass) | System-level reads that must span every record                   |
 
-> **What the sharing methods do in USER_MODE.** USER_MODE always enforces sharing, so `.withSharing()` changes
-> nothing there on its own. After `.bypassSharing()`, it cancels the bypass. Otherwise it matters only in SYSTEM_MODE.
+> **What the sharing methods do in USER_MODE.**
 >
-> `.bypassSharing()` ignores sharing in both modes. In USER_MODE it keeps the user's object and field permissions.
-> A user who can't read the object is refused. A filter or sort you build on a field the user can't read is refused
-> too. So are `toQueryLocator()`, `toCursor()` and reads of totals or groups, because KernDX can't remove hidden
-> fields from them. For such a read, add `.withSystemMode()`. Note that this also turns off the object and field
-> checks. The [Security Guide](Security%20-%20Guide.md#user_mode-vs-sharing-proxy) lists every rule.
+> - **`.withSharing()`:** USER_MODE always enforces sharing, so it changes nothing there on its own. After
+>   `.bypassSharing()`, it cancels the bypass. Otherwise it matters only in SYSTEM_MODE.
+> - **`.bypassSharing()`:** ignores sharing in both modes. In USER_MODE it keeps the user's object and field
+>   permissions, and refuses these reads:
+>   - a read by a user who can't read the object;
+>   - a filter or sort you build on a field the user can't read;
+>   - a selected field or a child query through a lookup field or a parent object the user can't read;
+>   - selected text KernDX can't check, such as a child query written as text;
+>   - `toQueryLocator()`, `toCursor()` and reads of totals or groups, because KernDX can't remove hidden fields from
+>     them.
+> - **For such a read, add `.withSystemMode()`.** Note that this also turns off the object and field checks.
+>
+> The [Security Guide](Security%20-%20Guide.md#user_mode-vs-sharing-proxy) lists every rule.
 
 Something went wrong? See [Common Issues, Query Security Methods](#query-security-methods-1).
 
@@ -575,13 +574,16 @@ kern.DML_Builder.newTransaction()
 		.execute();
 ```
 
-> **There is no write-side `stripInaccessible()`.** Stripping inaccessible fields is a read concept. To make an
-> untrusted write respect the user's field permissions, rely on the USER_MODE default (or `.withUserMode()`).
-> It rejects writes to fields the running user can't update, which is the correct behaviour for a write.
-> `.bypassSharing()` affects sharing only; it does **not** turn off USER_MODE's CRUD/FLS enforcement. With it, if the
-> user can't create or edit a field, the save leaves that field out without an error, and one warning in the log
-> names the field. If the user lacks the object permission this save needs (create, edit, delete or undelete), the save is
-> still refused.
+> **There is no write-side `stripInaccessible()`.** Stripping inaccessible fields is a read concept.
+>
+> - **To make an untrusted write respect the user's field permissions,** rely on the USER_MODE default (or
+>   `.withUserMode()`). It rejects writes to fields the running user can't update, which is the correct behaviour for a
+>   write.
+> - **`.bypassSharing()` affects sharing only;** it does **not** turn off USER_MODE's CRUD/FLS enforcement. With it, if
+>   the user can't create or edit a field, the save leaves that field out without an error, and one warning in the log
+>   names the field.
+> - **If the user lacks the object permission this save needs** (create, edit, delete or undelete), the save is still
+>   refused.
 
 Something went wrong? See [Common Issues, DML Security Methods](#dml-security-methods-1).
 
@@ -624,12 +626,15 @@ whole org:
 - `kern__FeatureFlag.UserModeQueries_Enabled` controls the default for every `kern.QRY_Builder` query.
 - `kern__FeatureFlag.UserModeDml_Enabled` controls the default for every `kern.DML_Builder` transaction.
 
-Both ship enabled (`IsEnabledByDefault__c = true`). To temporarily fall back to SYSTEM_MODE framework-wide,
-**for emergency rollback only, while offending code is fixed**, set the relevant flag's
-`IsEnabledByDefault__c` to `false` in **Setup > Custom Metadata Types > FeatureFlag**. The next transaction
-picks it up, and no deploy is required. Do not flip these as a routine configuration lever: doing so weakens the
-security posture of every query or write your users reach. A call that chained `.withUserMode()` keeps
-enforcing USER_MODE even with the flag off, which is why critical user-facing paths should opt in explicitly.
+Both ship enabled (`IsEnabledByDefault__c = true`).
+
+- **To fall back to SYSTEM_MODE framework-wide for a while,** set the relevant flag's `IsEnabledByDefault__c` to `false` in
+  **Setup > Custom Metadata Types > FeatureFlag**. Do this **for emergency rollback only, while offending code is
+  fixed**. The next transaction picks it up, and no deploy is required.
+- **Do not flip these as a routine configuration lever:** doing so weakens the security posture of every query or
+  write your users reach.
+- **A call that chained `.withUserMode()` keeps enforcing USER_MODE even with the flag off,** which is why critical
+  user-facing paths should opt in explicitly.
 
 Something went wrong? See [Common Issues, The Org-Wide Kill Switch](#the-org-wide-kill-switch-1).
 
@@ -707,10 +712,11 @@ with a `Minimum Access - Salesforce` user, as the third test in Step 3 does.
 
 #### `.withSharing()` or `.bypassSharing()` seems to do nothing on a query
 
-USER_MODE already enforces sharing, so `.withSharing()` changes nothing there on its own. (After `.bypassSharing()`,
-it cancels the bypass.) Otherwise it takes effect only after `.withSystemMode()`. `.bypassSharing()` works in USER_MODE too, but the user's object and field permissions still
-apply: a field the user can't read is removed from the rows. If the code must read that
-field, add `.withSystemMode()`, which also turns off the object and field checks.
+- **`.withSharing()`:** USER_MODE already enforces sharing, so it changes nothing there on its own. (After
+  `.bypassSharing()`, it cancels the bypass.) Otherwise it takes effect only after `.withSystemMode()`.
+- **`.bypassSharing()`:** works in USER_MODE too, but the user's object and field permissions still apply: a field the
+  user can't read is removed from the rows. If the code must read that field, add `.withSystemMode()`, which also
+  turns off the object and field checks.
 
 ### DML Security Methods
 

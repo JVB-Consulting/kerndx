@@ -3,13 +3,14 @@ title: "FLOW_ExecuteValidationRules.DTO_Response"
 type: class
 pageClass: reference
 description: "Response DTO for the Execute Validation Rules invocable action. Contains the validation results including errors, warnings, and summary flags. Use hasErrors in a Decision element to determine whether "
+group: "Validation"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_ExecuteValidationRules.DTO_Response
 
-**Class**
+**Class** · Group: `Validation`
 
 <div class="apex-member apex-class">
 

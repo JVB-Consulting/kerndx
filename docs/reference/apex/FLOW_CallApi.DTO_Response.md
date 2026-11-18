@@ -3,13 +3,14 @@ title: "FLOW_CallApi.DTO_Response"
 type: class
 pageClass: reference
 description: "Data Transfer Object representing the web service response or errors."
+group: "Web Services"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_CallApi.DTO_Response
 
-**Class**
+**Class** · Group: `Web Services`
 
 <div class="apex-member apex-class">
 

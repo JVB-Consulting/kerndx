@@ -6,62 +6,33 @@ navOrder: 66
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-**What this is:** A faster way to build the data your Apex tests need. You write one short expression and the framework fills in every required field, so you spell out only the values the test cares about. **Why it exists:** Hand-written test setup is slow, brittle when an admin adds a required field, and wastes governor limits on records you do not need. **Who should care:** Any developer writing Apex tests, and tech leads who want setup that survives schema changes. **When to use it:** Whenever a test needs records, saved, kept in memory, or returned from a query. For a single record with one or two fields, plain `new Account(...)` is still fine; reach for the builder once required fields, bulk data, or query mocking start adding boilerplate.
+- **What this is:** A faster way to build the data your Apex tests need. You write one short expression and the
+  framework fills in every required field, so you spell out only the values the test cares about.
+- **Why it exists:** Hand-written test setup is slow, brittle when an admin adds a required field, and wastes governor
+  limits on records you do not need.
+- **Who should care:** Any developer writing Apex tests, and tech leads who want setup that survives schema changes.
+- **When to use it:** Whenever a test needs records, saved, kept in memory, or returned from a query. A plain
+  `new Account(...)` is fine only for a record the test never saves, such as an argument handed straight to a method.
+  The builder pays off most once required fields, bulk data, or query mocking come in.
+- **What you'll build:** A test class that uses `TST_Builder` for clean test data creation and `TST_Mock` for query
+  testing without saving records (no DML), reaching 100% coverage on a simple utility class.
+- **Success looks like:** Your tests create Accounts with auto-populated fields, bulk cycling values, and mocks that
+  need no DML, all without hand-writing boilerplate setup code.
+- **In one line:** `kern.TST_Builder.of(Account.SObjectType).withOverride(Account.Industry, 'Technology').build();`
+  auto-populates required fields, inserts, and returns the record in one expression.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** A test class that uses `TST_Builder` for clean test data creation and `TST_Mock`
-for query testing without saving records (no DML), reaching 100% coverage on a simple utility class.
-
-**Success looks like:** Your tests create Accounts with auto-populated fields, bulk cycling values, and
-mocks that need no DML, all without hand-writing boilerplate setup code.
-
-**In one line:** `kern.TST_Builder.of(Account.SObjectType).withOverride(Account.Industry, 'Technology').build();`
-auto-populates required fields, inserts, and returns the record in one expression.
-
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-    - [Create a Record with Auto-Populated Fields](#create-a-record-with-auto-populated-fields)
-    - [Override Specific Fields](#override-specific-fields)
-    - [Bulk Creation](#bulk-creation)
-    - [In-Memory Records (No DML)](#in-memory-records-no-dml)
-3. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
-    - [Step 1: Create the Utility Class](#step-1-create-the-utility-class)
-    - [Step 2: Write and run the test](#step-2-write-and-run-the-test)
-4. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
-    - [Multiple Field Overrides](#multiple-field-overrides)
-    - [Mock IDs (No DML)](#mock-ids-no-dml)
-    - [TST_Mock for DML-Free Query Interception](#tst_mock-for-dml-free-query-interception)
-    - [TST_Factory for Users](#tst_factory-for-users)
-    - [TST_Factory for Feature Flags](#tst_factory-for-feature-flags)
-    - [Framework Metadata: Trigger and Validation Setup](#framework-metadata-trigger-and-validation-setup)
-    - [Clean up](#clean-up)
-5. [Common Issues](#common-issues)
-    - [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes-1)
-    - [Step 1: Create the Utility Class](#step-1-create-the-utility-class-1)
-    - [Step 2: Write and run the test](#step-2-write-and-run-the-test-1)
-    - [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes-1)
-6. [What You Now Know](#what-you-now-know)
-7. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
@@ -380,12 +351,14 @@ line `Outcome` reads `Passed`, and the coverage table shows `FastStart_TestData_
 - **`.withCount(n).buildList()`** creates many records with a single DML statement.
 - **`TST_Mock.of(SObjectType).build()`** creates a record without saving it (no DML) and registers it automatically, so `QRY_Builder` queries return the mock data instead of reading the database.
 
-> **About the annotations:** `@IsTest(seeAllData=false isParallel=true)` is the standard declaration for
-> classes that don't insert `User` / `Group` / `PermissionSet` records. `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')`
-> turns off a code-scanner rule (static analysis, which checks code without running it) that wants every test
-> to use `System.runAs()`. That is fine for a quick start, but in production tests consider adding `System.runAs()`
-> to verify profile and permission set access. Remove `IsParallel=true` if your test class inserts `User` records,
-> because Salesforce forbids `User` DML in parallel tests.
+> **About the annotations:**
+>
+> - `@IsTest(seeAllData=false isParallel=true)` is the standard declaration for classes that don't insert `User` /
+>   `Group` / `PermissionSet` records. Remove `IsParallel=true` if your test class inserts `User` records, because
+>   Salesforce forbids `User` DML in parallel tests.
+> - `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')` turns off a code-scanner rule (static analysis, which
+>   checks code without running it) that wants every test to use `System.runAs()`. That is fine for a quick start, but
+>   in production tests consider adding `System.runAs()` to verify profile and permission set access.
 
 Something went wrong? See [Common Issues, Step 2](#step-2-write-and-run-the-test-1).
 
@@ -493,10 +466,12 @@ real rows partway through a test.
 
 #### Different Answers for Consecutive Queries
 
-Some code reads the same object twice and behaves differently when the second read finds what the first one missed: a
-find-or-create, a retry, a check that runs again after a save. To script that, register an answer for the next query
-only. Each answer serves exactly one query, in the order you registered them, and once they are used up the object goes
-back to whatever you registered with `register`, or to the database if you registered nothing.
+To give the same object different answers on consecutive reads, register an answer for the next query only, with
+`kern.TST_Mock.registerNext`. Use it for code that reads the same object twice and behaves differently when the second
+read finds what the first one missed: a find-or-create, a retry, a check that runs again after a save.
+
+Each answer serves exactly one query, in the order you registered them. Once they are used up, the object goes back to
+whatever you registered with `register`, or to the database if you registered nothing.
 
 **In your editor**, in a test class:
 
@@ -517,12 +492,16 @@ private static void shouldCreateOnTheFirstMissAndReuseOnTheSecondRead()
 ```
 
 An empty list means "finds nothing". A single record has its own overload: `kern.TST_Mock.registerNext(Account.SObjectType, record)`.
-A count uses up an answer too and returns its size. `kern.TST_Mock.clear()` and `kern.TST_Mock.clear(Account.SObjectType)`
+A count uses up an answer too, and counts the records a read of the rows would check and keep. `kern.TST_Mock.clear()` and `kern.TST_Mock.clear(Account.SObjectType)`
 drop any answers still queued. The row in this example is saved, because the second read reaches the database to find it.
 
 #### Negative-Path: Simulate a SOQL Failure
 
-Good tests also prove that your code handles a query failure gracefully, not just the happy path. To force a query to fail on demand, call `kern.TST_Mock.throwsException(SObjectType[, Exception/String])`: it registers an exception that is thrown on every query the framework runs against that type, until you clear it. This lets you exercise the catch block around a SOQL call without having to fake anything at a lower layer.
+To force a query to fail on demand, call `kern.TST_Mock.throwsException(SObjectType[, Exception/String])`. It registers
+an exception that is thrown on every query the framework runs against that type, until you clear it.
+
+Good tests also prove that your code handles a query failure gracefully, not just the happy path. This lets you
+exercise the catch block around a SOQL call without having to fake anything at a lower layer.
 
 **In your editor**, in a test class:
 
@@ -547,8 +526,8 @@ private static void shouldHandleQueryFailureGracefully()
 ```
 
 > **`SEL_Accounts` is the selector you build in the [Selectors Fast Start](Fast%20Start%20-%20Selectors.md).**
-> It isn't part of the package. If you haven't created it, swap in a selector you already have, or query inline
-> with `kern.QRY_Builder.selectFrom(Account.SObjectType)...` so this snippet is self-contained.
+> It isn't part of the package. If you haven't created it, create it first or swap in a selector you already have:
+> every read goes through a selector, and this snippet tests how a selector fails.
 
 Three overloads are available; pick the shortest that names the failure.
 
@@ -618,11 +597,12 @@ records in Setup, or pull them into your project and deploy them. See
 [Fast Start - Custom Validations](Fast%20Start%20-%20Custom%20Validations.md), which show how to create them in
 Setup and pull them into your project.
 
-Once the metadata is in place, the action or validation fires through the normal trigger path, so your
-test simply builds a record and asserts the resulting behaviour. This example uses the
-`TRG_AccountSetDefaults` action from [Fast Start - Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md), which
-fills in a blank Description. A change made before the record is saved (a before-insert change) is not copied back to the record in your test, so the test
-reads the saved record again.
+Once the metadata is in place, the action or validation fires through the normal trigger path, so your test simply
+builds a record and asserts the resulting behaviour. This example uses the `TRG_AccountSetDefaults` action from Fast
+Start - Trigger Actions, which fills in a blank Description.
+
+A change made before the record is saved (a before-insert change) is not copied back to the record in your test, so
+the test reads the saved record again.
 
 **In your editor**, in a test class:
 
@@ -645,9 +625,11 @@ private static void shouldFireTriggerAction()
 
 ### Clean up
 
-If you built this example only to try the framework, run this command when you have finished the guide. The Accounts
-the Tier 1 blocks saved (the one with the random name, `Acme Corp` and the three bulk ones) stay; delete them in the
-app, or leave them. The test's own records are rolled back when the test ends, so they never stay in your org.
+If you built this example only to try the framework, run this command when you have finished the guide.
+
+- The Accounts the Tier 1 blocks saved (the one with the random name, `Acme Corp` and the three bulk ones) stay; delete
+  them in the app, or leave them.
+- The test's own records are rolled back when the test ends, so they never stay in your org.
 
 **In the terminal**, delete the two classes:
 
@@ -721,13 +703,10 @@ After completing this guide, you understand the **three test data tools** in Ker
 
 **Key patterns:**
 
-- **Override only what matters.** Let `TST_Builder` handle required fields so tests stay focused on behaviour.
-- **`.withoutInsertion()` for logic tests.** Skip DML when testing pure logic (faster tests, no governor cost).
-- **`.withCycle()` for multiple scenarios.** Test different values without writing separate test methods.
-- **`.withChildren()` for relationships.** Foreign-key assignment is handled for you.
-- **`TST_Mock` for query mocking.** No DML, no database: the mock data flows through `QRY_Builder`.
-- **Framework metadata from Setup.** To exercise trigger or validation behaviour in your tests, create the
-  relevant `CustomMetadata` records in Setup, or pull them into your project and deploy them.
+- **The builder calls:** [Why it works, line by line](#step-2-write-and-run-the-test) covers each one (`.withCycle()`
+  for several scenarios in one test, and the rest).
+- **The trigger and validation records:** see [Framework Metadata](#framework-metadata-trigger-and-validation-setup).
+- **`.withChildren()` for relationships:** foreign-key assignment is handled for you.
 
 ---
 

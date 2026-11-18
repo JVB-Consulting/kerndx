@@ -3,13 +3,14 @@ title: "UTIL_Cache.Scope"
 type: class
 pageClass: reference
 description: "Cache type enumeration"
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_Cache.Scope
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

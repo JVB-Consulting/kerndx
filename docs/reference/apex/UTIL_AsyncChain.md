@@ -5,7 +5,7 @@ pageClass: reference
 description: "Lightweight async chain runner for sequencing jobs with shared state, error handling, and progress tracking. Delegates to existing async and logging infrastructure. Each step runs in a queueable job o"
 author: "Jason Van Beukering"
 group: "Async"
-date: "April 2026, October 2026"
+date: "April 2026, November 2026"
 since: "1.0"
 category: apex
 ---

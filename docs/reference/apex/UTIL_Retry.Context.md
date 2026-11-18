@@ -3,13 +3,14 @@ title: "UTIL_Retry.Context"
 type: class
 pageClass: reference
 description: "Interface defining the retry context. Contains information about the current retry attempt including count, timing, and custom data."
+group: "Resilience"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_Retry.Context
 
-**Class**
+**Class** · Group: `Resilience`
 
 <div class="apex-member apex-class">
 

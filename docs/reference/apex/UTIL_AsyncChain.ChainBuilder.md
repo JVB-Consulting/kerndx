@@ -3,13 +3,14 @@ title: "UTIL_AsyncChain.ChainBuilder"
 type: class
 pageClass: reference
 description: "Fluent builder for configuring and executing an async chain. Provides methods for adding steps, setting context, configuring error/completion handlers, and executing the chain."
+group: "Async"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_AsyncChain.ChainBuilder
 
-**Class**
+**Class** · Group: `Async`
 
 <div class="apex-member apex-class">
 

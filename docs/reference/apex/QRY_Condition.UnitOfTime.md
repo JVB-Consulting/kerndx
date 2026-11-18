@@ -3,13 +3,14 @@ title: "QRY_Condition.UnitOfTime"
 type: class
 pageClass: reference
 description: "Units of time for SOQL date literals."
+group: "Query Infrastructure"
 since: "1.0"
 category: apex
 ---
 
 # QRY_Condition.UnitOfTime
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 

@@ -3,13 +3,14 @@ title: "QRY_Condition.DateLiteral"
 type: class
 pageClass: reference
 description: "Provides SOQL date literal values for use in QRY_Builder conditions. Implements Evaluable so date literals can be passed as condition values to FieldCondition and through the QRY_Builder fluent API. D"
+group: "Query Infrastructure"
 since: "1.0"
 category: apex
 ---
 
 # QRY_Condition.DateLiteral
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 

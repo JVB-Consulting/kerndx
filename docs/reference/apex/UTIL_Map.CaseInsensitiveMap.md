@@ -3,13 +3,14 @@ title: "UTIL_Map.CaseInsensitiveMap"
 type: class
 pageClass: reference
 description: "A Map implementation that performs case-insensitive key lookups. Keys are normalised to lower case for internal storage and retrieval, but the original casing is retained for display and export operat"
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_Map.CaseInsensitiveMap
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

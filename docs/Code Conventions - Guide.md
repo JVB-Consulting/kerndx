@@ -1,5 +1,6 @@
 ---
 navOrder: 94
+navLabel: "Code Conventions"
 ---
 
 # KernDX Conventions
@@ -27,8 +28,10 @@ Subscribers may have custom namespaces, additional class prefixes, and different
   invisible at the call site; an explicit modifier forces an authorial choice every reviewer can see.*
 - **Least-privilege sharing** — Default `with sharing` for subscriber code (including subscriber selectors that extend `kern.SEL_Base`). Framework-internal selectors and utilities
   inside the `kern` namespace use `inherited sharing` to inherit the caller's sharing context. `without sharing` only when justified.
-- **NO inline SOQL** — Use `SEL_*` or `QRY_Builder`. *Rationale: selectors centralize field-sets, FLS posture, and query shape, which makes them tunable, mockable, and auditable;
-  ad-hoc `[SELECT ...]` queries are invisible to the masking layer and the bypass-audit channel.*
+- **NO inline SOQL** — Every read goes through a `SEL_*` selector; `QRY_Builder` is the engine under its `query` property, not a second way to read.
+  Inside the framework itself, code may call `QRY_Builder` directly only when the object is chosen at runtime, or when the object has no selector and is not worth one (a setup
+  object such as `SetupEntityAccess`); every other read uses the object's selector. *Rationale: selectors centralize field-sets, FLS posture, and query shape, which makes them
+  tunable, mockable, and auditable; ad-hoc `[SELECT ...]` queries are invisible to the masking layer and the bypass-audit channel.*
 - **NO `System.debug`** — Use `LOG_Builder`
 - **NO `LightningElement`** — Use `ComponentBuilder`
 - **NO fflib layering pattern in subscriber code** — extend `kern.SEL_Base` (not `fflib_SObjectSelector`), `kern.TRG_Base` (not `fflib_SObjectDomain`), `kern.DML_Builder` (not
@@ -239,7 +242,9 @@ trigger TRG_ObjectName on ObjectName__c (before insert, before update)
 }
 ```
 
-- Only declare events actually needed by configured `TriggerAction__mdt` handlers
+- On a trigger for one of your own objects, declare only the events your configured `TriggerAction__mdt` handlers need
+- A trigger the package ships on one of its own custom objects declares all seven events, so a subscriber's action rows run on any of them; the
+  package's own rows on those objects say by their `Event__c` which pass they need (all of them use before events)
 - Handlers extend `TRG_Base`, implement `IF_Trigger.BeforeInsert`/`BeforeUpdate`/`AfterInsert`/`AfterUpdate`/`BeforeDelete`/`AfterDelete`/`AfterUndelete`
 
 **Metadata:** `TriggerAction__mdt` — `TriggerSetting__c` (→`TriggerSetting__mdt`) + `Event__c` picklist. `TriggerSetting__mdt` uses `SObjectType__c` (→`EntityDefinition`). Record
@@ -254,7 +259,7 @@ below) must not rely on it.
 
 **Test pattern:** Build the input record(s) in memory with `kern.TST_Builder.of(SObjectType).withoutInsertion().build()`, invoke the handler directly (e.g.
 `new TRG_SetFoobarDefaults().beforeInsert(records)`), and assert on the in-memory records. To drive the full dispatcher instead, insert with `kern.TST_Builder.of(SObjectType).build()`
-(fires the trigger) and assert with `SEL_*`/`QRY_Builder`. No selector? Use `kern.QRY_Builder.selectFrom(SObjectType).condition(field).equals(value).getFirst()`.
+(fires the trigger) and assert with the object's `SEL_*` selector, for example `selector.findFirstByField(field, value)`. No selector for the object yet? Write one.
 
 ```apex
 @IsTest(seeAllData=false isParallel=true)
@@ -310,10 +315,10 @@ query, call it directly instead of wrapping it in a typed alias.
 
 ## QRY_Builder
 
-SEL_\* for reusable queries; QRY_Builder directly for one-off. Prefer `List<SObjectField>` for compile-time safety (`List<String>` only for relationship traversals).
+Every read goes through a SEL_\* selector; QRY_Builder is the engine under its `query` property, so the builder methods below are called on `query`. Prefer `List<SObjectField>` for compile-time safety (`List<String>` only for relationship traversals).
 
 ```apex
-List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
+List<Account> accounts = new SEL_Accounts().query
 	.fields(new List<SObjectField>{Account.Name, Account.Industry})
 	.condition(Account.Industry).equals('Tech')
 	.orderBy(Account.Name).ascending().withLimit(100).toList();
@@ -333,7 +338,7 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 `.notIn(Builder)` only for anti-join subqueries.
 **Pagination:** `.getPage(page, size)` → `QueryPage` (`.records`/`.totalRecords`/`.hasMorePages`/`.deletedRecords`/`.cursor`)
 
-**Security** (default USER_MODE via the `UserModeQueries_Enabled` flag, + inherited sharing): `.withUserMode()` (USER_MODE, enforces CRUD/FLS/sharing) | `.stripInaccessible()` (post-query; strips only in SYSTEM_MODE or a `bypassSharing()` read: under plain USER_MODE the platform still refuses a selected field the user cannot read) | `.withSharing()` (the `with sharing` proxy; changes nothing under USER_MODE, which always enforces sharing) | `.bypassSharing()` (ignores record sharing; under USER_MODE it keeps the object and field checks: hidden fields are removed, an unreadable object or a builder filter or sort on a hidden field is refused, and `toQueryLocator()`/`toCursor()`/aggregate reads are refused; add `.withSystemMode()` to drop the checks too) | `.withoutSecurity()` (full waiver: SYSTEM_MODE + record sharing bypassed, in one call)
+**Security** (default USER_MODE via the `UserModeQueries_Enabled` flag, + inherited sharing): `.withUserMode()` (USER_MODE, enforces CRUD/FLS/sharing) | `.stripInaccessible()` (post-query; strips only in SYSTEM_MODE or a `bypassSharing()` read: under plain USER_MODE the platform still refuses a selected field the user cannot read) | `.withSharing()` (the `with sharing` proxy; changes nothing under USER_MODE, which always enforces sharing) | `.bypassSharing()` (ignores record sharing; under USER_MODE it keeps the object and field checks: hidden fields are removed, a hidden lookup or parent object on a selected path (or behind a child query) refuses the read, an unreadable object or a builder filter or sort on a hidden field is refused, and `toQueryLocator()`/`toCursor()`/aggregate reads are refused; add `.withSystemMode()` to drop the checks too) | `.withoutSecurity()` (full waiver: SYSTEM_MODE + record sharing bypassed, in one call)
 
 **Data Category:** `.withDataCategory(groupName)` → `DataCategoryBuilder` with `.at()`/`.above()`/`.below()`/`.aboveOrBelow()` — each with `(String)` and `(List<String>)`
 overloads. Mutually exclusive with `WITH SECURITY_ENFORCED` — use `.withUserMode()` for security enforcement with data category queries. One filter per group.
@@ -349,7 +354,8 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 ```
 
 **Methods:** `.doInsert()`/`.doUpdate()`/`.doDelete()`/`.doUpsert()`/`.doUndelete()`/`.allowPartial()`/`.expectRefusal()`/`.withRetryOnLock()`/`.bypassSharing()`/`.suppressLogging()`/`.suppressExceptions()`/`.execute()`
-**TransactionResult:** `isSuccess()`/`getInsertedIds()`/`getErrors()`/`getSuccessCount()`/`getFailureCount()`
+**TransactionResult:** `isSuccess()`/`getInsertedIds()`/`getErrors()`/`getSuccessCount()`/`getFailureCount()`/`getFailureMessage()` (the reason when
+`suppressExceptions()` caught a failure or an error stopped an `allowPartial()` save; `getErrors()` does not show it)
 **Parent-child:** `.doInsert(child, relationshipField, parent)` auto-sets lookup. Register the parent with its own `.doInsert()`, before or after the child: the
 transaction orders the inserts from the registered relationships.
 **Async:** `.async()` is a type switch, not a config method — it returns `DML_AsyncBuilder`, whose only members are `withBatchSize(Integer)` and `execute()`, and whose `execute()`

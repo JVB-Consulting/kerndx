@@ -3,13 +3,14 @@ title: "UTIL_ValidationRule.ValidationError"
 type: class
 pageClass: reference
 description: "Represents a single validation error or warning."
+group: "Validation"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_ValidationRule.ValidationError
 
-**Class**
+**Class** · Group: `Validation`
 
 <div class="apex-member apex-class">
 

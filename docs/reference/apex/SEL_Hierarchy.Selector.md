@@ -3,13 +3,14 @@ title: "SEL_Hierarchy.Selector"
 type: class
 pageClass: reference
 description: "Selector class that provides hierarchy operations for a specific SObject type. Created via SEL_Hierarchy.forField(parentField) - caches field metadata for efficient reuse."
+group: "Selectors"
 since: "1.0"
 category: apex
 ---
 
 # SEL_Hierarchy.Selector
 
-**Class**
+**Class** · Group: `Selectors`
 
 <div class="apex-member apex-class">
 

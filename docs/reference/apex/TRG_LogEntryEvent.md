@@ -4,13 +4,14 @@ type: trigger
 pageClass: reference
 description: "Log entry event trigger for handling log events"
 author: "Jason Van Beukering"
-date: "2020, October 2026"
+group: "Logging"
+date: "2020, November 2026"
 category: apex
 ---
 
 # TRG_LogEntryEvent
 
-**Trigger**
+**Trigger** · Group: `Logging`
 
 <div class="apex-member apex-class">
 

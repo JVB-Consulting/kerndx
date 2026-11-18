@@ -3,13 +3,14 @@ title: "UTIL_Cache.Store"
 type: class
 pageClass: reference
 description: "Interface for Platform Cache operations"
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_Cache.Store
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

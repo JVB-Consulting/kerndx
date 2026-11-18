@@ -3,13 +3,14 @@ title: "SVC_Omnistudio.Parameters"
 type: class
 pageClass: reference
 description: "A Data Transfer Object (DTO) used to wrap the original parameters provided by Omnistudio, organizing them into distinct input, output, and option maps. This global inherited sharing class is designed "
+group: "Omnistudio"
 since: "1.0"
 category: apex
 ---
 
 # SVC_Omnistudio.Parameters
 
-**Class**
+**Class** · Group: `Omnistudio`
 
 <div class="apex-member apex-class">
 

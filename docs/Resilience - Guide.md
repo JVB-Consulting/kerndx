@@ -1,136 +1,95 @@
 ---
 navOrder: 62
+navLabel: "Resilience (retries and failing systems)"
+movedAnchors: {"capability-matrix-for-analysts": "/#resilient-callouts"}
 ---
 
 # Resilience - Guide
 
-**Framework:** KernDX
-**Package Type:** Managed Package
+**Who this page is for:** developers who add retry-with-backoff and circuit-breaker protection around callouts and
+other operations that can fail, architects who design integrations that keep working when an outside service slows
+down or goes offline, and business analysts who want to know how the framework absorbs short failures and protects
+your org during an outage.
 
-> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
-> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
-> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+New to it? Try [Fast Start - Resilience](Fast%20Start%20-%20Resilience.md) first: a step-by-step walkthrough that
+covers implementation, testing, and common pitfalls. Deciding whether to use KernDX? See
+[Why KernDX](Strategic%20Guide%20-%20Overview.md).
 
-**Target Audience:**
+## Copy this first
 
-- **Developers** - Adding retry-with-backoff and circuit-breaker protection around callouts and other failure-prone operations
-- **Architects** - Designing fault-tolerant integration patterns that degrade gracefully when external services slow down or go offline
-- **Business Analysts** - Understanding how the framework absorbs transient failures and protects org resources during outages
+```apex
+public with sharing class ChargeCardAction implements kern.UTIL_CircuitBreaker.ProtectedAction
+{
+	private Id orderId;
 
----
+	public ChargeCardAction(Id orderId)
+	{
+		this.orderId = orderId;
+	}
 
-## What problem does this solve?
+	public void execute()
+	{
+		// Work that may fail, a callout for example. Throw an exception when it fails.
+	}
+}
 
-Calls to outside systems fail in ways you don't control. A payment gateway times out, a rate limit kicks in, a CRM goes down for maintenance. When that happens, naive code either gives up too soon or keeps hammering a service that is already down, wasting your org's limited callout time and CPU.
+// Usage
+kern.UTIL_CircuitBreaker.Breaker breaker = kern.UTIL_CircuitBreaker.monitor('PaymentGateway');
+try
+{
+	breaker.execute(new ChargeCardAction(orderId));
+}
+catch(kern.UTIL_CircuitBreaker.OpenException openError)
+{
+	// The circuit is open: the service keeps failing, so the action did not run. Carry on without it.
+}
+```
 
-This framework gives you two ready-made tools for handling those failures gracefully, so you don't have to write your own timing maths and failure-tracking logic.
+**What this does:** runs your action through a circuit breaker named `PaymentGateway`. When the action fails, its
+exception still reaches your code. After enough failures in a row the breaker opens: `execute()` then throws
+`OpenException` straight away and does not run the action, so your code stops waiting on a service that is down.
 
-Developers use it to make individual callouts more reliable. Architects use it to design integrations that stay healthy when a dependency slows or fails. Use it whenever your code calls a system you don't run yourself.
-
----
-
-## Mental model
-
-Think of it as the safety habits of a sensible person knocking on a door that sometimes doesn't answer. If no one comes, you wait a little longer before each knock (retry with backoff) rather than pounding away. And once you've had no answer many times in a row, you stop knocking for a while and come back later instead of standing there forever (the circuit breaker). The framework supplies the timing and the give-up logic; you still do the actual knocking.
-
----
-
-## Use this when
-
-- A callout or operation fails now and then for temporary reasons, and trying again after a short wait would usually succeed.
-- A dependency can go fully down, and you want your code to stop calling it for a cool-off period instead of waiting on every request.
-- Many users or jobs hit the same external service, so a sudden burst of retries could swamp it just as it recovers.
-- You are working outside the [Web Services framework](Web%20Services%20-%20Guide.md) and need its resilience behaviour by hand.
-
-## Don't use this when
-
-- The operation rarely fails (in-memory transforms, simple saves against your own objects). Plain Apex is simpler.
-- It is a one-off script where a single failure is acceptable and a manual re-run is fine.
-- Your callouts already go through the [Web Services framework](Web%20Services%20-%20Guide.md), which applies both patterns automatically. Use these classes directly only when you are outside that pipeline, or when you want to customise its behaviour.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Quick Navigation](#quick-navigation)
-2. [How to opt out](#how-to-opt-out)
-3. [Quick Start](#quick-start)
-4. [What does the framework give you?](#what-does-the-framework-give-you)
-5. [How does it work?](#how-does-it-work)
-    - [Two Patterns, One Goal](#two-patterns-one-goal)
-    - [How They Fit Together](#how-they-fit-together)
-6. [Retry with Backoff (UTIL_Retry)](#retry-with-backoff-util_retry)
-    - [Built-in Strategies](#built-in-strategies)
-    - [Backoff Calculation](#backoff-calculation)
-    - [Jitter](#jitter)
-    - [Configuring a Strategy](#configuring-a-strategy)
-    - [The Retry Context](#the-retry-context)
-    - [Exception Allowlists and Denylists](#exception-allowlists-and-denylists)
-    - [Custom Strategies](#custom-strategies)
-    - [What UTIL_Retry Does Not Do](#what-util_retry-does-not-do)
-7. [Circuit Breaker (UTIL_CircuitBreaker)](#circuit-breaker-util_circuitbreaker)
-    - [The Three States](#the-three-states)
-    - [State Transitions](#state-transitions)
-    - [The execute() Helpers](#the-execute-helpers)
-    - [Manual Gating](#manual-gating)
-    - [Configuring a Breaker](#configuring-a-breaker)
-    - [Inspecting State and Metrics](#inspecting-state-and-metrics)
-    - [Platform Cache and Cross-Transaction State](#platform-cache-and-cross-transaction-state)
-8. [Combining Retry and Circuit Breaker](#combining-retry-and-circuit-breaker)
-9. [Use with the Web Services Framework](#use-with-the-web-services-framework)
-    - [Configuration via ApiSetting](#configuration-via-apisetting)
-    - [Overriding the Retry Strategy](#overriding-the-retry-strategy)
-    - [Per-Call Overrides with UTIL_HttpClient](#per-call-overrides-with-util_httpclient)
-10. [Capability Matrix (for Analysts)](#capability-matrix-for-analysts)
-11. [Testing](#testing)
-    - [Testing Retry Strategies](#testing-retry-strategies)
-    - [Testing Circuit Breakers](#testing-circuit-breakers)
-12. [Anti-Patterns](#anti-patterns)
-13. [Best Practices](#best-practices)
-14. [Related Documentation](#related-documentation)
-
-</details>
+**Read next:** [Retry with a wait between tries](#retry-with-backoff-util_retry), [How the breaker decides](#state-transitions),
+[Set the failure limit](#configuring-a-breaker), [Test a breaker](#testing-circuit-breakers).
 
 ---
 
 ## Quick Navigation
 
-| I am a...     | I need to...                             | Go to...                                                                    |
-|---------------|------------------------------------------|-----------------------------------------------------------------------------|
-| **Architect** | Understand how the two patterns differ   | [How does it work?](#how-does-it-work)                                       |
-| **Architect** | Protect callouts from cascading failures | [Circuit Breaker](#circuit-breaker-util_circuitbreaker)                     |
-| **Developer** | Add retry-with-backoff to an operation   | [Retry with Backoff](#retry-with-backoff-util_retry)                        |
-| **Developer** | Wrap a callout in a circuit breaker      | [The execute() Helpers](#the-execute-helpers)                               |
-| **Developer** | Wire resilience into the API framework   | [Use with the Web Services Framework](#use-with-the-web-services-framework) |
-| **Analyst**   | Know what resilience is built in         | [Capability Matrix](#capability-matrix-for-analysts)                        |
-
----
-
-## How to opt out
-
-You are never required to use these classes. The Resilience framework is opt-in: it earns its place where calls are unreliable, and plain Apex is simpler everywhere else. The table below shows what to use in each situation, including when to skip the framework entirely.
-
-| You need                                                  | Use                                                                                                                                                                              | See                                                                                 |
-|-----------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
-| **A single callout with no failure handling**             | A plain `Http().send(request)`. No wrapper required.                                                                                                                             | —                                                                                   |
-| **Retry timing without a circuit breaker**                | `kern.UTIL_Retry` alone. It only computes backoff and the retry/stop decision.                                                                                                   | [Retry with Backoff](#retry-with-backoff-util_retry)                                |
-| **Fail-fast gating without backoff maths**                | `kern.UTIL_CircuitBreaker` alone. It gates requests and tracks state.                                                                                                            | [Circuit Breaker](#circuit-breaker-util_circuitbreaker)                             |
-| **Resilience built into your callouts automatically**     | The [Web Services framework](Web%20Services%20-%20Guide.md): `API_Outbound` applies retry for you, and the circuit breaker once a service's setting has Circuit Breaker Enabled. | [Use with the Web Services Framework](#use-with-the-web-services-framework)         |
-| **Per-call retry/circuit settings on a callout configured with short chained calls** | `kern.UTIL_HttpClient` builder methods `.withRetry()` / `.withCircuitBreaker()`.                                                                                                 | [Per-Call Overrides with UTIL_HttpClient](#per-call-overrides-with-util_httpclient) |
-| **Completely custom retry logic**                         | Implement `kern.UTIL_Retry.Strategy` yourself; the framework will use it anywhere a strategy is accepted.                                                                        | [Custom Strategies](#custom-strategies)                                             |
-
-These are utilities, not a wall. Use them where the unreliability is real, and skip them where it isn't.
+| I need to...                                                      | Go to...                                                                                  |
+|-------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| Choose the right tool for my call                                 | [How to opt out](#how-to-opt-out)                                                         |
+| Understand how retry and the circuit breaker differ               | [How does it work?](#how-does-it-work)                                                    |
+| Try a failed operation again after a wait                         | [Retry with Backoff](#retry-with-backoff-util_retry)                                      |
+| See how long each retry waits                                     | [Backoff Calculation](#backoff-calculation)                                               |
+| Spread retries out so they do not all arrive at once              | [Jitter](#jitter)                                                                         |
+| Stop retrying errors that waiting will not fix                    | [Exception Allowlists and Denylists](#exception-allowlists-and-denylists)                 |
+| Write my own retry rule, for example one that reads `Retry-After` | [Custom Strategies](#custom-strategies)                                                   |
+| Wrap a callout in a circuit breaker                               | [The execute() Helpers](#the-execute-helpers)                                             |
+| Set the failure limit and the cool-off time                       | [Configuring a Breaker](#configuring-a-breaker)                                           |
+| Understand when the breaker opens and closes again                | [State Transitions](#state-transitions)                                                   |
+| Keep breaker state from one transaction to the next               | [Platform Cache and Cross-Transaction State](#platform-cache-and-cross-transaction-state) |
+| Use retry and a circuit breaker together                          | [Combining Retry and Circuit Breaker](#combining-retry-and-circuit-breaker)               |
+| Tune retry and the breaker for an API without code                | [Configuration via ApiSetting](#configuration-via-apisetting)                             |
+| Use my own retry strategy in an `API_Outbound` class              | [Overriding the Retry Strategy](#overriding-the-retry-strategy)                           |
+| Set retry or the breaker on one `UTIL_HttpClient` call            | [Per-Call Overrides with UTIL_HttpClient](#per-call-overrides-with-util_httpclient)       |
+| Test a retry strategy or a breaker                                | [Testing](#testing)                                                                       |
+| Avoid the mistakes that quietly turn the protection off           | [Anti-Patterns](#anti-patterns)                                                           |
+| See why KernDX is worth using                                     | [Why KernDX](/)                                                                           |
 
 ---
 
 ## Quick Start
 
-You want to protect a callout (or any operation that might fail) so that, when the target service is down, your code stops trying instead of waiting on it. Wrap the operation in a circuit breaker and run it through `execute()`. That single call checks whether the request is allowed, runs your action, and records success or failure for you.
+Pick the shape that fits your call:
 
-> **Step-by-step walkthrough:** [Fast Start - Resilience](Fast%20Start%20-%20Resilience.md) covers implementation, testing, and common pitfalls.
+| Your call | What to write |
+|---|---|
+| Any operation that can fail, such as a callout | A small action class run through a circuit breaker's `execute()`: the sample below, or the one under [Copy this first](#copy-this-first). Add [`UTIL_Retry`](#retry-with-backoff-util_retry) to decide whether to try again and how long to wait |
+| A callout through an `API_Outbound` class | Usually nothing by hand: `API_Outbound` applies retry for you, and the circuit breaker once the service's setting has Circuit Breaker Enabled. See [Use with the Web Services Framework](#use-with-the-web-services-framework) |
+
+Other cases (retry timing on its own, settings for one `UTIL_HttpClient` call, your own retry logic) are in
+[How to opt out](#how-to-opt-out).
 
 ```apex
 public with sharing class ChargeCardAction implements kern.UTIL_CircuitBreaker.ProtectedAction
@@ -163,11 +122,66 @@ catch(kern.UTIL_CircuitBreaker.OpenException openError)
 }
 ```
 
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+
 > **`System.Label.Resilience_Service_Unavailable` is illustrative.** The framework does not ship this
 > Custom Label. Create your own label (any name) in your org and reference it the same way so the example
 > compiles. Pulling the message from a Custom Label keeps it translatable and overridable.
 
-For deeper coverage, continue reading the sections below.
+---
+
+## What problem does this solve?
+
+Calls to outside systems fail in ways you don't control: a payment gateway times out, a rate limit kicks in, a CRM
+goes down for maintenance. Naive code then either gives up too soon or keeps hammering a service that is already
+down, wasting your org's limited callout time and CPU.
+
+This framework gives you two ready-made tools for handling those failures gracefully, so you don't have to write your
+own timing maths and failure-tracking logic. Use it whenever your code calls a system you don't run yourself.
+
+---
+
+## Mental model
+
+Think of a sensible person knocking on a door that sometimes doesn't answer. If no one comes, they wait a little
+longer before each knock (retry with backoff) rather than pounding away.
+
+Once there has been no answer many times in a row, they stop knocking for a while and come back later instead of
+standing there forever (the circuit breaker). The framework supplies the timing and the give-up logic; you still do the
+actual knocking.
+
+---
+
+## Use this when
+
+- A callout or operation fails now and then for temporary reasons, and trying again after a short wait would usually succeed.
+- A dependency can go fully down, and you want your code to stop calling it for a cool-off period instead of waiting on every request.
+- Many users or jobs hit the same external service, so a sudden burst of retries could swamp it just as it recovers.
+- You are working outside the [Web Services framework](Web%20Services%20-%20Guide.md) and need its resilience behaviour by hand.
+
+## Don't use this when
+
+- The operation rarely fails (in-memory transforms, simple saves against your own objects). Retry and a circuit breaker add nothing there: save through `kern.DML_Builder` as usual.
+- It is a one-off script where a single failure is acceptable and a manual re-run is fine.
+- Your callouts already go through the [Web Services framework](Web%20Services%20-%20Guide.md), which applies both patterns automatically. Use these classes directly only when you are outside that pipeline, or when you want to customise its behaviour.
+
+---
+
+## How to opt out
+
+You are never required to use these classes: they earn their place where calls are unreliable. Pick the row that
+matches what you need.
+
+| You need                                                  | Use                                                                                                                                                                              | See                                                                                 |
+|-----------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------|
+| **A single callout with no failure handling**             | `kern.UTIL_HttpClient` with no `.withRetry()` or `.withCircuitBreaker()` call. The callout still goes through KernDX; it just adds no retry or breaker of its own. | —                                                                                   |
+| **Retry timing without a circuit breaker**                | `kern.UTIL_Retry` alone. It only computes backoff and the retry/stop decision.                                                                                                   | [Retry with Backoff](#retry-with-backoff-util_retry)                                |
+| **Fail-fast gating without backoff maths**                | `kern.UTIL_CircuitBreaker` alone. It gates requests and tracks state.                                                                                                            | [Circuit Breaker](#circuit-breaker-util_circuitbreaker)                             |
+| **Resilience built into your callouts automatically**     | The [Web Services framework](Web%20Services%20-%20Guide.md): `API_Outbound` applies retry for you, and the circuit breaker once a service's setting has Circuit Breaker Enabled. | [Use with the Web Services Framework](#use-with-the-web-services-framework)         |
+| **Per-call retry/circuit settings on a callout configured with short chained calls** | `kern.UTIL_HttpClient` builder methods `.withRetry()` / `.withCircuitBreaker()`.                                                                                                 | [Per-Call Overrides with UTIL_HttpClient](#per-call-overrides-with-util_httpclient) |
+| **Completely custom retry logic**                         | Implement `kern.UTIL_Retry.Strategy` yourself; the framework will use it anywhere a strategy is accepted.                                                                        | [Custom Strategies](#custom-strategies)                                             |
 
 ---
 
@@ -178,34 +192,18 @@ The two tools answer different questions:
 1. **[`UTIL_Retry`](reference/apex/UTIL_Retry.md)** decides **when** to try again and **how long** to wait between attempts. It works out an exponential or linear backoff period (the growing pause between tries), optionally with a small random jitter, and tells you when to stop.
 2. **[`UTIL_CircuitBreaker`](reference/apex/UTIL_CircuitBreaker.md)** decides **whether** to even attempt the call. After repeated failures it "opens" the circuit and rejects calls immediately, sparing your org the cost of waiting on a service that is already down. It tests for recovery again after a cool-off period.
 
-**How it works under the hood:** both classes are part of the public API your org can call, and they live in the `Resilience` group. You start each one from a static factory method, configure it with short chained calls, and your code talks only to the published interface, never the internal implementation.
+Both classes are `global`, in the `Resilience` group. You start each one from a static factory method (for example
+`kern.UTIL_Retry.exponential()`) and configure it with short chained calls.
 
-> **Managed Package Context:** These are `global` classes in a managed package. When calling them from your own org, use the `kern.` namespace prefix (for example,
-`kern.UTIL_Retry.exponential()`). The examples below show the prefix where you would type it.
-
-> **What these utilities do and don't do:** They decide timing and gating only. They do not perform the callout, query data, or hold business logic. You supply the operation, and they wrap it. In particular, `UTIL_Retry` does not sleep, schedule, or re-invoke anything by itself. It hands back a backoff period and a retry-or-stop decision, and your code acts on that.
-
-> **When NOT to use these patterns:**
-> - Operations that rarely fail (in-memory transforms, simple saves against your own objects)
-> - One-off scripts where a single failure is acceptable and a manual re-run is fine
-> - Callouts already routed through the [Web Services framework](Web%20Services%20-%20Guide.md), which applies both patterns automatically. Use these classes directly only when you are outside that pipeline, or when you want to customise its behaviour.
-
-**What you get:**
-
-- **Less code to write.** The backoff maths, overflow protection, and the three-state circuit machine are handled for you.
-- **Fail fast under outage.** An open circuit rejects calls immediately instead of burning callout time and CPU on a service that is down.
-- **Memory that survives a transaction.** Circuit state is kept in Platform Cache, so failures in one transaction protect the next.
-- **Protection against a "thundering herd".** Optional jitter spreads retries out, so many clients don't all retry at the same instant.
-- **Stacks cleanly.** Retry and circuit breaker work together, and both drop straight into the Web Services framework.
-- **Easy to test.** The timing calculations and state transitions are predictable, so you can assert on them directly.
+> **What these utilities do and don't do:** they decide timing and gating only. They do not perform the callout,
+> query data, or hold business logic: you supply the operation, and they wrap it. `UTIL_Retry` also does not sleep,
+> schedule, or re-invoke anything by itself (see [What UTIL_Retry Does Not Do](#what-util_retry-does-not-do)).
 
 ---
 
 ## How does it work?
 
 ### Two Patterns, One Goal
-
-Both tools help your code survive a failing dependency, but they answer different questions:
 
 | Question                                              | Pattern               | What it controls                                                        |
 |-------------------------------------------------------|-----------------------|-------------------------------------------------------------------------|
@@ -246,15 +244,22 @@ Both tools help your code survive a failing dependency, but they answer differen
 +--------------------------------------------------------------------------------+
 ```
 
-Read it as two layers. The circuit breaker is the outer guard: don't bother calling at all if the service is known to be down. Retry is the inner loop: the call failed, but the failure looks temporary, so wait and try once more. The Web Services framework wires both of these together for you. The rest of this guide shows how to use them directly when you need to.
+Read it as two layers:
+
+- **The circuit breaker is the outer guard:** don't bother calling at all if the service is known to be down.
+- **Retry is the inner loop:** the call failed, but the failure looks temporary, so wait and try once more.
+
+The Web Services framework wires both of these together for you; the sections below use them directly.
 
 ---
 
 ## Retry with Backoff (UTIL_Retry)
 
-You want a flaky operation to try again after it fails, but in a way that gives a struggling service room to recover instead of pounding it. That is the retry pattern, and [`UTIL_Retry`](reference/apex/UTIL_Retry.md) handles it: when an operation fails with a temporary error, wait a calculated period and try again, growing the wait after each failure.
+[`UTIL_Retry`](reference/apex/UTIL_Retry.md) lets a flaky operation try again after it fails, in a way that gives a
+struggling service room to recover instead of pounding it: when an operation fails with a temporary error, wait a
+calculated period and try again, growing the wait after each failure.
 
-To use it, you work with two interfaces and a small set of factory methods:
+You work with two interfaces and a small set of factory methods:
 
 - **`UTIL_Retry.Strategy`** decides whether to retry (`shouldRetry`) and how long to wait (`calculateBackoff`).
 - **`UTIL_Retry.Context`** carries the current attempt number, an optional last-attempt time, and optional custom data into those decisions.
@@ -320,7 +325,11 @@ The maximum backoff defaults to **300 seconds (5 minutes)** and acts as a ceilin
 
 ### Jitter
 
-Picture every user in your org hitting the same downed API at the same moment. Without jitter, they all retry on exactly the same schedule and swamp the service the instant it recovers. This is the "thundering herd" problem. Turning on jitter adds up to 25% random variation to each backoff, so the attempts spread out instead of arriving all at once:
+Turning on jitter adds up to 25% random variation to each backoff, so retries spread out instead of arriving all at
+once.
+
+Without it, every user in your org who hits the same downed API at the same moment retries on exactly the same
+schedule, and they swamp the service the instant it recovers (the "thundering herd" problem):
 
 ```apex
 kern.UTIL_Retry.Strategy strategy = kern.UTIL_Retry.exponential()
@@ -380,7 +389,7 @@ kern.UTIL_Retry.Context context = kern.UTIL_Retry.newContext(1)
 
 ### Exception Allowlists and Denylists
 
-Some failures should never be retried. An authentication or bad-input error won't fix itself by waiting, so retrying it just wastes attempts. Two factory methods wrap an existing strategy and skip the retry based on the **caught exception**, which you pass in through `Context.withCustomData(exception)`:
+Some failures should never be retried. An authentication or bad-input error won't fix itself by waiting, so retrying it just wastes attempts. Two factory methods, `UTIL_Retry.dontRetryOnException(...)` and `UTIL_Retry.retryOnlyOnException(...)`, wrap an existing strategy and skip the retry based on the **caught exception**, which you pass in through `Context.withCustomData(exception)`:
 
 **Denylist (never retry these error types):**
 
@@ -403,7 +412,7 @@ kern.UTIL_Retry.Strategy strategy = kern.UTIL_Retry.retryOnlyOnException(
 );
 ```
 
-A few matching rules, straight from the implementation, are worth knowing so the filter behaves the way you expect:
+How the filter matches:
 
 - Matching is by **exact type name**. Subclass relationships are **not** considered, so denylisting `Exception.class` does not catch its concrete subclasses. List each concrete type explicitly.
 - Inner-class exceptions from the framework match too, by their fully qualified name (for example `kern.UTIL_Exceptions.IllegalStateException`).
@@ -413,7 +422,9 @@ The wrappers pass `calculateBackoff()` and every chained setter through to the b
 
 ### Custom Strategies
 
-Sometimes the built-ins don't fit. Say you need to read a `Retry-After` header to honour a rate limit exactly. For cases like that, write your own class that implements the `Strategy` interface. Implement every method on the interface; for setters you don't need, just return `this`.
+When the built-ins don't fit, write your own class that implements the `Strategy` interface: for example, to read a
+`Retry-After` header and honour a rate limit exactly. Implement every method on the interface; for setters you don't
+need, just return `this`.
 
 ```apex
 public with sharing class RateLimitStrategy implements kern.UTIL_Retry.Strategy
@@ -464,17 +475,27 @@ public with sharing class RateLimitStrategy implements kern.UTIL_Retry.Strategy
 
 ### What UTIL_Retry Does Not Do
 
-So you know where the boundaries are:
-
 - It **does not sleep.** Apex has no production-safe way to pause and wait. `calculateBackoff()` returns a number of seconds, and your code is responsible for scheduling the next attempt: a scheduled job, a platform event, or (inside the Web Services framework) the built-in retry flow.
 - It **does not decide which errors are temporary.** It handles timing and the retry-or-stop count only. Deciding whether a given failure is worth retrying is your job, helped by the allowlist and denylist wrappers above.
 - It **does not perform the operation.** You make the call; the strategy only advises on whether to retry it.
+- It **does not limit how fast you call a service.** KernDX never spaces out your calls to stay under a service's
+  limit; a strategy only says how long to wait after a call has failed. An async chain sends no alert when it fails or
+  stalls. The Async Processing Guide says what to use instead, in
+  [Chains have no rate limits or failure alerts](Async%20Processing%20-%20Guide.md#chains-have-no-rate-limits-or-failure-alerts).
 
 ---
 
 ## Circuit Breaker (UTIL_CircuitBreaker)
 
-You want to stop your code from repeatedly calling a service that is clearly down, and to start calling it again once it recovers. That is the job of a circuit breaker: after repeated failures, the framework stops calling the failing system for a cool-off, then resumes. [`UTIL_CircuitBreaker`](reference/apex/UTIL_CircuitBreaker.md) is a "smart fuse" for external calls. It watches failures and, once they cross a threshold, blocks further calls for a cool-down period instead of letting every request wait on a service that is already down. After the cool-down it lets a few test requests through to check whether the service has recovered.
+[`UTIL_CircuitBreaker`](reference/apex/UTIL_CircuitBreaker.md) stops your code from repeatedly calling a service that
+is clearly down, and starts calling it again once it recovers: after repeated failures, the framework stops calling the
+failing system for a cool-off, then resumes.
+
+Think of it as a "smart fuse" for external calls:
+
+- It watches failures and, once they cross a threshold, blocks further calls for a cool-down period instead of letting
+  every request wait on a service that is already down.
+- After the cool-down it lets a few test requests through to check whether the service has recovered.
 
 Create one with the `monitor()` factory, passing a stable identifier (typically the service or API class name). That identifier keys the shared state, so every breaker created with the same id sees the same circuit:
 
@@ -670,7 +691,11 @@ kern.UTIL_CircuitBreaker.Metrics metrics = breaker.getMetrics();
 
 ### Platform Cache and Cross-Transaction State
 
-Circuit state is stored in **Platform Cache**, in the framework's standard `Library` partition. This is what makes the breaker genuinely useful: a transaction that pushes the circuit OPEN protects every later transaction and user, not just its own request. The cache key is the circuit identifier you pass to `monitor()`, so reuse the same identifier everywhere you protect the same service.
+Circuit state is stored in **Platform Cache**, in the framework's standard `Library` partition, so a transaction that
+pushes the circuit OPEN protects every later transaction and user, not just its own request.
+
+The cache key is the circuit identifier you pass to `monitor()`, so reuse the same identifier everywhere you protect
+the same service.
 
 The framework keeps the cache entry alive for the timeout period plus a buffer. That way the state survives long enough for the OPEN-to-HALF_OPEN transition to happen correctly when the timeout expires.
 
@@ -707,7 +732,7 @@ in the Async Processing Guide for gating chain launches on a shared circuit.
 
 ## Use with the Web Services Framework
 
-If your callouts go through the [Web Services framework](Web%20Services%20-%20Guide.md) (`API_Outbound` and `UTIL_HttpClient`), both resilience patterns are applied **for you**, so you rarely call `UTIL_Retry` or `UTIL_CircuitBreaker` directly in that path. This section shows how the framework drives them, in case you want to tune or override the defaults.
+If your callouts go through the [Web Services framework](Web%20Services%20-%20Guide.md) (`API_Outbound` and `UTIL_HttpClient`), both resilience patterns are applied **for you**, so you rarely call `UTIL_Retry` or `UTIL_CircuitBreaker` directly in that path. You tune or override the defaults in three places, one per section below.
 
 ### Configuration via ApiSetting
 
@@ -745,11 +770,16 @@ global with sharing class API_PaymentGateway extends kern.API_Outbound
 }
 ```
 
-When a call fails, the framework first decides, from where the failure happened, whether a repeat can fix it (see
-[Failures and retries](Web%20Services%20-%20Guide.md#failures-and-retries) in the Web Services Guide). For a failure it may retry, it builds a
-`UTIL_Retry.Context` from the call's retry count and, when the failure was an exception, that exception (a failure the external system answered with
-a status carries none). It asks the strategy whether to retry, and if so uses `calculateBackoff()` to schedule the next attempt through its built-in
-retry processing. You do not schedule anything yourself.
+When a call fails:
+
+1. The framework first decides, from where the failure happened, whether a repeat can fix it (see
+   [Failures and retries](Web%20Services%20-%20Guide.md#failures-and-retries) in the Web Services Guide).
+2. For a failure it may retry, it builds a `UTIL_Retry.Context` from the call's retry count and, when the failure was an
+   exception, that exception (a failure the external system answered with a status carries none).
+3. It asks the strategy whether to retry, and if so uses `calculateBackoff()` to schedule the next attempt through its
+   built-in retry processing.
+
+You do not schedule anything yourself.
 
 ### Per-Call Overrides with UTIL_HttpClient
 
@@ -770,29 +800,10 @@ HttpResponse response = kern.UTIL_HttpClient.post('PaymentGateway', '/charges')
 | `.withCircuitBreaker()`     | `CircuitBreakerEnabled__c`                                                                                        |
 | `.withCircuitBreaker(name)` | `CircuitBreakerEnabled__c`, and the call uses the breaker you name, shared by every call that gives the same name |
 
+To choose which status codes retry, use `retryOn(...)` on a one-off callout, or override
+`API_Outbound.getRetryableStatusCodes()` in an `API_Outbound` class.
+
 See the [Web Services - Guide](Web%20Services%20-%20Guide.md) for the full callout builder and lifecycle.
-
----
-
-## Capability Matrix (for Analysts)
-
-If you don't write Apex, this table is your summary: it lists what resilience the framework gives you, whether it is on by default or opt-in, and which part provides it.
-
-| Capability                                   | Built in?                 | Where it comes from                                                                                            |
-|----------------------------------------------|---------------------------|----------------------------------------------------------------------------------------------------------------|
-| Retry transient failures with backoff        | Yes                       | `UTIL_Retry` (exponential or linear)                                                                           |
-| Spread retries so they don't all hit at once | Yes (opt-in)              | `withJitter(true)` on a strategy, e.g. `UTIL_Retry.exponential().withJitter(true)`                             |
-| Never retry specific error types             | Yes                       | `UTIL_Retry.dontRetryOnException(...)`                                                                         |
-| Retry only specific error types              | Yes                       | `UTIL_Retry.retryOnlyOnException(...)`                                                                         |
-| Fail at once on a failure in your own code   | Yes (default)             | `API_Outbound`: `getRetryableExceptionTypes()` opts a type in                                                  |
-| Refuse a retry from a hook                   | Yes                       | `UTIL_Exceptions.PermanentFailureException` (or its subclass `RequestRefusedException` for a refusal in a success body) |
-| Choose which status codes retry              | Yes                       | `API_Outbound.getRetryableStatusCodes()`; `retryOn(...)` for one-off callouts                                  |
-| Fail fast when a service is down             | Yes                       | `UTIL_CircuitBreaker` (OPEN state)                                                                             |
-| Automatic recovery testing after an outage   | Yes                       | `UTIL_CircuitBreaker` (HALF_OPEN state)                                                                        |
-| State shared across transactions and users   | Yes (with Platform Cache) | `UTIL_CircuitBreaker` + `Library` cache partition                                                              |
-| Resilience applied automatically to callouts | Yes (breaker opt-in)      | Web Services framework (`API_Outbound`); the breaker needs `CircuitBreakerEnabled__c` on the service's setting |
-| Configure thresholds without code            | Yes                       | `ApiSetting__mdt` fields                                                                                       |
-| Blocking sleep between retries               | No                        | Not available on the platform; schedule the retry                                                              |
 
 ---
 
@@ -823,7 +834,12 @@ private static void shouldCalculateExponentialBackoff()
 
 ### Testing Circuit Breakers
 
-Move a breaker through its states by recording failures and successes. Set `withTimeout(0)` so the OPEN-to-HALF_OPEN transition happens immediately in the test, then read `getState()` to advance the breaker and assert on where it landed. The breaker skips its first state check after it opens, so the first `getState()` call still returns OPEN; the next call moves it to HALF_OPEN.
+Move a breaker through its states by recording failures and successes:
+
+- Set `withTimeout(0)` so the OPEN-to-HALF_OPEN transition happens immediately in the test.
+- Read `getState()` to advance the breaker and assert on where it landed.
+- The breaker skips its first state check after it opens, so the first `getState()` call still returns OPEN; the next
+  call moves it to HALF_OPEN.
 
 ```apex
 @IsTest
@@ -865,7 +881,7 @@ private static void shouldRecoverThroughHalfOpen()
 
 ## Anti-Patterns
 
-These are common mistakes (anti-patterns) that quietly defeat the framework's protection. Each row pairs the mistake with what to do instead.
+Common mistakes (anti-patterns) that quietly defeat the framework's protection, each with what to do instead:
 
 | Anti-Pattern                                            | Why it's wrong                                                           | Instead                                                                                                                                                                                                                                              |
 |---------------------------------------------------------|--------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -888,9 +904,10 @@ These are common mistakes (anti-patterns) that quietly defeat the framework's pr
 5. **Always handle `OpenException`.** Return cached data, a default, or a clear user message, and log it so outages are visible.
 6. **Configure the `Library` Platform Cache partition in production** so circuit state survives across transactions; without it, the breaker only protects a single transaction.
 7. **Let the Web Services framework do the wiring** when your calls are callouts. Configure `ApiSetting__mdt` (and override `createRetryStrategy()` when needed) rather than re-implementing the loop by hand.
-   The framework fails a failure in your own code at once by default; `getRetryableExceptionTypes()` and `getRetryableStatusCodes()` are the two
-   levers, and `UTIL_Exceptions.PermanentFailureException` (or its subclass `RequestRefusedException` for a refusal in a success body)
-   refuses a retry when thrown from `prepareRequest()`, `parseResponse()`, `onSuccess()` or `createRetryStrategy()`.
+   - The framework fails a failure in your own code at once by default.
+   - `getRetryableExceptionTypes()` (it opts an exception type in) and `getRetryableStatusCodes()` are the two levers.
+   - `UTIL_Exceptions.PermanentFailureException` (or its subclass `RequestRefusedException` for a refusal in a success
+     body) refuses a retry when thrown from `prepareRequest()`, `parseResponse()`, `onSuccess()` or `createRetryStrategy()`.
 8. **Surface user-facing copy through Custom Labels** (`System.Label.X` in Apex), never hardcoded literals, so degradation messages can be translated and overridden.
 
 ---

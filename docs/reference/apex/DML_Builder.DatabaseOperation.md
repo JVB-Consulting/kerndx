@@ -3,13 +3,14 @@ title: "DML_Builder.DatabaseOperation"
 type: class
 pageClass: reference
 description: "Enum to specify the type of DML operation for external use."
+group: "DML"
 since: "1.0"
 category: apex
 ---
 
 # DML_Builder.DatabaseOperation
 
-**Class**
+**Class** · Group: `DML`
 
 <div class="apex-member apex-class">
 

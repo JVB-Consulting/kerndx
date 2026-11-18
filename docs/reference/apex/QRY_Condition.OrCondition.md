@@ -3,13 +3,14 @@ title: "QRY_Condition.OrCondition"
 type: class
 pageClass: reference
 description: "Represents a SOQL \"OR\" condition group."
+group: "Query Infrastructure"
 since: "1.0"
 category: apex
 ---
 
 # QRY_Condition.OrCondition
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 

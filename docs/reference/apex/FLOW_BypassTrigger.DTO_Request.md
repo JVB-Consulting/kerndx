@@ -3,13 +3,14 @@ title: "FLOW_BypassTrigger.DTO_Request"
 type: class
 pageClass: reference
 description: "Request DTO for the Trigger Bypass invocable action."
+group: "Triggers"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_BypassTrigger.DTO_Request
 
-**Class**
+**Class** · Group: `Triggers`
 
 <div class="apex-member apex-class">
 

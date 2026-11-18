@@ -3,13 +3,14 @@ title: "FLOW_ExecuteValidationRules.DTO_Request"
 type: class
 pageClass: reference
 description: "Request DTO for the Execute Validation Rules invocable action. Contains the records to validate and the trigger context for rule evaluation."
+group: "Validation"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_ExecuteValidationRules.DTO_Request
 
-**Class**
+**Class** · Group: `Validation`
 
 <div class="apex-member apex-class">
 
@@ -40,8 +41,10 @@ Request DTO for the Execute Validation Rules invocable action. Contains the reco
 **Type:** [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)
 
 The previous record values before the change. Required for BEFORE_UPDATE and
-AFTER_UPDATE operations to enable change detection in validation formulas (e.g., ISCHANGED,
-PRIORVALUE functions). Leave empty for insert, delete, and undelete operations.
+AFTER_UPDATE operations, so a rule can tell whether a field changed: the rule compares the field's
+old and new values, for example newRecord.Phone against oldRecord.Phone, with a picklist field
+turned into text first, as in TEXT(newRecord.Industry) against TEXT(oldRecord.Industry) (ISCHANGED
+and PRIORVALUE are not available). Leave empty for insert, delete, and undelete operations.
 In Record-Triggered Flows, use {!$Record__Prior} to populate this field.
 
 ### records

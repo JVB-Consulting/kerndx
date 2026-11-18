@@ -5,7 +5,7 @@ pageClass: reference
 description: "Provides the default value generation logic for the SObjectBuilder. Extend THIS class to override default values or define custom required fields for SObjects."
 author: "Jason Van Beukering"
 group: "Testing"
-date: "November 2025, October 2026"
+date: "November 2025, November 2026"
 since: "1.0"
 category: apex
 ---

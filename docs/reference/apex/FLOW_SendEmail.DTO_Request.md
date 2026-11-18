@@ -3,13 +3,14 @@ title: "FLOW_SendEmail.DTO_Request"
 type: class
 pageClass: reference
 description: "Data Transfer Object (DTO) representing the input parameters for a single email request."
+group: "Email"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_SendEmail.DTO_Request
 
-**Class**
+**Class** · Group: `Email`
 
 <div class="apex-member apex-class">
 

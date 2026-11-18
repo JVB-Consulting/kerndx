@@ -3,13 +3,14 @@ title: "UTIL_SObjectDescribe.FieldsMap"
 type: class
 pageClass: reference
 description: "A subclass of NamespacedAttributeMap for handling field maps returned by DescribeSObjectResult.fields.getMap()."
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_SObjectDescribe.FieldsMap
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

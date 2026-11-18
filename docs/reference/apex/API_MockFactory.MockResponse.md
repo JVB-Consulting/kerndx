@@ -3,13 +3,14 @@ title: "API_MockFactory.MockResponse"
 type: class
 pageClass: reference
 description: "Represents a mock HTTP response with fault simulation options."
+group: "Web Services"
 since: "1.0"
 category: apex
 ---
 
 # API_MockFactory.MockResponse
 
-**Class**
+**Class** · Group: `Web Services`
 
 <div class="apex-member apex-class">
 

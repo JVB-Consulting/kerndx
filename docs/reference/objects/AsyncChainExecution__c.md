@@ -50,6 +50,7 @@ Tracks async chain executions including state, step definitions, shared context,
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [RunKey__c](#runkey__c) | Identifies the current run of this chain. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [SourceExecution__c](#sourceexecution__c) | The run this chain was restarted from. |
 | global [AsyncChainExecution__c](../objects/AsyncChainExecution__c.md) [SourceExecution__r](#sourceexecution__r) | The run this chain was restarted from. |
+| global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [StalledAt__c](#stalledat__c) | When this run last became Stalled. |
 | global [Datetime](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_datetime.htm) [StartedAt__c](#startedat__c) | When chain execution began. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Status__c](#status__c) | Current chain execution state. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [StepLog__c](#steplog__c) | Serialized JSON array logging each step's class name, configuration, execution result, and duration. |
@@ -408,6 +409,21 @@ The run this chain was restarted from. Set only on records created by the Chain 
 | Attribute | Value |
 |-----------|-------|
 | Data Type | AsyncChainExecution__c |
+| Required | false |
+
+### StalledAt__c
+
+```apex
+global Datetime StalledAt__c
+```
+
+When this run last became Stalled. The chain engine sets it when a run becomes Stalled. Code or a flow that moves a run into Stalled must set it in the same save. A save that runs with the user's permissions, such as a flow in user context, needs edit access on this field, which Kern Administrator has. It is cleared when the run starts running again, and kept when the run ends. The purge of old chain runs uses this time to delete a run that stays Stalled.
+
+**Field Attributes:**
+
+| Attribute | Value |
+|-----------|-------|
+| Data Type | Date Time |
 | Required | false |
 
 ### StartedAt__c

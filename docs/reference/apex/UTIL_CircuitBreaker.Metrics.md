@@ -3,13 +3,14 @@ title: "UTIL_CircuitBreaker.Metrics"
 type: class
 pageClass: reference
 description: "Public class containing circuit breaker metrics"
+group: "Resilience"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_CircuitBreaker.Metrics
 
-**Class**
+**Class** · Group: `Resilience`
 
 <div class="apex-member apex-class">
 

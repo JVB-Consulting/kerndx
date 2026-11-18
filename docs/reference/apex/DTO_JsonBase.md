@@ -5,7 +5,7 @@ pageClass: reference
 description: "A Data Transfer Object (DTO) base class for JSON serialization and deserialization, providing a framework for transforming JSON data into structured objects and vice versa. Inherited by other DTO clas"
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, October 2026"
+date: "February 2026, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -34,7 +34,7 @@ public class DTO_Invoice extends DTO_JsonBase
 {
     public String invoiceId;
     public String status;
-    protected override Type getObjectType()
+    public override Type getObjectType()
     {
         return DTO_Invoice.class;
     }
@@ -109,7 +109,7 @@ If neither is true, override this method in your DTO and return its type.
 ```apex
 public class DTO_Invoice extends DTO_JsonBase
 {
-    protected override Type getObjectType()
+    public override Type getObjectType()
     {
         return DTO_Invoice.class;
     }

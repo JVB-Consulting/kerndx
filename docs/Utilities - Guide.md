@@ -1,50 +1,80 @@
 ---
 navOrder: 72
+navLabel: "Utilities (helper classes)"
+searchTerms: {"invocable-methods-for-flows":["@InvocableMethod"]}
+movedAnchors: {"kerndx-vs-ootb-platform-cache-comparison": "/#cache", "salesforce-out-of-the-box-alternative": "/#cache", "pros-cons-comparison": "/#cache", "when-to-use-kerndx-util-cache": "/#cache", "when-to-use-ootb-platform-cache": "/#cache", "example-comparison": "/#cache", "metadata-introspection": "/utilities-guide#best-practices-1"}
 ---
 
 # Utilities - Guide
 
-**Framework:** KernDX
-**Package Type:** Managed Package
+**Who this page is for:** developers looking for a ready-made helper for a common Apex task (including retry, circuit
+breaker, cache and type resolution), architects checking what exists before building something new, and business
+analysts looking for data formatting, validation, feature flags and Flow actions.
 
-> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
-> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
-> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
+Deciding whether to use KernDX? See [Why KernDX](Strategic%20Guide%20-%20Overview.md).
 
-**Target Audience:**
+## Copy this first
 
-- **Developers** - Quick reference for common utility operations and advanced patterns including retry, circuit breaker, cache, and type resolution
-- **Architects** - Understanding available utility capabilities, fault tolerance patterns, and extensibility through type resolvers and feature flags
-- **Business Analysts** - Overview of utility functions for data formatting, validation, feature flag management, and Flow invocable methods
+```apex
+// Add business days (weekends are skipped)
+Date result = kern.UTIL_Date.addBusinessDays(Date.newInstance(2025, 9, 5), 3);
+// Result: 2025-09-10, the Wednesday after Friday 5 September
+
+// Check for a weekend day
+Boolean isWeekend = kern.UTIL_Date.isWeekend(Date.newInstance(2025, 9, 6));
+// Result: true, because 6 September 2025 is a Saturday
+
+// Split a list into chunks of at most 200 items
+List<List<Object>> batches = kern.UTIL_List.partition(records, 200);
+```
+
+**What this does:** counts three working days on from a Friday, checks whether a date falls on a weekend, and splits
+a list into chunks of 200 items or fewer, in the original order. Each helper is a single call that you would
+otherwise write and test yourself.
+
+**Read next:** [Dates and times](#date--time-utilities), [Lists, maps and sets](#collection-utilities),
+[Text helpers](#string-utilities), [Every helper in one table](#quick-reference-tables).
 
 ---
 
-## What problem does this solve?
+## Quick Navigation
 
-Every Salesforce project re-writes the same small helpers: trimming a string to fit a field, working out the next business day, splitting a big list into save-sized chunks, reading a value out of a JSON blob. Written by hand, each one is a place a null-pointer or off-by-one bug can hide.
+| I need to...                                                        | Go to...                                                                          |
+|---------------------------------------------------------------------|-----------------------------------------------------------------------------------|
+| See how the helpers fit together                                    | [How does it work?](#how-does-it-work)                                            |
+| Shorten, replace, split or join text, or check a record Id          | [String Utilities](#string-utilities), [ID Validation](#id-validation)            |
+| Add business days, find weekends, or convert to and from ISO 8601   | [Date & Time Utilities](#date--time-utilities)                                    |
+| Split a list into chunks, flatten a map, or sort records by a field | [Collection Utilities](#collection-utilities), [Sorting](#sorting)                |
+| Find my namespace or the org's API version                          | [Namespace & Environment](#namespace--environment)                                |
+| Throw an exception with a clear name, or read one value from JSON   | [UTIL_Exceptions](#util_exceptions), [UTIL_JsonPath](#util_jsonpath)              |
+| Check an email address, or send an email from Apex                  | [UTIL_Email](#util_email)                                                         |
+| Time a piece of my own code                                         | [Timing Your Code](#timing-your-code)                                             |
+| Filter records with a formula an admin can change                   | [UTIL_FormulaFilter](#util_formulafilter)                                         |
+| Change many records at once: copy a field, update users, purge old records | [Copy one field into another](#how-do-i-copy-one-field-into-another-on-many-records), [UTIL_BulkUpdates](#util_bulkupdates), [UTIL_PurgeRecords](#util_purgerecords) |
+| Check how close my code is to a governor limit                      | [UTIL_Limits](#util_limits)                                                       |
+| Retry a callout that failed for a moment                            | [Retry Strategy Framework](#retry-strategy-framework-util_retry)                  |
+| Stop calling a system that keeps failing (a circuit breaker)        | [Circuit Breaker Framework](#circuit-breaker-framework-util_circuitbreaker)       |
+| Work with platform cache, and know when not to use it for counters  | [Platform Cache Framework](#platform-cache-framework-util_cache), [Counters and semaphores](#dont-use-cache-for-counters-or-semaphores) |
+| Let the framework find my own classes (type resolution)             | [Type Resolution](#type-resolution-util_typeresolver)                             |
+| Make random test values or fake record Ids                          | [Random Data Generation](#random-data-generation-util_random)                     |
+| Look up records in memory by one or more fields                     | [Advanced Data Indexing](#advanced-data-indexing-map_sobject)                     |
+| Read object and field details without repeating describe calls      | [Metadata Introspection](#metadata-introspection-util_sobjectdescribe)            |
+| Manage feature flags                                                | [Feature Flag Management](#feature-flag-management-util_featureflag)              |
+| Run my own Apex from OmniScript, or log and send email from a Flow  | [Omnistudio Integration](#omnistudio-integration-svc_omnistudio), [Invocable Methods for Flows](#invocable-methods-for-flows) |
+| Verify my org is configured after installing                        | [Health Check](#health-check)                                                     |
+| See why KernDX is worth using | [Why KernDX](/) |
 
-KernDX ships ready-made, tested versions of those everyday helpers, so you call a proven method instead of hand-rolling one.
-
-Read this when you want a quick way to do a common task in Apex, or to expose a framework capability to a Flow. Developers use it as a day-to-day reference; architects use it to see what already exists before building something new; business analysts can skim what the framework offers for data formatting, validation, and Flow actions. You do not need prior KernDX knowledge to follow along.
-
-## Mental model
-
-Think of these utilities as a pre-stocked Swiss Army knife. Instead of forging a new blade every time you need to parse a date, check a cache, or split a string, you pull out a tool that has already been built and stress-tested. Each tool does one job: you pass data in, it hands a result back.
-
-## Use this when
-
-- you have a common Apex task (string, date, collection, JSON, describe) and a tested helper already exists for it
-- you want to expose a framework capability (logging, email) to a Flow without writing your own Apex action
-
-## Don't use this when
-
-- a helper already exists for the job: look here first rather than writing your own
-- it is a one-liner you will never reuse, where a plain inline call is simpler and clearer
-- the native Salesforce method already covers your case cleanly: these helpers add null-safety and convenience, not replacements for what the platform already does well
+---
 
 ## Quick Start
 
-The most commonly used utilities are string validation, date arithmetic, and collection operations. Here are the patterns you will use most often:
+The most commonly used utilities are string validation, date arithmetic, and collection operations. Pick the shape that
+fits your task:
+
+| Your task | What to write |
+|---|---|
+| One job on a value you already have (text, a date, a list) | One call by class name, with no instance first: `UTIL_String.abbreviate(value, 20)`, or the calls in the sample below |
+| A helper with settings, such as `UTIL_Cache` | A few short chained calls set it up, then the final call does the work: [Platform Cache Framework](#platform-cache-framework-util_cache) |
 
 ```apex
 // String validation
@@ -60,192 +90,45 @@ List<List<Object>> chunks = UTIL_List.partition(largeList, 200);
 accounts.sort(new RevenueComparator()); // see "Sorting" below for the Comparator<SObject> pattern
 ```
 
-For deeper coverage, continue reading the sections below.
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [What problem does this solve?](#what-problem-does-this-solve)
-2. [Mental model](#mental-model)
-3. [Use this when](#use-this-when)
-4. [Don't use this when](#dont-use-this-when)
-5. [Quick Start](#quick-start)
-6. [Quick Navigation](#quick-navigation)
-7. [Overview](#overview)
-8. [How does it work?](#how-does-it-work)
-9. [String Utilities](#string-utilities)
-    - [UTIL_String](#util_string)
-        - [ID Validation](#id-validation)
-        - [String Manipulation](#string-manipulation)
-        - [String Replacement](#string-replacement)
-        - [String Splitting & Joining](#string-splitting--joining)
-10. [Date & Time Utilities](#date--time-utilities)
-    - [UTIL_Date](#util_date)
-        - [Weekend & Weekday Detection](#weekend--weekday-detection)
-        - [Business Day Arithmetic](#business-day-arithmetic)
-        - [ISO 8601 Conversion](#iso-8601-conversion)
-        - [Date Formatting](#date-formatting)
-        - [Cron Expressions](#cron-expressions)
-11. [Character Utilities](#character-utilities)
-12. [Collection Utilities](#collection-utilities)
-    - [UTIL_List](#util_list)
-    - [UTIL_Map](#util_map)
-    - [UTIL_Set](#util_set)
-    - [Sorting](#sorting)
-13. [System & Reflection](#system--reflection)
-    - [UTIL_System](#util_system)
-        - [Type Resolution](#type-resolution)
-        - [Namespace & Environment](#namespace--environment)
-    - [UTIL_Exceptions](#util_exceptions)
-14. [Data Processing](#data-processing)
-    - [UTIL_JsonPath](#util_jsonpath)
-15. [Specialised Utilities](#specialised-utilities)
-    - [UTIL_Email](#util_email)
-        - [Email Validation](#email-validation)
-        - [Check Email Deliverability](#check-email-deliverability)
-        - [Send Email](#send-email)
-        - [Working with Attachments](#working-with-attachments)
-    - [Timing Your Code](#timing-your-code)
-    - [UTIL_FormulaFilter](#util_formulafilter)
-    - [UTIL_BulkUpdates](#util_bulkupdates)
-    - [UTIL_PurgeRecords](#util_purgerecords)
-    - [UTIL_Limits](#util_limits)
-16. [Quick Reference Tables](#quick-reference-tables)
-    - [String Validation Quick Reference](#string-validation-quick-reference)
-    - [Date Calculation Quick Reference](#date-calculation-quick-reference)
-    - [Collection Operations Quick Reference](#collection-operations-quick-reference)
-17. [Retry Strategy Framework (UTIL_Retry)](#retry-strategy-framework-util_retry)
-18. [Circuit Breaker Framework (UTIL_CircuitBreaker)](#circuit-breaker-framework-util_circuitbreaker)
-19. [Platform Cache Framework (UTIL_Cache)](#platform-cache-framework-util_cache)
-    - [Architecture](#architecture)
-    - [KernDX vs OOTB: Platform Cache Comparison](#kerndx-vs-ootb-platform-cache-comparison)
-        - [Salesforce Out-of-the-Box Alternative](#salesforce-out-of-the-box-alternative)
-        - [Pros & Cons Comparison](#pros--cons-comparison)
-        - [When to Use KernDX UTIL_Cache](#when-to-use-kerndx-util_cache)
-        - [When to Use OOTB Platform Cache](#when-to-use-ootb-platform-cache)
-        - [Example Comparison](#example-comparison)
-    - [Cache Types](#cache-types)
-        - [Session Cache (User-Scoped)](#session-cache-user-scoped)
-        - [Org Cache (Org-Wide)](#org-cache-org-wide)
-        - [Auto Cache (Intelligent Selection)](#auto-cache-intelligent-selection)
-    - [Basic Usage](#basic-usage)
-        - [Storing and Retrieving Data](#storing-and-retrieving-data)
-        - [Using Custom Partitions](#using-custom-partitions)
-        - [Removing Data](#removing-data)
-    - [TTL Management](#ttl-management)
-        - [TTL Ranges](#ttl-ranges)
-        - [Automatic TTL Enforcement](#automatic-ttl-enforcement)
-        - [Default TTL (When You Give None)](#default-ttl-when-you-give-none)
-    - [Automatic Compression](#automatic-compression)
-        - [How Compression Works](#how-compression-works)
-        - [Compression Algorithm](#compression-algorithm)
-        - [When Compression Occurs](#when-compression-occurs)
-        - [Compression Examples](#compression-examples)
-        - [Compression Benefits](#compression-benefits)
-        - [Performance Considerations](#performance-considerations)
-        - [Transparent to Developers](#transparent-to-developers)
-        - [Monitoring Compression](#monitoring-compression)
-    - [Advanced Patterns](#advanced-patterns)
-        - [Pattern 1: Cache-Aside (Lazy Loading)](#pattern-1-cache-aside-lazy-loading)
-        - [Pattern 2: Write-Through Caching](#pattern-2-write-through-caching)
-        - [Pattern 3: Cache Invalidation](#pattern-3-cache-invalidation)
-        - [Pattern 4: Bulk Cache Operations](#pattern-4-bulk-cache-operations)
-    - [Graceful Fallback Handling](#graceful-fallback-handling)
-    - [Best Practices](#best-practices)
-    - [Testing with Platform Cache](#testing-with-platform-cache)
-        - [Testing Cache Availability](#testing-cache-availability)
-        - [Testing Cache Functionality](#testing-cache-functionality)
-20. [Type Resolution (UTIL_TypeResolver)](#type-resolution-util_typeresolver)
-    - [Architecture](#architecture-1)
-    - [Basic Usage](#basic-usage-1)
-    - [Implementing a Custom Resolver](#implementing-a-custom-resolver)
-    - [Registering Custom Resolvers](#registering-custom-resolvers)
-    - [Testing the Custom Resolver](#testing-the-custom-resolver)
-21. [Random Data Generation (UTIL_Random)](#random-data-generation-util_random)
-    - [Architecture](#architecture-2)
-    - [Basic Random Generation](#basic-random-generation)
-    - [Salesforce ID Generation](#salesforce-id-generation)
-22. [Advanced Data Indexing (MAP_SObject)](#advanced-data-indexing-map_sobject)
-    - [Architecture](#architecture-3)
-    - [Internal Architecture](#internal-architecture)
-        - [Tree Structure Design](#tree-structure-design)
-        - [Performance Characteristics](#performance-characteristics)
-        - [Case-Insensitive Implementation](#case-insensitive-implementation)
-    - [Basic Indexing](#basic-indexing)
-    - [Case-Insensitive Indexing](#case-insensitive-indexing)
-    - [Reference Field Traversal](#reference-field-traversal)
-    - [Advanced Operations](#advanced-operations)
-23. [Metadata Introspection (UTIL_SObjectDescribe)](#metadata-introspection-util_sobjectdescribe)
-    - [Architecture](#architecture-4)
-    - [Basic Usage](#basic-usage-2)
-    - [Field Operations](#field-operations)
-    - [Field Set Operations](#field-set-operations)
-    - [Global Describe Operations](#global-describe-operations)
-    - [Namespace Handling](#namespace-handling)
-    - [Helper Methods](#helper-methods)
-    - [Cache Management](#cache-management)
-    - [Advanced Patterns](#advanced-patterns-1)
-    - [Best Practices](#best-practices-1)
-24. [Feature Flag Management (UTIL_FeatureFlag)](#feature-flag-management-util_featureflag)
-25. [Logging Framework (LOG_Builder)](#logging-framework-log_builder)
-    - [Quick Reference](#quick-reference)
-26. [Omnistudio Integration (SVC_Omnistudio)](#omnistudio-integration-svc_omnistudio)
-    - [Architecture](#architecture-5)
-    - [Implementing Callable Classes](#implementing-callable-classes)
-    - [Omnistudio Configuration](#omnistudio-configuration)
-27. [Invocable Methods for Flows](#invocable-methods-for-flows)
-    - [Logging from Flows (FLOW_WriteLog)](#logging-from-flows-flow_writelog)
-    - [Email from Flows (FLOW_SendEmail)](#email-from-flows-flow_sendemail)
-28. [Health Check](#health-check)
-    - [Opening the Kern app](#opening-the-kern-app)
-    - [Reading the results](#reading-the-results)
-    - [What it checks](#what-it-checks)
-    - [Built-in fixes](#built-in-fixes)
-    - [Administration Tools](#administration-tools)
-29. [Anti-Patterns](#anti-patterns)
-30. [Best Practices](#best-practices-2)
-    - [Type Resolution](#type-resolution-1)
-    - [Random Data Generation](#random-data-generation)
-    - [SObject Indexing](#sobject-indexing)
-    - [Metadata Introspection](#metadata-introspection)
-    - [Feature Flags](#feature-flags)
-    - [Logging](#logging)
-    - [Omnistudio Integration](#omnistudio-integration)
-    - [Invocable Methods](#invocable-methods)
-31. [Testing](#testing)
-32. [Related Documentation](#related-documentation)
-
-</details>
+> **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
+> On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
+> with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
 ---
 
-## Quick Navigation
+## What problem does this solve?
 
-| I am a...     | I need to...                    | Go to...                                                                    |
-|---------------|---------------------------------|-----------------------------------------------------------------------------|
-| **Admin**     | Verify my org is configured     | [Health Check](#health-check)                                               |
-| **Architect** | Understand how the utilities fit together | [How does it work?](#how-does-it-work)                            |
-| **Architect** | Design fault tolerance patterns | [Circuit Breaker Framework](#circuit-breaker-framework-util_circuitbreaker) |
-| **Developer** | Use common utilities            | [Quick Start](#quick-start)                                                 |
-| **Developer** | Implement retry strategies      | [Retry Strategy Framework](#retry-strategy-framework-util_retry)            |
-| **Developer** | Work with platform cache        | [Platform Cache Framework](#platform-cache-framework-util_cache)            |
-| **Analyst**   | Manage feature flags            | [Feature Flag Management](#feature-flag-management-util_featureflag)        |
-| **Analyst**   | Understand type resolution      | [Type Resolution](#type-resolution-util_typeresolver)                       |
+Every Salesforce project re-writes the same small helpers: trimming a string to fit a field, working out the next business day, splitting a big list into save-sized chunks, reading a value out of a JSON blob. Written by hand, each one is a place a null-pointer or off-by-one bug can hide.
 
----
+KernDX ships ready-made, tested versions of those everyday helpers, so you call a proven method instead of hand-rolling one. You do not need prior KernDX knowledge to follow along.
+
+## Mental model
+
+Think of these utilities as a pre-stocked Swiss Army knife. Instead of forging a new blade every time you need to parse a date, check a cache, or split a string, you pull out a tool that has already been built and stress-tested. Each tool does one job: you pass data in, it hands a result back.
+
+## Use this when
+
+- you have a common Apex task (string, date, collection, JSON, describe): look here first, because a tested helper may already exist for it, rather than writing your own
+- you want to expose a framework capability (logging, email) to a Flow without writing your own Apex action
+
+## Don't use this when
+
+- it is a one-liner you will never reuse, where a plain inline call is simpler and clearer
+- the native Salesforce method already covers your case cleanly: these helpers add null-safety and convenience, not replacements for what the platform already does well
 
 ## Overview
 
-The utility classes here are stateless helpers: you call them by name (for example `UTIL_String.abbreviate(...)`), they transform the data you pass in, and they hand back a result.
+**What the helpers do, and what they leave alone:**
 
-> **Responsibilities:** The basic helpers (such as `UTIL_String`, `UTIL_Date` and `UTIL_List`) are stateless. They perform transformations,
-> validations, and calculations on data passed to them. They do not perform DML, query data, or manage state. A few utilities do more:
-> `UTIL_BulkUpdates` and `UTIL_PurgeRecords` change records, `UTIL_Email` sends email, and `UTIL_Cache` keeps values in the platform cache.
-> If a utility of your own grows beyond pure transformation, it likely belongs in a service class or framework component.
+- The basic helpers (such as `UTIL_String`, `UTIL_Date` and `UTIL_List`) are stateless. They perform transformations,
+  validations, and calculations on the data you pass in, and hand back a result. They do not perform DML, query data, or
+  manage state.
+- A few utilities do more: `UTIL_BulkUpdates` and `UTIL_PurgeRecords` change records, `UTIL_Email` sends email, and
+  `UTIL_Cache` keeps values in the platform cache.
+- If a utility of your own grows beyond pure transformation, it likely belongs in a service class or framework component.
 
-**What's Covered:**
+**What's Covered:** the `UTIL_*` classes plus the `FLOW_*` invocable classes, which expose framework capabilities to
+declarative automation:
 
 - String operations and validation
 - Date and time utilities
@@ -253,6 +136,7 @@ The utility classes here are stateless helpers: you call them by name (for examp
 - Collection utilities (List, Map, Set)
 - System utilities and type resolution
 - JSON path navigation
+- Platform cache, random data, and SObject indexing
 - Performance timing
 - And more...
 
@@ -263,21 +147,18 @@ The utility classes here are stateless helpers: you call them by name (for examp
 - `UTIL_Retry` / `UTIL_CircuitBreaker` (resilience) - See [Resilience - Guide](Resilience%20-%20Guide.md)
 - `UTIL_FeatureFlag` (feature flags) - See [Feature Flags - Guide](Feature%20Flags%20-%20Guide.md)
 
-> **Utilities Scope:** `UTIL_*` classes plus `FLOW_*` invocable classes, covering string, date, collection, system, type resolution,
-> cache, random data, and SObject indexing. The Flow invocables expose framework capabilities to declarative automation. Resilience
-> (`UTIL_Retry` / `UTIL_CircuitBreaker`) and feature flags (`UTIL_FeatureFlag`) have their own dedicated guides.
-
 ---
 
 ## How does it work?
 
-To make the right ones easy to find, the utilities split into two groups by how much they do for you.
+The utilities split into two groups by how much they do for you:
 
-The first group is the everyday helpers: simple, do-one-thing methods you call and forget. These are the **Basic Utilities** for strings, dates, collections, and the like: `UTIL_String`, `UTIL_Date`, `UTIL_List`, `UTIL_Map`, `UTIL_Set` (internal), `UTIL_System`, `UTIL_Exceptions`, `UTIL_JsonPath`, `UTIL_Email`, `UTIL_FormulaFilter`, `UTIL_BulkUpdates`, and `UTIL_PurgeRecords`.
+| Group | What they do | Classes |
+|---|---|---|
+| **Basic Utilities** | Everyday helpers for strings, dates, collections and the like: simple, do-one-thing methods you call and forget | `UTIL_String`, `UTIL_Date`, `UTIL_List`, `UTIL_Map`, `UTIL_Set` (internal), `UTIL_System`, `UTIL_Exceptions`, `UTIL_JsonPath`, `UTIL_Email`, `UTIL_FormulaFilter`, `UTIL_BulkUpdates`, `UTIL_PurgeRecords` |
+| **Advanced Utilities** | Do more behind the scenes; some remember state between calls or are driven by configuration records | `UTIL_Retry` (retry strategies), `UTIL_CircuitBreaker` (fault tolerance), `UTIL_Cache` (platform cache), `UTIL_TypeResolver` (dynamic type resolution), `UTIL_Random` (random data generation), `MAP_SObject` (in-memory indexing), `UTIL_SObjectDescribe` (metadata introspection), `UTIL_FeatureFlag` (feature flags), `LOG_Builder` (logging), `SVC_Omnistudio` (Omnistudio integration), and Flow invocable methods |
 
-The second group does more behind the scenes, and some of these remember state between calls or are driven by configuration records. These are the **Advanced Utilities**: `UTIL_Retry` (retry strategies), `UTIL_CircuitBreaker` (fault tolerance), `UTIL_Cache` (platform cache), `UTIL_TypeResolver` (dynamic type resolution), `UTIL_Random` (random data generation), `MAP_SObject` (in-memory indexing), `UTIL_SObjectDescribe` (metadata introspection), `UTIL_FeatureFlag` (feature flags), `LOG_Builder` (logging), `SVC_Omnistudio` (Omnistudio integration), and Flow invocable methods.
-
-You call most of these directly by class name, without creating an instance first (for example `UTIL_String.abbreviate(value, 20)`). The exceptions are the configure-then-run helpers like `UTIL_Cache`, where you chain a few short calls to set things up before the final call does the work.
+How you call them is under [Quick Start](#quick-start).
 
 ---
 
@@ -683,9 +564,19 @@ UTIL_Email.sendEmail(
 
 To know how long a piece of code took, so you can spot what's slow, use the built-in timing. The framework's own timers are internal, so you don't create them yourself.
 
-You get most timing for free: setting `TriggerSetting__mdt.EnablePerformanceLogging__c` times trigger actions, `ApiSetting__mdt` times API calls, and `UTIL_AsyncChain.ChainContext` carries timing through chain steps.
+You get most timing for free:
 
-To time a piece of your own code (a custom batch or callout, say), measure it and log the duration as context with `LOG_Builder`; it is kept as context data on the entry, since the duration column the framework's own timers fill is theirs alone. The entry carries the same tracking ID that follows the whole user action through triggers, queries, callouts, and jobs (the correlation ID), so you can see the timing alongside everything else that ran. `LOG_Builder.scope()` is not a timer: it batches the log entries emitted inside it, as the [Logging Developer Guide](Logging%20-%20Guide.md#log-buffering) explains.
+- Trigger actions are timed for you. A slow run is logged when `LogSetting__c.EnableTriggerPerformanceLogging__c` is on,
+  or when a `PerformanceThresholdMs__c` is set on the trigger setting or the action (see
+  [Performance Logging](Triggers%20-%20Guide.md#performance-logging)).
+- `ApiSetting__mdt` times API calls.
+- `UTIL_AsyncChain.ChainContext` carries timing through chain steps.
+
+To time a piece of your own code (a custom batch or callout, say), measure it and log the duration as context with `LOG_Builder`, as in the sample below:
+
+- The duration is kept as context data on the entry, since the duration column the framework's own timers fill is theirs alone.
+- The entry carries the same tracking ID that follows the whole user action through triggers, queries, callouts, and jobs (the correlation ID), so you can see the timing alongside everything else that ran.
+- `LOG_Builder.scope()` is not a timer: it batches the log entries emitted inside it, as the [Logging Developer Guide](Logging%20-%20Guide.md#log-buffering) explains.
 
 ```apex
 Long startedAt = System.currentTimeMillis();
@@ -695,14 +586,16 @@ kern.LOG_Builder.build().info('Reconciliation finished').withContext('durationMs
 
 ### [`UTIL_FormulaFilter`](reference/apex/UTIL_FormulaFilter.md)
 
-To keep "which records should this run for?" as a formula (the kind an admin can read and change) rather than hard-coding the condition in Apex, use [`UTIL_FormulaFilter`](reference/apex/UTIL_FormulaFilter.md). It takes a boolean formula like `Name = "Acme" && Industry = "Technology"` and returns just the records that match it. It is built on Salesforce's `FormulaEval` engine and is handy for filtering the records in a trigger.
+[`UTIL_FormulaFilter`](reference/apex/UTIL_FormulaFilter.md) keeps "which records should this run for?" as a formula (the kind an admin can read and change) rather than a condition hard-coded in Apex.
+
+It takes a boolean formula like `newRecord.Name = "Acme" && TEXT(newRecord.Industry) = "Technology"` and returns just the records that match it. It is built on Salesforce's `FormulaEval` engine and is handy for filtering the records in a trigger.
 
 ```apex
 // Create a formula filter with a process name, context class, and formula expression
 UTIL_FormulaFilter formulaFilter = new UTIL_FormulaFilter(
 	'AccountFilter',
 	'UTIL_FormulaContext.AccountContext',
-	'Name = "Acme" && Industry = "Technology"'
+	'newRecord.Name = "Acme" && TEXT(newRecord.Industry) = "Technology"'
 );
 
 // Filter records — returns DTO_FilterResults with matched old/new record lists
@@ -736,6 +629,53 @@ UTIL_BulkUpdates.updateOwner('Account', 'Old Profile', 'newowner@example.com');
 UTIL_BulkUpdates.deactivateUsers(new Set<String>{'Standard User'}, 90);
 ```
 
+#### How do I copy one field into another on many records?
+
+Use `copyField`. Each matching row gets the value of its own source field, in a background job, as with `updateField`:
+
+```apex
+// Copy Phone into MobilePhone on every Contact that has a Phone and no MobilePhone, 200 rows at a time
+QRY_Condition.Evaluable condition = new QRY_Condition.AndCondition()
+		.add(new QRY_Condition.FieldCondition('MobilePhone', QRY_Condition.Operator.EQUALS, null))
+		.add(new QRY_Condition.FieldCondition('Phone', QRY_Condition.Operator.NOT_EQUALS, null));
+UTIL_BulkUpdates.copyField('Contact', 'Phone', 'MobilePhone', condition, 200, false);
+```
+
+The parameters are the object, the field to copy from, the field to copy into, the search conditions (or `null` for every
+record), the rows per batch, and whether one failed row fails the rows read with it (`isAllOrNothing`).
+
+**What does it refuse before the job starts?** It throws `IllegalArgumentException`, and starts no job, when:
+
+| You ask it to copy | Why it refuses |
+|---|---|
+| A field the object does not have, as the source or the target | There is nothing to read or nothing to write. |
+| A field into itself | The source and the target are the same field, so the copy would change nothing. |
+| A decimal number (number with decimals, currency, percent) into a whole-number field | Salesforce will not put a decimal value into a whole-number field. That error fails every row in the chunk, not only one row, so it is refused up front. |
+| Any other pair of types that do not match | Text and lookup fields take text or a record Id. A decimal number field takes any number. A date, a date and time, or a checkbox field takes only its own type. |
+| A target field the user who calls `copyField` cannot change | The user may not change it, so with the default settings Salesforce would refuse to save every row. This covers a formula field, a roll-up summary field, an auto number field, a field Salesforce sets itself (for example `CreatedDate`), and a field the user may only read. |
+| A source field the user who calls `copyField` cannot read | The copy would put values the user may not see into a field the user can see. |
+
+**What fails only one row?** Field lengths are not compared, so you can copy a longer text field into a shorter one. A value
+too long for the target fails its own row when the row is saved. So does a text value copied into a lookup field when the
+text is not a valid record Id.
+
+**What happens to the other rows when a row fails?**
+
+- With `isAllOrNothing` set to `false`, only the failed row is not saved.
+- With `isAllOrNothing` set to `true`, the failed row fails every row read with it, in the same chunk. A run that the platform
+  runs as a Batch job then goes on with its other chunks. A run chained as queued jobs, one after another, stops at the failing
+  chunk.
+
+**Whose access does it use?**
+
+- The job runs as the user who calls `copyField`, with that user's object, field and sharing access, unless your org has
+  turned that check off in the package's feature settings.
+- Two field checks always use the user's own access, whatever the feature settings say: the user must be able to read
+  the source field and change the target field. If either check fails, `copyField` refuses before the job starts (see
+  the table above).
+- A row the user cannot edit is not changed, and the job still ends normally. Check that every row was reached before you
+  rely on the copy.
+
 ### [`UTIL_PurgeRecords`](reference/apex/UTIL_PurgeRecords.md)
 
 When records should not pile up forever (old log entries, expired temporary data), [`UTIL_PurgeRecords`](reference/apex/UTIL_PurgeRecords.md) deletes them in batches. You can clear every record of a type, or keep only those newer than a set number of days.
@@ -756,7 +696,9 @@ UTIL_PurgeRecords.deleteOlderThanNDays('YourObject__c', 'YourDateField__c', 365)
 
 ### [`UTIL_Limits`](reference/apex/UTIL_Limits.md)
 
-Salesforce caps how much each transaction can do (queries, callouts, CPU time, and so on); these are the governor limits. Before doing something expensive, you often want to ask "how much of this budget have I used, and am I close to the cap?" so you can defer work to a background job instead of hitting a hard error. [`UTIL_Limits`](reference/apex/UTIL_Limits.md) answers that. It gives a named method for each limit (so your IDE can suggest them as you type) and lets you check what's left, what percentage is used, or whether you're past a threshold you set.
+[`UTIL_Limits`](reference/apex/UTIL_Limits.md) tells you how much of a governor limit your transaction has used, so you can defer work to a background job instead of hitting a hard error. (Governor limits are the caps Salesforce puts on how much each transaction can do: queries, callouts, CPU time, and so on.)
+
+It gives a named method for each limit (so your IDE can suggest them as you type) and lets you check what's left, what percentage is used, or whether you're past a threshold you set.
 
 ```apex
 // Check if callouts are exhausted
@@ -826,13 +768,19 @@ String debugLimits = UTIL_Limits.toDebugString();
 
 ## Retry Strategy Framework (UTIL_Retry)
 
-When a callout fails because of a temporary blip, retrying it a moment later often succeeds. `UTIL_Retry` does that automatically: it re-attempts the work, with a growing wait between tries, and lets you control which errors are worth retrying. The full treatment (the different wait patterns, deciding which exceptions to retry, and combining retry with the circuit breaker) lives in its own guide: **[Resilience - Guide](Resilience%20-%20Guide.md)**. For a hands-on introduction, start with **[Fast Start - Resilience](Fast%20Start%20-%20Resilience.md)**.
+`UTIL_Retry` re-attempts work that failed because of a temporary blip, such as a callout, with a growing wait between tries, and lets you control which errors are worth retrying. A retry a moment later often succeeds.
+
+- **Full treatment:** **[Resilience - Guide](Resilience%20-%20Guide.md)**: the different wait patterns, deciding which exceptions to retry, and combining retry with the circuit breaker.
+- **Hands-on introduction:** **[Fast Start - Resilience](Fast%20Start%20-%20Resilience.md)**.
 
 ---
 
 ## Circuit Breaker Framework (UTIL_CircuitBreaker)
 
-If an external system keeps failing, hammering it with more calls just wastes time and makes things worse. A circuit breaker stops that: after repeated failures the framework stops calling the failing system for a short cool-off, then tries again to see if it has recovered. `UTIL_CircuitBreaker` implements this. Its full treatment (the open/closed states and how they change, the `execute()` helpers, configuration, metrics, and how it remembers state between transactions) lives in its own guide: **[Resilience - Guide](Resilience%20-%20Guide.md)**, which also shows how it pairs with retry. For a hands-on introduction, start with **[Fast Start - Resilience](Fast%20Start%20-%20Resilience.md)**.
+`UTIL_CircuitBreaker` implements a circuit breaker: after repeated failures the framework stops calling the failing system for a short cool-off, then tries again to see if it has recovered. If an external system keeps failing, hammering it with more calls just wastes time and makes things worse.
+
+- **Full treatment:** **[Resilience - Guide](Resilience%20-%20Guide.md)**: the open/closed states and how they change, the `execute()` helpers, configuration, metrics, how it remembers state between transactions, and how it pairs with retry.
+- **Hands-on introduction:** **[Fast Start - Resilience](Fast%20Start%20-%20Resilience.md)**.
 
 ---
 
@@ -840,9 +788,11 @@ If an external system keeps failing, hammering it with more calls just wastes ti
 
 ### Architecture
 
-To keep frequently-read data (configuration, picklist values, a computed result) in fast memory so you don't re-query or re-compute it on every request, use a cache. Salesforce provides Platform Cache for this, but using it directly means handling missing partitions, size limits, and time-to-live rules yourself. ("Time to live", or TTL, is how long an entry stays in the cache before it expires.)
+[`UTIL_Cache`](reference/apex/UTIL_Cache.md) keeps frequently-read data (configuration, picklist values, a computed result) in fast memory, so you don't re-query or re-compute it on every request.
 
-[`UTIL_Cache`](reference/apex/UTIL_Cache.md) wraps Platform Cache and handles those details for you: it compresses large entries automatically, falls back gracefully when the cache is unavailable, enforces valid TTLs, and returns a clear result instead of throwing.
+It wraps Salesforce's Platform Cache and handles the details you would otherwise handle yourself: missing partitions, size limits, and time-to-live rules. ("Time to live", or TTL, is how long an entry stays in the cache before it expires.)
+
+It compresses large entries automatically, falls back gracefully when the cache is unavailable, enforces valid TTLs, and returns a clear result instead of throwing. Platform Cache capacity must still be allocated to the partition: see the Org Cache and Session Cache rows of the [Health Check](#what-it-checks).
 
 **Key Components:**
 
@@ -852,116 +802,29 @@ To keep frequently-read data (configuration, picklist values, a computed result)
 4. **Automatic Compression** - ZIP compression for payloads >4KB (80-90% space savings)
 5. **Cache Type Abstraction** - Session, Org, Auto (durable Session→Org dispatch), and In-Transaction (per-request in-memory tier via the `inTransaction()` factory or the opt-in
    graceful `autoWithTransactionFallback()` composite)
-6. **TTL Enforcement** - Automatic validation of minimum/maximum cache lifetimes
+6. **TTL Enforcement** - Automatic validation of minimum/maximum cache lifetimes (300s minimum, 28,800s/172,800s maximum)
 7. **Graceful Fallback** - Continues operation even when cache unavailable
 8. **Partition Management** - Automatic partition detection and configuration
 9. **Bulk Operations** - Efficient batch put/get for multiple keys
 
-**Core Capabilities:**
+**Where each kind of data goes:** Session cache holds user-specific data, Org cache holds data shared across users, and
+circuit breakers use the Org cache to keep their state (see [Cache Types](#cache-types)).
 
-- **Transparent Compression** - Large payloads automatically compressed/decompressed using ZIP
-- **Automatic Platform Cache Setup** - Detects and uses available partitions
-- **TTL Range Enforcement** - Validates 300s minimum, 28,800s/172,800s maximum
-- **Cache Availability Detection** - Gracefully handles missing/full partitions
-- **User-Scoped Caching** - Session cache for user-specific data
-- **Org-Wide Caching** - Org cache for shared data across users
-- **Circuit Breaker Integration** - Used by circuit breakers for state persistence
+**What the store handles for you:**
 
----
+| Call or behaviour | What it does |
+|---|---|
+| `withUserScope(true)` | Makes keys user-specific, so you do not prefix each key with the user's Id yourself |
+| `isCacheAvailable()` | Checks that the partition can be used before you read or write |
+| `getLastOperationResult()` | Returns the detailed status of the last call, for example when a `put` returns `false` |
+| `putAll()` and `getAll()` | Write or read many keys in one call |
+| A TTL under 300 seconds | Accepted: the platform minimum is 300s, so the store tracks the shorter validity itself ([Automatic TTL Enforcement](#automatic-ttl-enforcement)) |
+| Key safety | A key longer than 50 characters, or with anything other than letters and digits, is replaced by its hash before it reaches the platform cache, so long keys and special characters are safe |
+| Partition | Uses the package's own partition (`Library`, shown in Setup as LibraryCache) unless `withPartition()` names another ([Using Custom Partitions](#using-custom-partitions)) |
+| Failures | A failed call does not throw: a write returns `false`, a single read returns `null`, and `getAll()` returns an empty or partial map ([Graceful Fallback Handling](#graceful-fallback-handling)) |
 
-### KernDX vs OOTB: Platform Cache Comparison
-
-#### Salesforce Out-of-the-Box Alternative
-
-Salesforce provides **Platform Cache** with direct API access:
-
-1. **Cache.Session** - User session-scoped cache
-2. **Cache.Org** - Org-wide cache
-3. **Cache.SessionPartition / Cache.OrgPartition** - Partition-based access
-
-#### Pros & Cons Comparison
-
-The short version: `UTIL_Cache` does the bookkeeping (compression, fallback, TTL validation, key safety) so you do not, while the raw OOTB API gives you direct, wrapper-free access and full control. The full row-by-row breakdown is below.
-
-<details>
-<summary>Full feature comparison</summary>
-
-| Feature                      | KernDX [`UTIL_Cache`](reference/apex/UTIL_Cache.md)                       | Salesforce OOTB Cache API                            |
-|------------------------------|---------------------------------------------------------------------------|------------------------------------------------------|
-| **Automatic Compression**    | ✅ Auto-compresses payloads >4KB (ZIP), saves 80-90% cache space           | ❌ No compression, full payload cached                |
-| **Automatic Fallback**       | ✅ AUTO mode with Session→Org fallback                                     | ❌ Must manually implement fallback logic             |
-| **TTL Validation**           | ✅ Enforces min/max TTL ranges (300s-28800s/172800s)                       | ⚠️ Accepts invalid TTLs but may silently fail        |
-| **Sub-300s TTL Support**     | ✅ Wrapper tracks validity for TTLs <300s                                  | ❌ Platform minimum is 300s                           |
-| **Availability Detection**   | ✅ `isCacheAvailable()` checks before operations                           | ❌ Must manually check partition existence            |
-| **Graceful Degradation**     | ✅ Returns false on failure, doesn't throw exceptions                      | ⚠️ Throws exceptions on invalid partition/full cache |
-| **Error Reporting**          | ✅ `getLastOperationResult()` with detailed status                         | ❌ No built-in error reporting                        |
-| **User Scoping**             | ✅ `withUserScope(true)` for user-specific keys                            | ❌ Must manually prefix keys with userId              |
-| **Bulk Operations**          | ✅ `putAll()` and `getAll()` for batch operations                          | ❌ Must loop manually for multiple keys               |
-| **Partition Auto-Detection** | ✅ Automatically finds default partition                                   | ❌ Must hardcode partition names                      |
-| **Key Safety**               | ✅ Auto-sanitises keys (hashes long keys, handles special chars)           | ⚠️ Manual key sanitisation required                  |
-| **Usage Complexity**         | ✅ Same simple put/get API as OOTB                                         | ✅ Simple put/get API                                 |
-| **Setup**                    | ⚠️ Requires Platform Cache partition creation                             | ⚠️ Requires Platform Cache partition creation        |
-| **Performance**              | ⚠️ Overhead from compression + validation (CPU for cache space trade-off) | ✅ Direct cache access, no wrapper layer in between   |
-| **Flexibility**              | ⚠️ Opinionated patterns (e.g., forced compression >4KB)                   | ✅ Full control over cache operations                 |
-
-</details>
-
-#### When to Use KernDX UTIL_Cache
-
-- ✅ Need automatic fallback between Session and Org cache
-- ✅ Want graceful error handling without exceptions
-- ✅ Require user-scoped cache keys without manual prefixing
-- ✅ Need TTL validation to prevent silent failures
-- ✅ Want detailed operation result tracking
-- ✅ Building resilient systems that work even when cache is unavailable
-- ✅ Need bulk cache operations for multiple keys
-
-#### When to Use OOTB Platform Cache
-
-- ✅ Maximum performance is critical (no wrapper overhead)
-- ✅ Simple caching needs with known partition names
-- ✅ You want complete control over cache behaviour
-- ✅ Building low-level cache utilities or frameworks
-- ✅ You don't need fallback or error handling logic
-
-#### Example Comparison
-
-**OOTB Platform Cache (Manual Error Handling):**
-
-```apex
-// Must manually handle partition errors and TTL validation
-try
-{
-	Cache.OrgPartition partition = Cache.Org.getPartition('local.MyPartition');
-
-	// No TTL validation - could silently fail
-	partition.put('myKey', myValue, 100); // Invalid TTL < 300s!
-
-	Object value = partition.get('myKey');
-}
-catch(Cache.Org.OrgCacheException e)
-{
-	// Manual error handling required
-	LOG_Builder.build().error('Cache error: ' + e.getMessage()).emitAt('MyClass.myMethod');
-}
-```
-
-**KernDX Platform Cache (Automatic Handling):**
-
-```apex
-// Automatic partition detection, sub-300s TTL support, graceful errors
-UTIL_Cache.Store cache = UTIL_Cache.org();
-
-// Sub-300s TTL supported via wrapper validity tracking
-Boolean success = cache.put('myKey', myValue, 100); // Returns true, valid for 100s
-
-if(!success)
-{
-	// Check detailed error status (e.g., partition unavailable, entry too large)
-	UTIL_Cache.OperationResult result = cache.getLastOperationResult();
-	LOG_Builder.build().warn('Cache failed: ' + result.status).emitAt('MyClass.myMethod');
-}
-```
+The trade-off: compression and validation cost some CPU time in exchange for cache space, and every payload over 4KB is put
+through compression ([Performance Considerations](#performance-considerations)).
 
 ---
 
@@ -1006,9 +869,9 @@ Map<String, String> endpoints = (Map<String, String>)cache.get('APIEndpoints');
 #### Auto Cache (Intelligent Selection)
 
 - **Behavior:** The framework picks Session or Org cache for you, based on what's available. `auto()` uses only durable cache: if neither Session nor Org cache is allocated, the
-  operation reports `Status.CACHE_UNAVAILABLE` rather than quietly storing the value somewhere weaker. If you'd rather it kept working with a weaker in-memory store when Platform
-  Cache is missing, use the opt-in `autoWithTransactionFallback()` factory instead. On that fallback path it reports `cacheTypeUsed = Scope.IN_TRANSACTION`, so your code can tell the
-  cache was the degraded kind.
+  operation reports `Status.CACHE_UNAVAILABLE` rather than quietly storing the value somewhere weaker.
+- **Weaker fallback, opt-in:** If you'd rather it kept working with a weaker in-memory store when Platform Cache is missing, use the opt-in `autoWithTransactionFallback()` factory
+  instead. On that fallback path it reports `cacheTypeUsed = Scope.IN_TRANSACTION`, so your code can tell the cache was the degraded kind.
 - **Fallback:** If primary cache unavailable, tries secondary cache type
 - **Use Case:** When you don't care about scope, you just want caching. Choose `auto()` when the data must be durable (security keys, distributed counters). Choose
   `autoWithTransactionFallback()` when you're caching to save recomputation and would rather it still work, with a weaker store, than fail when Platform Cache is missing.
@@ -1230,7 +1093,7 @@ With automatic compression (90% reduction):
 
 - 10 MB cache partition
 - 50 KB per compressed object graph
-- **Capacity: ~200 cached objects** (10x improvement!)
+- **Capacity: ~200 cached objects** (10x improvement)
 
 **Real-World Example:**
 
@@ -1261,14 +1124,14 @@ cache.put('AllPicklists', allPicklists, 7200);
 
 **Trade-off Analysis:**
 
-✅ **When Compression is Beneficial:**
+**When Compression is Beneficial:**
 
 - Caching large object graphs (lists of SObjects, complex DTOs)
 - Cache partition space is limited
 - Data is read frequently (compression cost amortized over many reads)
 - Cache hit ratio is high (decompression overhead justified)
 
-⚠️ **When to Avoid Large Payloads:**
+**When to Avoid Large Payloads:**
 
 - Time-critical operations requiring sub-10ms cache access
 - Frequently updated data (compression cost on every write)
@@ -1483,6 +1346,23 @@ if(!success)
 Object value = cache.get('Key'); // Returns null if cache unavailable
 ```
 
+To find out why a write failed, read the last operation's result:
+
+```apex
+// Automatic partition detection, sub-300s TTL support, graceful errors
+UTIL_Cache.Store cache = UTIL_Cache.org();
+
+// Sub-300s TTL supported via wrapper validity tracking
+Boolean success = cache.put('myKey', myValue, 100); // Returns true, valid for 100s
+
+if(!success)
+{
+	// Check detailed error status (e.g., partition unavailable, entry too large)
+	UTIL_Cache.OperationResult result = cache.getLastOperationResult();
+	LOG_Builder.build().warn('Cache failed: ' + result.status).emitAt('MyClass.myMethod');
+}
+```
+
 ---
 
 ### Best Practices
@@ -1637,8 +1517,9 @@ public static Integer atomicIncrement(String counterName)
 The `forUpdate()` clause holds a row-level lock until the enclosing transaction commits,
 so concurrent transactions queue rather than overwrite. Use this pattern for rate
 counters, deduplication caches, distributed semaphores, and any other case where
-"the value I write must be based on the current value, atomically". The seed-the-row
-prerequisite avoids the "first call has no row to lock" race; if you can't seed at
+"the value I write must be based on the current value, atomically".
+
+The seed-the-row prerequisite avoids the "first call has no row to lock" race. If you can't seed at
 admin time, an alternative is to upsert against a custom External ID field (so concurrent
 inserts are deduplicated by the platform) and then re-query with `forUpdate()` for the
 increment, at the cost of a second round-trip on the cold path.
@@ -1707,7 +1588,9 @@ private static void shouldCacheAndRetrieveData()
 
 ### Architecture
 
-Sometimes your code only knows a class by its name as a string (perhaps the name came from a configuration record) and needs to find and create that class at runtime. In a managed package that's fiddly, because namespaces and nested classes change how the name has to be written. [`UTIL_TypeResolver`](reference/apex/UTIL_TypeResolver.md) handles that lookup for you, so the framework can find the Apex classes in your namespace once you tell it where to look.
+[`UTIL_TypeResolver`](reference/apex/UTIL_TypeResolver.md) finds and creates a class at runtime when your code only knows its name as a string (perhaps the name came from a configuration record). Once you tell it where to look, the framework can find the Apex classes in your namespace.
+
+In a managed package that lookup is fiddly, because namespaces and nested classes change how the name has to be written.
 
 **Key Components:**
 
@@ -1923,7 +1806,9 @@ Account testAccount = new Account(
 
 ### Architecture
 
-When you have a list of records in memory and keep filtering it by the same fields (say, "give me all the Technology accounts in the USA"), scanning the whole list each time is slow. [`MAP_SObject`](reference/apex/MAP_SObject.md) builds an index over one or more fields up front, so each later lookup is fast no matter how many records you loaded. Think of it as the in-memory equivalent of a database index.
+[`MAP_SObject`](reference/apex/MAP_SObject.md) builds an index over one or more fields of a list of records in memory, so each later lookup is fast no matter how many records you loaded. Think of it as the in-memory equivalent of a database index.
+
+Use it when you keep filtering the same list by the same fields (say, "give me all the Technology accounts in the USA"), where scanning the whole list each time is slow.
 
 **Key Features:**
 
@@ -1938,7 +1823,7 @@ When you have a list of records in memory and keep filtering it by the same fiel
 
 ### Internal Architecture
 
-This section is a deep dive into how the index works internally; you can skip it if you only want to use `MAP_SObject`. Under the hood it's a tree: each indexed field becomes one level, and looking up a value at any one level is a single, constant-time map read (O(1) per level).
+You can skip this if you only want to use `MAP_SObject`. Under the hood it's a tree: each indexed field becomes one level, and looking up a value at any one level is a single, constant-time map read (O(1) per level).
 
 #### Tree Structure Design
 
@@ -2241,7 +2126,9 @@ List<SObject> removedAccounts = index.remove(removeSpec);
 
 ### Architecture
 
-When your code asks Salesforce about an object's structure (its fields, labels, types, and relationships), that's a "describe" call, and Salesforce limits how many you can make per transaction. Call them repeatedly and you both slow the code down and risk hitting that limit. [`UTIL_SObjectDescribe`](reference/apex/UTIL_SObjectDescribe.md) wraps those describe calls and caches the answers, so repeated lookups are cheap. It also smooths over the awkward parts: managed-package namespace prefixes, relationship-vs-ID field names, and field sets.
+[`UTIL_SObjectDescribe`](reference/apex/UTIL_SObjectDescribe.md) wraps describe calls and caches the answers, so repeated lookups are cheap. (A "describe" call asks Salesforce about an object's structure: its fields, labels, types, and relationships.) Salesforce limits how many you can make per transaction, so calling them repeatedly both slows the code down and risks hitting that limit.
+
+It also smooths over the awkward parts: managed-package namespace prefixes, relationship-vs-ID field names, and field sets.
 
 **Key Features:**
 
@@ -2576,7 +2463,7 @@ List<SObject> results = DynamicQueryBuilder.queryObject('Account', 'Industry', '
 1. **Use Caching** - Always use `UTIL_SObjectDescribe.getDescribe()` instead of direct Schema calls to make use of caching
 2. **Namespace Handling** - Use the default `implyNamespace=true` parameter for managed package compatibility
 3. **Relationship Fields** - Use relationship names (e.g., `Account`) and let the utility resolve to ID fields automatically
-4. **Global Describe** - Use the wrapped `GlobalDescribeMap` for namespace-aware global describe operations
+4. **Global Describe** - Use the wrapped `FieldsMap` and `GlobalDescribeMap` for namespace-aware field and global describe operations
 5. **Cache Management** - Only flush cache when absolutely necessary (e.g., after metadata changes in tests)
 6. **Deferred Loading** - The utility uses deferred loading, so getting a describe instance is lightweight
 7. **Field Sets** - Use field sets for dynamic forms instead of hardcoding field lists
@@ -2586,7 +2473,10 @@ List<SObject> results = DynamicQueryBuilder.queryObject('Account', 'Industry', '
 
 ## Feature Flag Management (UTIL_FeatureFlag)
 
-A feature flag is an on/off switch for a piece of functionality that you control with configuration, so you can turn a feature on for some users (or everyone) without a deployment. You check one in code with `UTIL_FeatureFlag.isEnabled(...)`. The full treatment (the built-in targeting rules, writing your own, the Lightning component bridge, per-user evaluation, and the query cost of each strategy) lives in its own guide: **[Feature Flags - Guide](Feature%20Flags%20-%20Guide.md)**. For a hands-on introduction, start with **[Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)**.
+A feature flag is an on/off switch for a piece of functionality that you control with configuration, so you can turn a feature on for some users (or everyone) without a deployment. You check one in code with `UTIL_FeatureFlag.isEnabled(...)`.
+
+- **Full treatment:** **[Feature Flags - Guide](Feature%20Flags%20-%20Guide.md)**: the built-in targeting rules, writing your own, the Lightning component bridge, per-user evaluation, and the query cost of each strategy.
+- **Hands-on introduction:** **[Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)**.
 
 ---
 
@@ -2595,7 +2485,9 @@ A feature flag is an on/off switch for a piece of functionality that you control
 > **Full Documentation:** See [Logging - Guide](Logging%20-%20Guide.md) for the full treatment: Apex logging, Lightning component (LWC) client-side logging, Flow logging, correlation tracking,
 > performance monitoring, and configuration.
 
-Salesforce's built-in `System.debug()` writes to debug logs that expire and that you can't search or report on. [`LOG_Builder`](reference/apex/LOG_Builder.md) instead saves each log as a real `LogEntry__c` record (published as a platform event), so when something fails in production the evidence is still there to query later. In short, it gives you a searchable, kept record of what your code actually did (observability), the same way from Apex, Lightning components, and Flows.
+[`LOG_Builder`](reference/apex/LOG_Builder.md) saves each log as a real `LogEntry__c` record (published as a platform event), so when something fails in production the evidence is still there to query later. Salesforce's built-in `System.debug()` writes to debug logs that expire and that you can't search or report on.
+
+In short, it gives you a searchable, kept record of what your code actually did (observability), the same way from Apex, Lightning components, and Flows.
 
 **Key Capabilities:**
 
@@ -2639,7 +2531,9 @@ For detailed usage including LWC logging, Flow integration, and performance time
 
 ### Architecture
 
-To run your own Apex from an Omnistudio component (an OmniScript or Integration Procedure) without writing a separate bridge class for each one, use [`SVC_Omnistudio`](reference/apex/SVC_Omnistudio.md). It is that bridge: you point Omnistudio at it once, tell it which of your classes to run, and it passes the inputs in and your outputs back. (It does this through Salesforce's [`Callable`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_system_callable.htm) interface, the standard way to invoke Apex dynamically. Omnistudio was formerly called Vlocity.)
+[`SVC_Omnistudio`](reference/apex/SVC_Omnistudio.md) runs your own Apex from an Omnistudio component (an OmniScript or Integration Procedure), so you don't write a separate bridge class for each one.
+
+You point Omnistudio at it once, tell it which of your classes to run, and it passes the inputs in and your outputs back. (It does this through Salesforce's [`Callable`](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_interface_system_callable.htm) interface, the standard way to invoke Apex dynamically. Omnistudio was formerly called Vlocity.)
 
 **Key Components:**
 
@@ -2669,7 +2563,7 @@ global inherited sharing class OMN_AccountEnrichment implements SVC_Omnistudio.O
 		String accountId = (String)parameters.getInputVariable('accountId');
 		Boolean includeContacts = (Boolean)parameters.getInputVariable('includeContacts');
 
-		// Process - Use QRY_Builder for queries
+		// Process - read the account
 		Account account = (Account)QRY_Builder.selectFrom(Account.SObjectType)
 			.fields(new List<String>{'Id', 'Name', 'Industry', 'AnnualRevenue'})
 			.condition(Account.Id).equals(accountId)
@@ -2940,9 +2834,17 @@ The card header summarises the overall state. For example, *Review recommended (
 | **Custom Object Coverage** | Review recommended | Your own custom objects that hold likely-sensitive fields already carry masking. Warns and names any object left unprotected.                                                                                                                         |
 | **Chain Abort Capability** | Review recommended | The abort action is enabled and at least one user holds the Kern Async Chain Abort permission set. Warns when any profile beyond System Administrator holds the abort permission, usually the result of installing the package for All Users, because everyone in those profiles can silently abort chains. |
 | **Chain Watchdog**      | Review recommended | A recurring recovery job (`SCHED_ChainWatchdog`) is scheduled to sweep for stalled chains. Without one, a chain whose background job died is never automatically recovered.                                                                               |
-| **Job Runner**  | Action required    | The job runner, once active, has checked for due jobs within its check interval and all its scheduled jobs are in place: one live platform job for each minute mark of its check frequency. Fails when a record or a platform job is missing, when the runner has stopped, or when it was activated by a user who is now inactive; warns when the last check is only a little late. Not applicable while no runner is active; jobs left waiting for one are reported by the next row. |
+| **Job Runner**  | Action required    | The job runner, once active, has checked for due jobs within its check interval and all its scheduled jobs are in place: one live platform job for each minute mark of its check frequency. When it fails or warns: see "The Job Runner rows, in detail" below the table. |
 | **Jobs Waiting for the Job Runner** | Action required | No job is set to run on the job runner while no runner is active. Fails with the number of jobs waiting: activate the runner, or move those jobs back to a scheduled job of their own.                                                     |
-| **Job Runner Capacity** | Review recommended | How many of the org's 100 scheduled-job slots are in use, split into the runner's own, Scheduled Job records with a slot of their own, and everything else. Always shown, whether a runner is active or not. Warns at 80 slots and fails at 90, when new schedules are close to being refused. While a runner is active, also warns when its last check left jobs waiting because one check may start only so many at once: raise that limit, check less often, or run fewer jobs on the runner.                     |
+| **Job Runner Capacity** | Review recommended | How many of the org's 100 scheduled-job slots are in use, split into the runner's own, Scheduled Job records with a slot of their own, and everything else. Always shown, whether a runner is active or not. Warns at 80 slots and fails at 90, when new schedules are close to being refused. |
+
+**The Job Runner rows, in detail:**
+
+- **Job Runner** fails when a record or a platform job is missing, when the runner has stopped, or when it was activated
+  by a user who is now inactive; it warns when the last check is only a little late.
+- **Job Runner** is not applicable while no runner is active; jobs left waiting for one are reported by the Jobs Waiting for the Job Runner row.
+- **Job Runner Capacity**, while a runner is active, also warns when its last check left jobs waiting because one check
+  may start only so many at once: raise that limit, check less often, or run fewer jobs on the runner.
 
 ### Built-in fixes
 
@@ -2950,9 +2852,10 @@ Three checks can repair the configuration for you, without leaving the page:
 
 - **Class Type Resolver → Setup** opens a generator that writes a ready-to-deploy resolver class and its matching test class for you to copy or download.
   See [Type Resolution](#type-resolution-util_typeresolver) for the resolver pattern and how to register it.
-- **Data Retention → Apply Recommended Retention** schedules a nightly purge job for every uncovered object using default retention windows. Choose **Customize each job →** to set
-  the retention period and schedule per object before the jobs are created. The recommended purge job for chain records is keyed on the completion timestamp (`CompletedAt__c`),
-  not the creation date, so a purge can never remove a chain that is still running, stalled, or awaiting recovery: those records have no completion timestamp until they finish.
+- **Data Retention → Apply Recommended Retention** schedules a nightly purge job for every uncovered object using default retention windows.
+    - Choose **Customize each job →** to set the retention period and schedule per object before the jobs are created.
+    - The recommended purge job for chain records is keyed on the completion timestamp (`CompletedAt__c`), not the creation date, so a purge can never remove a chain that is
+      still running, stalled, or awaiting recovery: those records have no completion timestamp until they finish.
 - **Chain Watchdog → Schedule Chain Watchdog** creates the recurring stalled-chain recovery job for you with the recommended defaults: hourly, a 30-minute stale threshold, and up
   to 50 chains per sweep. Choose **Customize schedule →** to adjust the job before it is created.
 
@@ -2984,6 +2887,8 @@ An anti-pattern is a common risky mistake. These are the ones to avoid with the 
 
 ## Best Practices
 
+For metadata introspection, see the [Best Practices](Utilities%20-%20Guide.md#best-practices-1) under `UTIL_SObjectDescribe`.
+
 ### Type Resolution
 
 1. Register custom resolvers via custom metadata so the framework can find the classes in your own namespace
@@ -3005,17 +2910,6 @@ An anti-pattern is a common risky mistake. These are the ones to avoid with the 
 3. Consider memory usage for large datasets (thousands of records)
 4. Document indexed fields and their purpose
 5. Clear indexes when no longer needed to free memory
-
-### Metadata Introspection
-
-1. Always use `UTIL_SObjectDescribe.getDescribe()` instead of direct Schema calls to make use of caching
-2. Use the default `implyNamespace=true` parameter for managed package compatibility
-3. Use relationship names (e.g., `Account`) and let the utility resolve to ID fields automatically
-4. Only flush cache when absolutely necessary (e.g., after metadata changes in tests)
-5. Use field sets for dynamic forms instead of hardcoding field lists
-6. Always check `isPersonAccountEnabled()` before accessing Person Account-specific fields
-7. Use the wrapped `FieldsMap` and `GlobalDescribeMap` for namespace-aware operations
-8. Use deferred loading pattern - getting a describe instance is lightweight
 
 ### Feature Flags
 

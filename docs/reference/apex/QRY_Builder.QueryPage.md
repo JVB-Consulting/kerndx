@@ -3,13 +3,14 @@ title: "QRY_Builder.QueryPage"
 type: class
 pageClass: reference
 description: "Result container for paged queries, providing records and pagination metadata."
+group: "Query Infrastructure"
 since: "1.0"
 category: apex
 ---
 
 # QRY_Builder.QueryPage
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 

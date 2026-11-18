@@ -3,13 +3,14 @@ title: "DTO_ScheduledParameterDefinition.DataType"
 type: class
 pageClass: reference
 description: "Enumeration of supported input data types for scheduled job parameters."
+group: "Schedulables"
 since: "1.0"
 category: apex
 ---
 
 # DTO_ScheduledParameterDefinition.DataType
 
-**Class**
+**Class** · Group: `Schedulables`
 
 <div class="apex-member apex-class">
 

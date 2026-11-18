@@ -3,13 +3,14 @@ title: "FLOW_RetryApiIssues.DTO_Request"
 type: class
 pageClass: reference
 description: "What the action is asked: the API issues to run again."
+group: "Web Services"
 since: "1.8"
 category: apex
 ---
 
 # FLOW_RetryApiIssues.DTO_Request
 
-**Class**
+**Class** · Group: `Web Services`
 
 <div class="apex-member apex-class">
 

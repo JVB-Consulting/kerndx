@@ -3,13 +3,14 @@ title: "UTIL_Limits.LimitCheck"
 type: class
 pageClass: reference
 description: "Fluent limit inspector scoped to a single governor limit type. Provides methods to check remaining budget, usage percentage, exhaustion, and threshold proximity."
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_Limits.LimitCheck
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

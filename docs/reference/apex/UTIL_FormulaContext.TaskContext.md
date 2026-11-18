@@ -3,13 +3,14 @@ title: "UTIL_FormulaContext.TaskContext"
 type: class
 pageClass: reference
 description: "Formula evaluation context for Task object. Provides typed access to Task records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is blank. Can "
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_FormulaContext.TaskContext
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 
@@ -25,11 +26,11 @@ Formula evaluation context for Task object. Provides typed access to Task record
 
 ```apex
 // Trigger Action Framework formulas:
-// newRecord.Status = "Completed"
-// newRecord.Priority = "High" && oldRecord.Status <> "Completed"
+// TEXT(newRecord.Status) = "Completed"
+// TEXT(newRecord.Priority) = "High" && TEXT(oldRecord.Status) <> "Completed"
 // Direct Apex usage:
 FormulaEval.FormulaInstance formula = Formula.builder()
-    .withFormula('newRecord.IsClosed && newRecord.Priority = "High"')
+    .withFormula('newRecord.IsClosed && TEXT(newRecord.Priority) = "High"')
     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
     .withType(UTIL_FormulaContext.TaskContext.class)
     .build();

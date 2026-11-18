@@ -3,13 +3,14 @@ title: "UTIL_CircuitBreaker.Breaker"
 type: class
 pageClass: reference
 description: "Interface for circuit breaker operations. This interface defines the contract for circuit breaker behavior, including: Request gating (allowRequest) Success/failure recording State inspection and metr"
+group: "Resilience"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_CircuitBreaker.Breaker
 
-**Class**
+**Class** · Group: `Resilience`
 
 <div class="apex-member apex-class">
 

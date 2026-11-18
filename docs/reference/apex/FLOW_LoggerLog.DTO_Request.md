@@ -3,13 +3,14 @@ title: "FLOW_LoggerLog.DTO_Request"
 type: class
 pageClass: reference
 description: "Input parameters for logging a Flow event."
+group: "Logging"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_LoggerLog.DTO_Request
 
-**Class**
+**Class** · Group: `Logging`
 
 <div class="apex-member apex-class">
 

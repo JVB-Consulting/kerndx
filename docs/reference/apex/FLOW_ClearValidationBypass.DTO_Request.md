@@ -3,13 +3,14 @@ title: "FLOW_ClearValidationBypass.DTO_Request"
 type: class
 pageClass: reference
 description: "Request DTO for the Clear Validation Bypass invocable action. Specifies which bypass to clear by name or clears all bypasses."
+group: "Validation"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_ClearValidationBypass.DTO_Request
 
-**Class**
+**Class** · Group: `Validation`
 
 <div class="apex-member apex-class">
 

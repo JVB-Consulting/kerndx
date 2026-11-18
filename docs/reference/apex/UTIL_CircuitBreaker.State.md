@@ -3,13 +3,14 @@ title: "UTIL_CircuitBreaker.State"
 type: class
 pageClass: reference
 description: "Enum representing the circuit breaker state"
+group: "Resilience"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_CircuitBreaker.State
 
-**Class**
+**Class** · Group: `Resilience`
 
 <div class="apex-member apex-class">
 

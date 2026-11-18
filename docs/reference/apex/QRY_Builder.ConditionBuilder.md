@@ -3,13 +3,14 @@ title: "QRY_Builder.ConditionBuilder"
 type: class
 pageClass: reference
 description: "Fluent builder for field-level conditions (WHERE and HAVING)."
+group: "Query Infrastructure"
 since: "1.0"
 category: apex
 ---
 
 # QRY_Builder.ConditionBuilder
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 

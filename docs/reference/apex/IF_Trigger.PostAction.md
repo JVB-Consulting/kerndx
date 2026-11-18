@@ -3,13 +3,14 @@ title: "IF_Trigger.PostAction"
 type: class
 pageClass: reference
 description: "Handler contract for a post-trigger action — an Apex class that runs exactly once at the end of a trigger transaction, after every trigger action on every touched SObject has completed. Use for cross-"
+group: "Triggers"
 since: "1.1"
 category: apex
 ---
 
 # IF_Trigger.PostAction
 
-**Class**
+**Class** · Group: `Triggers`
 
 <div class="apex-member apex-class">
 

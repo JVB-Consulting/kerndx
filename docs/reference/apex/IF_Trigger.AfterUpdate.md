@@ -3,13 +3,14 @@ title: "IF_Trigger.AfterUpdate"
 type: class
 pageClass: reference
 description: "Handler contract for the after-update trigger event."
+group: "Triggers"
 since: "1.0"
 category: apex
 ---
 
 # IF_Trigger.AfterUpdate
 
-**Class**
+**Class** · Group: `Triggers`
 
 <div class="apex-member apex-class">
 

@@ -3,13 +3,14 @@ title: "UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest"
 type: class
 pageClass: reference
 description: "Request object for initiating an asynchronous process."
+group: "Async Processing"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_AsynchronousJobLauncher.DTO_AsynchronousJobRequest
 
-**Class**
+**Class** · Group: `Async Processing`
 
 <div class="apex-member apex-class">
 

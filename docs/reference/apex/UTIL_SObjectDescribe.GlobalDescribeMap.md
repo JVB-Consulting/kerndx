@@ -3,13 +3,14 @@ title: "UTIL_SObjectDescribe.GlobalDescribeMap"
 type: class
 pageClass: reference
 description: "A subclass of NamespacedAttributeMap for handling global describe data returned by getGlobalDescribe."
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_SObjectDescribe.GlobalDescribeMap
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

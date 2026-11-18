@@ -3,13 +3,14 @@ title: "QRY_Builder.DataCategoryBuilder"
 type: class
 pageClass: reference
 description: "Fluent builder for WITH DATA CATEGORY filters."
+group: "Query Infrastructure"
 since: "1.0"
 category: apex
 ---
 
 # QRY_Builder.DataCategoryBuilder
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 

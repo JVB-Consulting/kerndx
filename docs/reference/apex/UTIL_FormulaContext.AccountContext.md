@@ -3,13 +3,14 @@ title: "UTIL_FormulaContext.AccountContext"
 type: class
 pageClass: reference
 description: "Formula evaluation context for Account object.  Provides typed access to Account records in formula evaluations. The Trigger Action Framework automatically uses this context when `EntryCriteriaContext"
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_FormulaContext.AccountContext
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 
@@ -37,12 +38,12 @@ directly in custom Apex code for any formula evaluation scenario.
 ```apex
 // --- Trigger Action Framework Usage ---
 // TriggerAction__mdt.EntryCriteriaFormula__c examples:
-// newRecord.Type = "Customer"
-// newRecord.Industry <> oldRecord.Industry
-// AND(newRecord.AnnualRevenue > 1000000, newRecord.Type = "Customer")
+// TEXT(newRecord.Type) = "Customer"
+// TEXT(newRecord.Industry) <> TEXT(oldRecord.Industry)
+// AND(newRecord.AnnualRevenue > 1000000, TEXT(newRecord.Type) = "Customer")
 // --- Direct Apex Usage (Batch, Validation, Custom Business Rules) ---
 FormulaEval.FormulaInstance formula = Formula.builder()
-    .withFormula('newRecord.AnnualRevenue > 1000000 && newRecord.Industry = "Technology"')
+    .withFormula('newRecord.AnnualRevenue > 1000000 && TEXT(newRecord.Industry) = "Technology"')
     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
     .withType(UTIL_FormulaContext.AccountContext.class)
     .build();

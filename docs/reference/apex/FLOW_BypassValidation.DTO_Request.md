@@ -3,13 +3,14 @@ title: "FLOW_BypassValidation.DTO_Request"
 type: class
 pageClass: reference
 description: "Request DTO for the Bypass Validation invocable action. Specifies which validation rules to bypass by type (object, group, or rule) and name."
+group: "Validation"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_BypassValidation.DTO_Request
 
-**Class**
+**Class** · Group: `Validation`
 
 <div class="apex-member apex-class">
 

@@ -3,13 +3,14 @@ title: "PROC_UpdateFields.DTO_Field"
 type: class
 pageClass: reference
 description: "DTO representing a field to update on an SObject."
+group: "Bulk DML"
 since: "1.0"
 category: apex
 ---
 
 # PROC_UpdateFields.DTO_Field
 
-**Class**
+**Class** · Group: `Bulk DML`
 
 <div class="apex-member apex-class">
 
@@ -101,7 +102,8 @@ global Object value
 
 **Type:** [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)
 
-Value to apply to the field.
+Value to apply to the field. With FieldUpdateMethod.COPY_FROM_FIELD, the API name of the field on
+the same row to copy from.
 
 **Example**
 

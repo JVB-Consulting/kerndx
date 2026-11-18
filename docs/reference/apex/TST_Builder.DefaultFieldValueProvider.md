@@ -3,13 +3,14 @@ title: "TST_Builder.DefaultFieldValueProvider"
 type: class
 pageClass: reference
 description: "Base class for field-level default value providers. @note Using a virtual class instead of an interface allows adding new methods in future managed package versions without breaking existing implement"
+group: "Testing"
 since: "1.0"
 category: apex
 ---
 
 # TST_Builder.DefaultFieldValueProvider
 
-**Class**
+**Class** · Group: `Testing`
 
 <div class="apex-member apex-class">
 

@@ -3,13 +3,14 @@ title: "UTIL_ValidationRule.INT_BulkValidationContext"
 type: class
 pageClass: reference
 description: "Optional interface for context classes that load data once per batch. Validation rules and trigger action entry formulas call preLoad() once before checking the records. Implement this in addition to "
+group: "Validation"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_ValidationRule.INT_BulkValidationContext
 
-**Class**
+**Class** · Group: `Validation`
 
 <div class="apex-member apex-class">
 

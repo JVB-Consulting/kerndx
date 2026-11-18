@@ -3,13 +3,14 @@ title: "TST_Builder.Builder"
 type: class
 pageClass: reference
 description: "A fluent builder for configuring and creating SObject records: you set it up by chaining method calls. Obtain an instance via TST_Builder.of(SObjectType)."
+group: "Testing"
 since: "1.0"
 category: apex
 ---
 
 # TST_Builder.Builder
 
-**Class**
+**Class** · Group: `Testing`
 
 <div class="apex-member apex-class">
 

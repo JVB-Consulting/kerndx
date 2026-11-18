@@ -2,10 +2,10 @@
 title: "PROC_UpdateFields"
 type: class
 pageClass: reference
-description: "Processor for bulk field updates using the adaptive async framework. Implements IF_Async.Processable to enable automatic selection between Queueable and Batch execution. Supports REPLACE, PREFIX, and "
+description: "Processor for bulk field updates using the adaptive async framework. Implements IF_Async.Processable to enable automatic selection between Queueable and Batch execution. Supports the REPLACE, PREFIX, "
 author: "Jason Van Beukering"
 group: "Bulk DML"
-date: "February 2026, October 2026"
+date: "February 2026, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -24,7 +24,7 @@ global inherited sharing class PROC_UpdateFields implements IF_Async.Processable
 
 **Known Derived Types:** [IF_Async.Processable.execute(List<Object>)](IF_Async.Processable.md#execute)
 
-Processor for bulk field updates using the adaptive async framework. Implements IF_Async.Processable to enable automatic selection between Queueable and Batch execution. Supports REPLACE, PREFIX, and SUFFIX update methods for flexible field value manipulation.
+Processor for bulk field updates using the adaptive async framework. Implements IF_Async.Processable to enable automatic selection between Queueable and Batch execution. Supports the REPLACE, PREFIX, SUFFIX and COPY_FROM_FIELD update methods for flexible field value manipulation.
 
 **Example**
 
@@ -49,7 +49,7 @@ PROC_UpdateFields processor = new PROC_UpdateFields(params);
 | Method | Description |
 |--------|-------------|
 | global [IF_Queryable](IF_Queryable.md) [buildQueryable](#buildqueryable)() | Builds a queryable for the configured object and fields. |
-| global void [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> items) | Executes the field update operation on the provided list of records. |
+| global void [execute](#execute)([List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> items) | Applies the field updates to the given records and saves them. |
 
 ### buildQueryable
 
@@ -84,7 +84,13 @@ IF_Queryable query = new PROC_UpdateFields(params).buildQueryable();
 global void execute(List<Object> items)
 ```
 
-Executes the field update operation on the provided list of records.
+Applies the field updates to the given records and saves them. All updates are applied to each
+record first, so two updates of one field build on each other. Then only the record's Id and the fields in the
+update list are saved. Other fields on the record, such as the field a copy reads from, are not saved.
+
+Because the save does not hold the field a copy reads from, the save does not check whether the user may read
+that field. The read that found the records decides it. If the user's access to that field must count, read the
+records with the user's access (user mode), as buildQueryable does by default.
 
 **Parameters**
 

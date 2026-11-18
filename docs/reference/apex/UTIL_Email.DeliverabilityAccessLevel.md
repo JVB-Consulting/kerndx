@@ -3,13 +3,14 @@ title: "UTIL_Email.DeliverabilityAccessLevel"
 type: class
 pageClass: reference
 description: "Enum representing the three possible email deliverability settings in a Salesforce org."
+group: "Email"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_Email.DeliverabilityAccessLevel
 
-**Class**
+**Class** · Group: `Email`
 
 <div class="apex-member apex-class">
 

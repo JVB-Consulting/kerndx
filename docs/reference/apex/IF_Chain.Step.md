@@ -3,13 +3,14 @@ title: "IF_Chain.Step"
 type: class
 pageClass: reference
 description: "Interface for defining the business logic of a single chain step. Each step receives a shared context and returns a result indicating success or failure."
+group: "Async"
 since: "1.0"
 category: apex
 ---
 
 # IF_Chain.Step
 
-**Class**
+**Class** · Group: `Async`
 
 <div class="apex-member apex-class">
 

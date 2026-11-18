@@ -3,13 +3,14 @@ title: "API_Base.HttpMethod"
 type: class
 pageClass: reference
 description: "HTTP method verbs for web service calls."
+group: "Web Services"
 since: "1.0"
 category: apex
 ---
 
 # API_Base.HttpMethod
 
-**Class**
+**Class** · Group: `Web Services`
 
 <div class="apex-member apex-class">
 

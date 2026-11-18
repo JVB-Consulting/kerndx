@@ -3,13 +3,14 @@ title: "FLOW_RetryApiIssues.DTO_Response"
 type: class
 pageClass: reference
 description: "What the action answers: the job, the count and a message for the person who asked."
+group: "Web Services"
 since: "1.8"
 category: apex
 ---
 
 # FLOW_RetryApiIssues.DTO_Response
 
-**Class**
+**Class** · Group: `Web Services`
 
 <div class="apex-member apex-class">
 

@@ -3,13 +3,14 @@ title: "UTIL_SObjectDescribe.FieldListBuilder"
 type: class
 pageClass: reference
 description: "Builds a comma-separated field list from SObjectField tokens and optional FieldSet definitions."
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_SObjectDescribe.FieldListBuilder
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

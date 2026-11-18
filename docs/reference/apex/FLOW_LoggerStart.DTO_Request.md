@@ -3,13 +3,14 @@ title: "FLOW_LoggerStart.DTO_Request"
 type: class
 pageClass: reference
 description: "Input parameters for starting Flow correlation."
+group: "Logging"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_LoggerStart.DTO_Request
 
-**Class**
+**Class** · Group: `Logging`
 
 <div class="apex-member apex-class">
 

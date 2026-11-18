@@ -3,13 +3,14 @@ title: "UTIL_FormulaContext.OpportunityContext"
 type: class
 pageClass: reference
 description: "Formula evaluation context for Opportunity object. Provides typed access to Opportunity records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c "
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_FormulaContext.OpportunityContext
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 
@@ -25,8 +26,8 @@ Formula evaluation context for Opportunity object. Provides typed access to Oppo
 
 ```apex
 // Trigger Action Framework formulas:
-// newRecord.StageName <> oldRecord.StageName
-// newRecord.Amount > 100000 && newRecord.StageName = "Closed Won"
+// TEXT(newRecord.StageName) <> TEXT(oldRecord.StageName)
+// newRecord.Amount > 100000 && TEXT(newRecord.StageName) = "Closed Won"
 // Direct Apex usage:
 FormulaEval.FormulaInstance formula = Formula.builder()
     .withFormula('newRecord.IsClosed && newRecord.IsWon')

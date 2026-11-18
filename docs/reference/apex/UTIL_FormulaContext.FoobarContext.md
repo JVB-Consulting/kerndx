@@ -3,13 +3,14 @@ title: "UTIL_FormulaContext.FoobarContext"
 type: class
 pageClass: reference
 description: "Formula evaluation context for Foobar__c test object. Provides typed access to Foobar__c records in formula evaluations. This context class enables comprehensive testing of formula evaluation function"
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_FormulaContext.FoobarContext
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 
@@ -27,7 +28,7 @@ Formula evaluation context for Foobar__c test object. Provides typed access to F
 // Trigger Action Framework formulas:
 // newRecord.Checkbox__c = true
 // newRecord.NumberInteger__c > oldRecord.NumberInteger__c
-// newRecord.Picklist__c <> oldRecord.Picklist__c
+// TEXT(newRecord.Picklist__c) <> TEXT(oldRecord.Picklist__c)
 // Direct Apex usage:
 FormulaEval.FormulaInstance formula = Formula.builder()
     .withFormula('newRecord.Checkbox__c && newRecord.NumberInteger__c > 100')

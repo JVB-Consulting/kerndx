@@ -3,13 +3,14 @@ title: "IF_Async.AsynchronousExecutionStrategy"
 type: class
 pageClass: reference
 description: "Enum defining different asynchronous execution strategies."
+group: "Async Processing"
 since: "1.0"
 category: apex
 ---
 
 # IF_Async.AsynchronousExecutionStrategy
 
-**Class**
+**Class** · Group: `Async Processing`
 
 <div class="apex-member apex-class">
 
@@ -66,5 +67,7 @@ Force chainable queueable execution (single parent with chained children).
 global PARALLEL_QUEUEABLES
 ```
 
-Force parallel queueable execution (multiple queueables enqueued simultaneously).
+Force parallel queueable execution (multiple queueables enqueued simultaneously). A processor that
+implements Finishable cannot use it, because its finish method would run once for every job: a launch that forces
+it for such a processor is refused, and AUTO never picks it for one.
 

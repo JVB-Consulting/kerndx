@@ -3,13 +3,14 @@ title: "API_Base.ServiceCallResult"
 type: class
 pageClass: reference
 description: "Tracks the request, response, and status of a web service call."
+group: "Web Services"
 since: "1.0"
 category: apex
 ---
 
 # API_Base.ServiceCallResult
 
-**Class**
+**Class** · Group: `Web Services`
 
 <div class="apex-member apex-class">
 

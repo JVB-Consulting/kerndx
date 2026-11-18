@@ -3,13 +3,14 @@ title: "UTIL_FeatureFlag.INT_UserAwareFeatureFlagStrategy"
 type: class
 pageClass: reference
 description: "Extended interface for custom strategies that support user context evaluation. Implement this interface instead of INT_FeatureFlagStrategy when your custom strategy needs to evaluate for a specific us"
+group: "Feature Flags"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_FeatureFlag.INT_UserAwareFeatureFlagStrategy
 
-**Class**
+**Class** · Group: `Feature Flags`
 
 <div class="apex-member apex-class">
 

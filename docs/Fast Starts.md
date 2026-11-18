@@ -5,7 +5,25 @@ title: "Fast Starts"
 
 # Fast Starts
 
-**Copy-paste-ready guides that get one KernDX capability working in about 30 minutes, with no prior framework knowledge needed.** Each one is a self-contained walkthrough: the smallest example that runs, then the few options you'll actually reach for. New to KernDX? Start at the top and work down.
+**Copy-paste-ready guides that get one KernDX capability working in about 30 minutes, with no prior framework knowledge needed.** Each one is a self-contained walkthrough: the smallest example that runs, then the few options you'll actually reach for.
+
+## What do you need to do?
+
+New to KernDX? From Plain Apex to KernDX shows the Apex you already write next
+to the KernDX version; then start at the top of the lists below and work down. Deciding whether to use it? Start with [Why KernDX](Strategic%20Guide%20-%20Overview.md).
+
+| I need to | Try it in minutes | Learn it properly | Look up a method |
+|---|---|---|---|
+| **Query records**<br>SOQL, selectors, counts and totals | [Fast Start: Selectors](Fast%20Start%20-%20Selectors.md) | [Selectors guide](Selectors%20-%20Guide.md) | [QRY_Builder](reference/apex/QRY_Builder.md) |
+| **Save records**<br>Insert, update, upsert, delete, unit of work | [Fast Start: DML](Fast%20Start%20-%20DML.md) | [DML guide](DML%20-%20Guide.md) | [DML_Builder](reference/apex/DML_Builder.md) |
+| **Run code on a trigger**<br>Logic before and after a save | [Fast Start: Trigger Actions](Fast%20Start%20-%20Trigger%20Actions.md) | [Triggers guide](Triggers%20-%20Guide.md) | [TRG_Base](reference/apex/TRG_Base.md) |
+| **Log what happened**<br>Instead of `System.debug` | [Fast Start: Logging](Fast%20Start%20-%20Logging.md) | [Logging guide](Logging%20-%20Guide.md) | [LOG_Builder](reference/apex/LOG_Builder.md) |
+| **Run work in the background**<br>Queueable jobs in steps | [Fast Start: Async Processing](Fast%20Start%20-%20Async%20Processing.md) | [Async Processing guide](Async%20Processing%20-%20Guide.md) | [UTIL_AsyncChain](reference/apex/UTIL_AsyncChain.md) |
+| **Call another system**<br>HTTP callouts and retries | [Fast Start: Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md) | [Web Services guide](Web%20Services%20-%20Guide.md) | [UTIL_HttpClient](reference/apex/UTIL_HttpClient.md), [API_Outbound](reference/apex/API_Outbound.md) |
+| **Run a scheduled job**<br>Schedulable and the job runner | [Fast Start: Scheduled Jobs](Fast%20Start%20-%20Scheduled%20Jobs.md) | [Async Processing guide](Async%20Processing%20-%20Guide.md#scheduler-framework) | [SCHED_Base](reference/apex/SCHED_Base.md) |
+| **Validate records**<br>Rules that stop bad data | [Fast Start: Custom Validations](Fast%20Start%20-%20Custom%20Validations.md) | [Validation guide](Validation%20-%20Guide.md) | [UTIL_ValidationRule](reference/apex/UTIL_ValidationRule.md) |
+| **Control who can see records**<br>Sharing, field security and user mode | [Fast Start: Security](Fast%20Start%20-%20Security.md) | [Security guide](Security%20-%20Guide.md) | [QRY_Builder.Builder](reference/apex/QRY_Builder.Builder.md), [UTIL_Sharing](reference/apex/UTIL_Sharing.md) |
+| **Test my code**<br>Test data and pretend query results | [Fast Start: Test Data](Fast%20Start%20-%20Test%20Data.md) | [Test Data guide](Test%20Data%20-%20Guide.md) | [TST_Builder](reference/apex/TST_Builder.md), [TST_Mock](reference/apex/TST_Mock.md) |
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`

@@ -3,13 +3,14 @@ title: "TST_Mock.MockBuilder"
 type: class
 pageClass: reference
 description: "Fluent builder wrapper that delegates to TST_Builder.Builder for record construction and auto-registers built records with TST_Mock."
+group: "Testing"
 since: "1.0"
 category: apex
 ---
 
 # TST_Mock.MockBuilder
 
-**Class**
+**Class** · Group: `Testing`
 
 <div class="apex-member apex-class">
 

@@ -3,13 +3,14 @@ title: "UTIL_TypeResolver.BaseClassResolver"
 type: class
 pageClass: reference
 description: "Abstract base class for implementing custom type resolvers, typically registered via custom metadata."
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_TypeResolver.BaseClassResolver
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

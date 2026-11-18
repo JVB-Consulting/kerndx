@@ -3,13 +3,14 @@ title: "UTIL_AsyncChain.ChainStep"
 type: class
 pageClass: reference
 description: "Abstract base class for individual steps in an async chain. Each step runs in its own Queueable transaction, providing governor limit isolation."
+group: "Async"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_AsyncChain.ChainStep
 
-**Class**
+**Class** · Group: `Async`
 
 <div class="apex-member apex-class">
 

@@ -3,13 +3,14 @@ title: "TST_InvokeFlowMock.MockBuilder"
 type: class
 pageClass: reference
 description: "Fluent builder for registering a mock flow response."
+group: "Triggers"
 since: "1.0"
 category: apex
 ---
 
 # TST_InvokeFlowMock.MockBuilder
 
-**Class**
+**Class** · Group: `Triggers`
 
 <div class="apex-member apex-class">
 

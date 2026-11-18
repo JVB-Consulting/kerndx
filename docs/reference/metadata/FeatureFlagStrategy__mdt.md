@@ -141,7 +141,7 @@ The execution priority for this strategy relative to other strategies for the sa
 global String Target__c
 ```
 
-The identifier, name, or path of the item to evaluate. The required format depends on the 'Type' field. For Custom Permission type: unprefixed names check local/subscriber permissions, 'core.' prefix checks package permissions, and 'namespace__' syntax checks fully-qualified namespaced permissions. For Permission Set Group type: the API name of a permission set or the developer name of a permission set group, matched against the user's direct assignments.
+The identifier, name, or path of the item to evaluate. The required format depends on the 'Type' field. For Custom Permission type: unprefixed names check local/subscriber permissions, 'core.' prefix checks package permissions, and 'namespace__' syntax checks fully-qualified namespaced permissions. For Permission Set Group type: the API name of a permission set or the developer name of a permission set group, matched against the user's direct assignments. For Public Group type: the group's API name, which Setup shows as Group Name. A group label also works if exactly one public group has that label, and the log then shows a warning.
 
 **Field Attributes:**
 

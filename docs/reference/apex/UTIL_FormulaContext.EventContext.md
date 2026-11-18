@@ -3,13 +3,14 @@ title: "UTIL_FormulaContext.EventContext"
 type: class
 pageClass: reference
 description: "Formula evaluation context for Event object. Provides typed access to Event records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is blank. Ca"
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_FormulaContext.EventContext
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

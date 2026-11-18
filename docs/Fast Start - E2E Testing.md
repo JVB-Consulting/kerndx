@@ -6,51 +6,30 @@ navOrder: 92
 
 **Framework:** KernDX | **Total time:** ~20 minutes
 
-**What this is:** A short, hands-on way to prove your code actually works in your own Salesforce org, end to end: you write an Apex class, deploy it, run its tests, and watch them pass. **Why it matters:** It closes the gap between "the code compiles" and "the code does the right thing in the live org," which is where most release surprises come from. **Who should follow it:** developers verifying their work, and tech leads setting up a repeatable test cycle. **When to use it:** any time you want a fast, trustworthy check before shipping. Browser-level testing with Playwright is an optional add-on at the end.
+- **What this is:** A short, hands-on way to prove your code actually works in your own Salesforce org, end to end:
+  you write an Apex class, deploy it, run its tests, and watch them pass.
+- **Why it matters:** It closes the gap between "the code compiles" and "the code does the right thing in the live
+  org," which is where most release surprises come from.
+- **Who should follow it:** developers verifying their work, and tech leads setting up a repeatable test cycle.
+- **When to use it:** any time you want a fast, trustworthy check before shipping. Browser-level testing with
+  Playwright is an optional add-on at the end.
+- **What you'll build:** An Apex service of your own, its `_TEST` class with 100% coverage, and a working
+  deployment and test run against your scratch org. The Tier 3 section shows how Playwright slots in on top.
+- **Success looks like:** `Outcome Passed, Tests Ran 3, Pass Rate 100%` from the Apex test runner and,
+  optionally, a green Playwright run against the same org.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** An Apex service of your own, its `_TEST` class with 100% coverage, and a working
-deployment and test run against your scratch org. The Tier 3 section shows how Playwright slots in on top.
-
-**Success looks like:** `Outcome Passed, Tests Ran 3, Pass Rate 100%` from the Apex test runner and,
-optionally, a green Playwright run against the same org.
-
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [How It Works](#how-it-works)
-3. [Tier 1: See It Work (~5 minutes)](#tier-1-see-it-work-5-minutes)
-4. [Tier 2: Build Your Own (~10 minutes)](#tier-2-build-your-own-10-minutes)
-    - [Step 1: Create the Service Class](#step-1-create-the-service-class)
-    - [Step 2: Create the Test Class](#step-2-create-the-test-class)
-5. [Tier 3: Playwright Browser Tests (~5 minutes)](#tier-3-playwright-browser-tests-5-minutes)
-    - [Clean up](#clean-up)
-6. [Common Issues](#common-issues)
-    - [Tier 1: the demo classes](#tier-1-the-demo-classes)
-    - [Step 1: Create the Service Class](#step-1-create-the-service-class-1)
-    - [Step 2: Create the Test Class](#step-2-create-the-test-class-1)
-    - [Tier 3: the browser tests](#tier-3-the-browser-tests)
-    - [Clean up](#clean-up-1)
-7. [What You Now Know](#what-you-now-know)
-8. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
@@ -66,10 +45,13 @@ work?" The other asks "does the screen the user sees work?" KernDX covers both, 
 
 This Fast Start focuses on the Apex layer first, because that is where most teams start: write a class,
 deploy it, and prove it works with a `_TEST` class (a companion test class). Browser testing with
-Playwright sits on top of that, and you'll set it up in Tier 3. If your change is pure business logic with
-no screen of its own, the Apex layer alone is usually enough; add Playwright when a user-facing page is what
-you need to protect. The full reference, with every helper
-script, is the runbook at [`release-testing/RUNBOOK.md`](https://github.com/JVB-Consulting/kerndx/blob/main/release-testing/RUNBOOK.md).
+Playwright sits on top of that, and you'll set it up in Tier 3.
+
+- If your change is pure business logic with no screen of its own, the Apex layer alone is usually enough.
+- Add Playwright when a user-facing page is what you need to protect.
+
+The full reference, with every helper script, is the runbook at
+[`release-testing/RUNBOOK.md`](https://github.com/JVB-Consulting/kerndx/blob/main/release-testing/RUNBOOK.md).
 
 ---
 
@@ -129,11 +111,12 @@ Tests Ran            3
 Pass Rate            100%
 ```
 
-> **Org-wide coverage won't be 100%, and that's expected.** The org-wide figure that
-> `--result-format human` reports covers every Apex class in your org, not only this one, so it will not
-> match the demo class's own 100% (on an unmanaged deploy of KernDX it includes the framework's classes
-> too). Ignore that number here. What matters is the `Passed` outcome and 100% coverage on `FastStart_E2E_DEMO`
-> itself.
+> **Org-wide coverage won't be 100%, and that's expected.** What matters is the `Passed` outcome and 100% coverage on
+> `FastStart_E2E_DEMO` itself; ignore the org-wide number here.
+>
+> The org-wide figure that `--result-format human` reports covers every Apex class in your org, not only this one, so
+> it will not match the demo class's own 100% (on an unmanaged deploy of KernDX it includes the framework's classes
+> too).
 
 If you see `Pass Rate 100%`, you've just proven the full test cycle in your org works, from source to a
 green run, without writing a line of code.
@@ -385,9 +368,8 @@ export SF_SUBSCRIBER_ORG_ALIAS=YourOrgAlias
 You should see nothing printed. The setting lasts until you close that terminal, so run the next command in the same
 one.
 
-The suite reads the target org alias from the `SF_SUBSCRIBER_ORG_ALIAS` environment variable. Set it to
-point the suite at your org. The helpers pass that variable to `sf` as the org alias directly, so this is the one
-place the alias ever needs to change.
+The suite reads the target org alias from the `SF_SUBSCRIBER_ORG_ALIAS` environment variable, and the helpers pass it
+to `sf` as the org alias directly, so this is the one place the alias ever needs to change.
 
 **4. In the terminal**, run the suite:
 
@@ -475,9 +457,11 @@ in, the wrong folder)? Those are answered once, in
 #### `Invalid api version:68.0`
 
 The deploy lists the two demo classes' `.cls-meta.xml` files with this problem. The demo files name a newer API version
-than your org runs, as the number in the message shows. In each of the two copied `.cls-meta.xml` files, change the
-number between `<apiVersion>` and `</apiVersion>` to a version your org accepts, such as your project's
-`sourceApiVersion` (in `sfdx-project.json`) when it is lower, save, and send both classes again.
+than your org runs, as the number in the message shows.
+
+In each of the two copied `.cls-meta.xml` files, change the number between `<apiVersion>` and `</apiVersion>` to a
+version your org accepts, such as your project's `sourceApiVersion` (in `sfdx-project.json`) when it is lower, save,
+and send both classes again.
 
 #### `This class name's value is invalid: FastStart_E2E_DEMO_TEST`
 

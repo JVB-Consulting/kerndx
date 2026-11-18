@@ -5,7 +5,7 @@ pageClass: reference
 description: "Fluent DML API for building and running database operations: you set it up by chaining method calls. A static method, newTransaction(), starts a transaction. Chained methods add operations and change "
 author: "Jason Van Beukering"
 group: "DML"
-date: "February 2026, October 2026"
+date: "February 2026, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -77,7 +77,10 @@ DML_Builder.TransactionResult result = DML_Builder.newTransaction()
 global DML_Builder allowPartial()
 ```
 
-Enables partial success mode. Failed records do not cause the entire transaction to fail.
+Enables partial success mode. Failed records do not cause the entire transaction to fail. An
+exception during the save is not thrown either, and nothing is rolled back: the statements already done stay
+saved, and the statements not yet run do not run. The returned TransactionResult then reports a failure, and
+`getFailureMessage()` gives the reason.
 
 **Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 
@@ -626,7 +629,7 @@ Stops a DmlException from being thrown again in all-or-nothing mode. The failure
 returned TransactionResult instead of reaching the caller as an exception. The save's single ERROR entry,
 written in DML_Transaction.commitWork, still records it unless suppressLogging() is also set. In user mode, a
 save refused because the running user lacks the object permission it needs also returns a failed result
-instead of throwing.
+instead of throwing. `getFailureMessage()` on the result gives the reason for the failure.
 
 **Returns** [DML_Builder](DML_Builder.md) — This builder instance for fluent chaining.
 

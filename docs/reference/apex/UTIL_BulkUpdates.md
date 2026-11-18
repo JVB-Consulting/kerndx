@@ -5,7 +5,7 @@ pageClass: reference
 description: "Utility methods used to initialize adaptive async jobs to update fields on multiple objects. Provides methods for bulk updating Salesforce records, such as invalidating email fields, updating ownershi"
 author: "Jason Van Beukering"
 group: "Bulk DML"
-date: "February 2026, October 2026"
+date: "February 2026, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -20,7 +20,7 @@ category: apex
 global inherited sharing class UTIL_BulkUpdates
 ```
 
-Utility methods used to initialize adaptive async jobs to update fields on multiple objects. Provides methods for bulk updating Salesforce records, such as invalidating email fields, updating ownership, and deactivating users. Operations are performed using adaptive async processing which automatically selects between Queueable and Batch execution based on data volume and governor limits. All entry points inherit the flag-driven default AccessLevel resolved by DML_SharingProxy.defaultAccessLevel() — under the secure-by-default posture this is USER_MODE, so the invoking user must have CRUD and FLS on the target object and fields for the bulk update to succeed. This is deliberate: UTIL_BulkUpdates is global, and silently elevating to SYSTEM_MODE would let a low-privilege Apex caller in your org mutate records and fields they have no native right to edit. Integrations that genuinely need admin-mandate semantics should construct a PROC_UpdateFields directly with DTO_Parameters.accessLevel = AccessLevel.SYSTEM_MODE behind a caller-side permission check; the framework declines to make that elevation implicit.
+Utility methods used to initialize adaptive async jobs to update fields on multiple objects. Provides methods for bulk updating Salesforce records, such as invalidating email fields, updating ownership, and deactivating users. Operations are performed using adaptive async processing which automatically selects between Queueable and Batch execution based on data volume and governor limits. Every method here uses the default access level that DML_SharingProxy.defaultAccessLevel() returns. That level comes from the package's feature settings, and by default it is USER_MODE. In user mode, the user who calls the method must be able to edit the object and each field it changes, or the bulk update fails. This is on purpose: UTIL_BulkUpdates is global, and if it moved to SYSTEM_MODE on its own, Apex code run by a user with few rights could change records and fields that the user cannot edit. Code that must change records whatever the user's rights should first check the user's permission itself, then build a PROC_UpdateFields with DTO_Parameters.accessLevel = AccessLevel.SYSTEM_MODE. The package never makes that change for you. copyField also needs the user to be able to read the field it copies from, and to edit the field it copies into, whatever the feature settings say.
 
 **Example**
 
@@ -40,6 +40,7 @@ UTIL_BulkUpdates.deactivateUsers(new Set<String>{'Chatter Free User'}, 365);
 
 | Method | Description |
 |--------|-------------|
+| global static void [copyField](#copyfield)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sObjectName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sourceFieldApiName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) targetFieldApiName, [QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) searchConditions, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordsPerBatch, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) isAllOrNothing) | Copies one field into another field of the same row, on every record that matches the search conditions. |
 | global static void [deactivateUsers](#deactivateusers)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> profileNames, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) minimumDaysInactive) | Deactivates users based on their profile names and the number of days since their last login or creation. |
 | global static void [deactivateUsers](#deactivateusers)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> profileNames, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) minimumDaysInactive, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) isAllOrNothing) | Deactivates users based on their profile names and last login or creation date, with transaction control. |
 | global static void [deactivateUsers](#deactivateusers)([Set](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_set.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm)> profileNames, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) minimumDaysInactive, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordsPerBatch, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) isAllOrNothing) | Deactivates users based on their profile names and last login or creation date, with custom batch size and transaction control. |
@@ -52,6 +53,64 @@ UTIL_BulkUpdates.deactivateUsers(new Set<String>{'Chatter Free User'}, 365);
 | global static void [updateField](#updatefield)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sObjectName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) fieldApiName, [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm) fieldValue, [QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) searchConditions, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordsPerBatch, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) isAllOrNothing) | Updates a specific field on records in a Salesforce object based on the given search conditions. |
 | global static void [updateOwner](#updateowner)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sObjectName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) existingOwnerProfileName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) newOwnerUsername) | Updates the ownership of records based on the existing owner profile name and new owner username. |
 | global static void [updateOwner](#updateowner)([String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) sObjectName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) existingOwnerProfileName, [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) newOwnerUsername, [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) recordsPerBatch, [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) isAllOrNothing) | Updates the ownership of records based on the current owner profile, new owner username, batch size, and transaction control. |
+
+### copyField
+
+<div class="apex-member">
+
+```apex
+global static void copyField(String sObjectName, String sourceFieldApiName, String targetFieldApiName, QRY_Condition.Evaluable searchConditions, Integer recordsPerBatch, Boolean isAllOrNothing)
+```
+
+Copies one field into another field of the same row, on every record that matches the search
+conditions. Each row gets its own source value. The work runs in a background job, as with updateField.
+
+Before the job starts, the method checks that both fields exist on the object and are two different fields. It
+also refuses a pair of fields when the target cannot take a value of the source field's type. A text field or a
+lookup field takes text or a record Id. A decimal number field (number, currency or percent) takes any number. A
+whole number field takes only a whole number: Salesforce will not put a decimal number into it, and that error
+would fail every row in the chunk, not only one row. A date, a date and time, or a checkbox field takes only its
+own type. It refuses a source field that the running user cannot read. It also refuses a target field that the
+running user cannot change, such as a formula field, a roll-up summary field, an auto number field, a field set
+by Salesforce (for example CreatedDate), or a field the user has read-only access to. Field lengths are not
+compared, so you can copy a longer text field into a shorter one. A value that does not fit fails its own row
+when the row is saved, and so does a text value copied into a lookup field that is not a valid record Id. A
+failed row fails every row read with it only when isAllOrNothing is true. When that happens, a Batch run goes on
+with its other chunks of rows, while a run chained through queued jobs, one after another, stops at that chunk.
+
+The job runs as the user who calls this method, with that user's object, field and sharing access, unless your
+org has turned that check off in the package's feature settings. A row the user cannot edit is not changed.
+
+The user needs read access to the source field and edit access to the target field. These two field checks do
+not follow that setting: they apply either way.
+
+**Parameters**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `sObjectName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the object (e.g., 'Contact'). |
+| `sourceFieldApiName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field to copy from. |
+| `targetFieldApiName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The API name of the field to copy into. |
+| `searchConditions` | [QRY_Condition.Evaluable](QRY_Condition.Evaluable.md) | The conditions used to find the records to update, or null for every record. |
+| `recordsPerBatch` | [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) | The number of records to process in each batch. |
+| `isAllOrNothing` | [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) | Whether one failed row fails every row read with it. |
+
+**Throws**
+
+| Exception | Description |
+|-----------|-------------|
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | When either field does not exist on the object, both names are the same field, the target field cannot take a value of the source field's type, the running user cannot read the source field, or the running user cannot change the target field. |
+
+**Example**
+
+```apex
+QRY_Condition.Evaluable condition = new QRY_Condition.AndCondition()
+		.add(new QRY_Condition.FieldCondition('MobilePhone', QRY_Condition.Operator.EQUALS, null))
+		.add(new QRY_Condition.FieldCondition('Phone', QRY_Condition.Operator.NOT_EQUALS, null));
+UTIL_BulkUpdates.copyField('Contact', 'Phone', 'MobilePhone', condition, 200, false);
+```
+
+</div>
 
 ### deactivateUsers
 
@@ -306,7 +365,7 @@ Processes updates in batches with control over partial transaction behavior.
 
 ```apex
 QRY_Condition.Evaluable condition = new QRY_Condition.AndCondition()
-		.add(new QRY_Condition.FieldCondition('Status').equals('Closed'));
+		.add(new QRY_Condition.FieldCondition('StageName', QRY_Condition.Operator.EQUALS, 'Closed Won'));
 UTIL_BulkUpdates.updateField('Opportunity', 'OwnerId', '005D0000001ABCD', condition, 100, false);
 ```
 

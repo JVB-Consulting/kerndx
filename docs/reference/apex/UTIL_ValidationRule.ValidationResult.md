@@ -3,13 +3,14 @@ title: "UTIL_ValidationRule.ValidationResult"
 type: class
 pageClass: reference
 description: "Result of validating a single record. Contains all validation errors/warnings for that record."
+group: "Validation"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_ValidationRule.ValidationResult
 
-**Class**
+**Class** · Group: `Validation`
 
 <div class="apex-member apex-class">
 

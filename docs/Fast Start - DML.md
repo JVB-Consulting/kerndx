@@ -1,68 +1,35 @@
 ---
 navOrder: 14
+searchTerms: {"partial-success":["allOrNone"]}
 ---
 
 # Fast Start - DML
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-**What this is:** A safer way to write records to Salesforce in Apex. Instead of plain `insert`, `update`, and `delete`, you build up the changes you want and run them as one transaction. **Why it matters:** That single path gives you automatic error logging, parent-to-child relationships wired up for you, partial-success handling, and control over security and sharing, all without repeating boilerplate. **Who should follow it:** any developer who writes Apex that saves data. **When to use it:** any time your code creates, changes, or removes records. A bare `insert` of a single record with no related children is fine on its own; the benefit of the builder shows once you have parent-child links, partial-success handling, or want consistent error logging across your codebase.
+- **What this is:** a safer way to write records to Salesforce in Apex. Instead of plain `insert`, `update`, and `delete`, you build up the changes you want and run them as one transaction.
+- **Why it matters:** that single path gives you automatic error logging, parent-to-child relationships wired up for you, partial-success handling, and control over security and sharing, all without repeating boilerplate.
+- **Who should follow it:** any developer who writes Apex that saves data.
+- **When to use it:** any time your code creates, changes, or removes records. KernDX expects every save to go through `DML_Builder`, even a single record with no related children, so every save gets the same user-mode security and consistent error logging across your codebase.
+- **What you'll build:** a service class that creates an Account with related Contacts and an Opportunity
+  in a single atomic (all-or-nothing) transaction, with the parent-child foreign keys filled in automatically.
+- **Success looks like:** you call your service, verify the Account and its children were created with correct
+  relationships, and your test class has 100% coverage.
+- **In one line:** `kern.DML_Builder.newTransaction().doInsert(newAccount).doInsert(newContact, Contact.AccountId, newAccount).execute();`
+  (parent-child foreign keys are resolved automatically).
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** A service class that creates an Account with related Contacts and an Opportunity
-in a single atomic (all-or-nothing) transaction, with the parent-child foreign keys filled in automatically.
-
-**Success looks like:** You call your service, verify the Account and its children were created with correct
-relationships, and your test class has 100% coverage.
-
-**In one line:** `kern.DML_Builder.newTransaction().doInsert(newAccount).doInsert(newContact, Contact.AccountId, newAccount).execute();`
-(parent-child foreign keys are resolved automatically).
-
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-    - [Insert a Record](#insert-a-record)
-    - [Update a Record](#update-a-record)
-    - [Parent-Child Insert](#parent-child-insert)
-3. [Tier 2: Build Your Own (~20 minutes)](#tier-2-build-your-own-20-minutes)
-    - [Step 1: Create the Service Class](#step-1-create-the-service-class)
-    - [Step 2: Execute](#step-2-execute)
-    - [Step 3: Write Tests](#step-3-write-tests)
-4. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
-    - [All DML Operations](#all-dml-operations)
-    - [TransactionResult](#transactionresult)
-    - [Partial Success](#partial-success)
-    - [Security, Sharing, Suppression, and Async](#security-sharing-suppression-and-async)
-    - [Clean up](#clean-up)
-5. [Common Issues](#common-issues)
-    - [Parent-Child Insert](#parent-child-insert-1)
-    - [Step 1: Create the Service Class](#step-1-create-the-service-class-1)
-    - [Step 2: Execute](#step-2-execute-1)
-    - [Step 3: Write Tests](#step-3-write-tests-1)
-    - [All DML Operations](#all-dml-operations-1)
-    - [Partial Success](#partial-success-1)
-    - [Clean up](#clean-up-1)
-6. [What You Now Know](#what-you-now-know)
-7. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
@@ -70,9 +37,9 @@ where your org's alias goes: the name you gave it when you logged in.
 
 See the builder work straight away. You can call [`DML_Builder`](reference/apex/DML_Builder.md) directly from anonymous Apex, with no custom classes to create first.
 
-### Insert a Record
+### Insert a Record (instead of Database.insert)
 
-**In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
+<a id="insert-a-record"></a>**In Salesforce**, open the Developer Console (the gear icon, then Developer Console), then Debug, then Open Execute
 Anonymous Window, and run:
 
 ```apex
@@ -330,7 +297,12 @@ Opportunities: 1
 - **`.execute()`**: commits all operations atomically, parent records before their children. After each parent inserts,
   the framework populates its children's lookup fields. If any operation fails, all are rolled back.
 - **`TransactionResult`**: contains `isSuccess()`, `getInsertedIds()`, `getErrors()`, `getSuccessCount()`,
-  `getFailureCount()`.
+  `getFailureCount()` and `getFailureMessage()`.
+  - `getFailureMessage()` gives the reason a save failed when no error reached your code. There are two such cases: a
+    failure that `.suppressExceptions()` turned into a failed result, and an error that stopped a save made with
+    `.allowPartial()`. In both, `isSuccess()` is false.
+  - Neither case gives row results, so `getErrors()` does not show the reason. When a partial save only refuses some
+    rows, `getFailureMessage()` returns null: read each row's reason from `getErrors()`.
 
 Something went wrong? See [Common Issues, Step 2](#step-2-execute-1).
 
@@ -579,13 +551,26 @@ Something went wrong? See [Common Issues, Partial Success](#partial-success-1).
 These are situational patterns. See the [DML Guide](DML%20-%20Guide.md) for detailed examples.
 
 **Default access mode.** By default, `kern.DML_Builder.newTransaction()` runs in `AccessLevel.USER_MODE`: it saves data with the current user's read/write permissions and record sharing
-enforced, rather than skipping those checks (the alternative, `SYSTEM_MODE`). In practice that means CRUD (object create/read/update/delete permissions) and FLS (field-level security)
-are both checked against the running user, and sharing rules are honoured. This safe default is controlled by the `UserModeDml_Enabled` feature flag, which ships set to `true`.
-You can override it on a single call with `.withSystemMode()` (which skips the CRUD and FLS checks), or be explicit and pass `.withUserMode()` even when the flag is on.
-`.bypassSharing()` affects sharing only: it does NOT turn off the CRUD and FLS enforcement that USER_MODE provides. If the user cannot create or edit a field, the save
-leaves that field out without an error, and one warning in the log names it. If the user lacks the object permission this save needs (create, edit, delete or
-undelete), the save is refused.
-To save such a field, add `.withSystemMode()` too.
+enforced, rather than skipping those checks (the alternative, `SYSTEM_MODE`).
+
+- In practice, CRUD (object create/read/update/delete permissions) and FLS (field-level security) are both checked
+  against the running user, and sharing rules are honoured.
+- This safe default is controlled by the `UserModeDml_Enabled` feature flag, which ships set to `true`.
+
+To change it on a single call:
+
+| Call | What it does |
+|---|---|
+| `.withSystemMode()` | Overrides the default and skips the CRUD and FLS checks. |
+| `.withUserMode()` | Makes USER_MODE explicit, even when the flag is on. |
+| `.bypassSharing()` | Affects sharing only: it does NOT turn off the CRUD and FLS enforcement that USER_MODE provides. |
+
+With `.bypassSharing()`:
+
+- If the user cannot create or edit a field, the save leaves that field out without an error, and one warning in the log names it.
+- If the user lacks the object permission this save needs (create, edit, delete or undelete), the save is refused.
+- To save such a field, add `.withSystemMode()` too.
+
 See [Security Guide: Safe by Default](Security%20-%20Guide.md#safe-by-default).
 
 **In your editor**, in your own Apex, where `records` is the list of records you are saving:
@@ -620,12 +605,15 @@ refusal is logged at WARN and everything else at ERROR.
 kern.DML_Builder.newTransaction().doInsert(records).allowPartial().expectRefusal(StatusCode.DUPLICATE_VALUE).execute();
 ```
 
-Four of the choices above travel with a background job: the access mode (`.withUserMode()` /
-`.withSystemMode()`), partial success (`.allowPartial()`), the sharing bypass (`.bypassSharing()`),
-and the expected refusals you declared (`.expectRefusal()`). If you do not call `.bypassSharing()`,
-the background job enforces record sharing. `.suppressExceptions()` and `.suppressLogging()` do not
-travel: they shape the result the synchronous call hands back, and a background job has no caller
-waiting for one, so its failures are always logged.
+Four of the choices above travel with a background job:
+
+- the access mode (`.withUserMode()` / `.withSystemMode()`)
+- partial success (`.allowPartial()`)
+- the sharing bypass (`.bypassSharing()`): if you do not call it, the background job enforces record sharing
+- the expected refusals you declared (`.expectRefusal()`)
+
+`.suppressExceptions()` and `.suppressLogging()` do not travel: they shape the result the synchronous call hands
+back, and a background job has no caller waiting for one, so its failures are always logged.
 
 ### Clean up
 
@@ -692,19 +680,22 @@ The test class's deploy fails for the same reasons as the service's; see the ent
 
 #### `cannot specify Id in an insert call`
 
-The code called `execute()` a second time on the same transaction. That runs the registered operations again, and the
-records it inserted the first time now have Ids, so the insert is refused with a message that starts
-`System.DmlException: Insert failed.` Register all the operations, then execute once; for more work afterwards, start
-a new transaction with `kern.DML_Builder.newTransaction()`, as the code above does.
+Register all the operations, then execute once; for more work afterwards, start a new transaction with
+`kern.DML_Builder.newTransaction()`, as the code above does.
+
+The cause: the code called `execute()` a second time on the same transaction. That runs the registered operations
+again, and the records it inserted the first time now have Ids, so the insert is refused with a message that starts
+`System.DmlException: Insert failed.`
 
 ### Partial Success
 
 #### `System.DmlException: Insert failed.`
 
-The message goes on to name the failing row and the reason, for example `Required fields are missing: [Name]`. A
-transaction is all-or-nothing by default: one record failed, so nothing was saved and the error
-stopped your code. Chain `.allowPartial()` to save the valid records and read the failures from the result, or
-`.suppressExceptions()` to log the failure instead of throwing it.
+Chain `.allowPartial()` to save the valid records and read the failures from the result, or `.suppressExceptions()`
+to log the failure instead of throwing it.
+
+The cause: a transaction is all-or-nothing by default. One record failed, so nothing was saved and the error stopped
+your code. The message goes on to name the failing row and the reason, for example `Required fields are missing: [Name]`.
 
 If the reason is `cannot specify Id in an insert call`, see [All DML Operations](#all-dml-operations-1).
 
@@ -732,11 +723,10 @@ After completing this guide, you understand the **DML builder pattern** in KernD
 **Key patterns:**
 
 - **Always use `DML_Builder`**, not direct DML: the framework provides automatic error logging.
-- **Link each child to its parent**: use the 3-argument `.doInsert(child, field, parent)` overload, and register the
-  parent with `.doInsert()` too; the framework inserts the parent first.
 - **One `execute()` per transaction**: register all operations first, then execute once.
-- **`public` visibility**: service classes using DML_Builder don't need `global`.
 - **`TransactionResult`**: always check `isSuccess()` when using `.allowPartial()` or `.suppressExceptions()`.
+- **Linking each child to its parent, and `public` visibility**: see [Why it works](#step-2-execute) in Step 2 and
+  "Why `public`?" in [Step 1](#step-1-create-the-service-class).
 
 ---
 

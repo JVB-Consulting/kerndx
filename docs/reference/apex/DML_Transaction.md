@@ -5,7 +5,7 @@ pageClass: reference
 description: "The engine that saves a set of DML operations across many SObjects as one transaction. This set is called a unit of work: the records registered to be saved together. By default, if one record fails, "
 author: "Jason Van Beukering"
 group: "DML"
-date: "February 2026, October 2026"
+date: "February 2026, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -112,12 +112,21 @@ as a warning, with no error. A save the user has no object permission for, an up
 user cannot read or edit, and a save that would leave out the field that links a record to its parent are
 refused as user mode refuses them. A record that names its parent only by an external Id the user cannot read is
 refused by Salesforce, with a message that does not name the field. These checks use only the running user's own
-permissions. When user mode is set with a permission set, through
-`setAccessLevel(AccessLevel.USER_MODE.withPermissionSetId(permissionSetId))`, a field that only the permission
-set lets the user edit is still left out. A refused save is sent with that access level, so the platform takes
-the permission set into account when it decides. That save runs in user mode, so it also applies record
-sharing. In system mode, set through `setAccessLevel(AccessLevel.SYSTEM_MODE)` or by turning the flag off, false
-waives those permission checks too.
+permissions. When you set user mode with a permission set, through
+`setAccessLevel(AccessLevel.USER_MODE.withPermissionSetId(permissionSetId))`, these checks do not run. The save
+goes to Salesforce as it is, in user mode with that permission set. Salesforce applies the running user's object
+and field permissions plus those of the permission set. It also applies record sharing. So false does not ignore
+record sharing for such a save. A save that must ignore record sharing cannot use a permission set. Set
+`AccessLevel.USER_MODE` and give the user the permissions, or set system mode. In system mode, set through
+`setAccessLevel(AccessLevel.SYSTEM_MODE)` or by turning the flag off, false waives those permission checks too.
+
+A commit that ignores record sharing or that runs in the system mode you chose is recorded in the bypass audit.
+When enforceSharing is false, each commit that saves records writes one entry for each object it saves, with the
+target `sharing:` followed by the object's API name, such as `sharing:Account`. When you set
+`AccessLevel.SYSTEM_MODE` through `setAccessLevel` and the level is still system mode, each such commit also writes
+a `system-mode:` entry for each object. Each entry names the object, the operations, the number of rows and the
+class and method that called `commitWork`. The entries are written once for each call, before the first statement,
+even when the save is retried after a row lock. A commit that saves nothing writes none.
 
 **Parameters**
 
@@ -695,6 +704,13 @@ global void setAccessLevel(AccessLevel accessLevel)
 Sets the `AccessLevel` passed to every DML operation through the `DML_SharingProxy` methods
 that take an access level. When it is null, the proxy uses the default that the `UserModeDml_Enabled`
 flag sets.
+
+System mode skips the running user's object and field permission checks, so it is recorded in the bypass audit.
+When you set `AccessLevel.SYSTEM_MODE` here and the level is still system mode when you call `commitWork`, each
+commit that saves records writes one audit entry for each object it saves. The entry's target is `system-mode:`
+followed by the object's API name, such as `system-mode:Account`. It also names the object, the operations
+(`insert`, `update` and so on), the number of rows and the class and method that called `commitWork`. If you set
+another level before the commit, or the commit saves nothing, no entry is written.
 
 **Parameters**
 

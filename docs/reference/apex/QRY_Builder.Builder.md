@@ -3,13 +3,14 @@ title: "QRY_Builder.Builder"
 type: class
 pageClass: reference
 description: "Extensible query builder class. Maintains internal query state and uses QRY_Generator for SOQL building and QRY_Engine for execution."
+group: "Query Infrastructure"
 since: "1.0"
 category: apex
 ---
 
 # QRY_Builder.Builder
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 
@@ -1018,19 +1019,58 @@ permissions still apply:
 - fields the user cannot read are removed from the rows, in parent fields and child rows too, and are not
 reported;
 
-- a filter or a sort on a field of the queried object that the user cannot read is refused;
+- a filter or a sort on a field that the user cannot read is refused. This covers a field of the queried object,
+a field inside a function (a date function such as `CALENDAR_YEAR()`, `convertTimezone()` inside one,
+`toLabel()` or `DISTANCE()`, written as text or from QRY_Function), and a path through parent records such as
+`Parent__r.Email__c`, up to five parents deep: the user must be able to read each parent object on the path,
+each lookup on the path and the last field. A path through a parent object the user cannot read is refused
+with a QueryException;
 
-- a query inside isIn() or notIn(), and a child query added with subselect(), are checked the same way, each on
-its own object: the user must be able to read that object and the fields it filters or sorts on;
+- a lookup that can point to more than one object, such as `What`, `Who` or `Owner`, is read through a shared
+Name record, and is checked as user mode checks it: the user must be able to read the lookup, such as
+`WhatId`, and the field of the Name record, such as `Name` in `What.Name`. The objects the lookup points to are
+not checked;
+
+- for some users Salesforce hides the `ProfileId`, `UserRoleId` and `RecordTypeId` fields of the Name record, so
+a filter on `What.ProfileId` or on `What.RecordType.Name` is refused for them;
+
+- because the read ignores sharing, a filter on `What.Name` covers every activity in the org. It can find, by
+name, a record on an object the user cannot open, the first and last name of a contact or a lead, and the
+company of a lead;
+
+- a read of rows that selects a path through a lookup the user cannot read, or through a parent object the user
+cannot read, is refused, as user mode refuses it. This covers `What.Name` without read on `WhatId`,
+`Account.Name` on a contact without read on Account, child queries, and `TYPEOF`, whose relationship and each
+object after `WHEN` must be readable;
+
+- in the selected fields, a hidden lookup gives a UTIL_Exceptions.IllegalStateException, and a hidden parent
+object gives a QueryException. A hidden last field, such as `Phone` in `Account.Phone`, is not refused: it is
+removed from the rows;
+
+- selected text the builder cannot check is refused with a UTIL_Exceptions.IllegalStateException, even when the
+user can read everything in it. Each selected field must be a field name or a path such as `Account.Name`,
+with or without a function around it. So add a child query with subselect(), not as text, and write each
+`TYPEOF` as a field of its own: `TYPEOF What WHEN Account THEN Name, Phone ELSE Name END`;
+
+- a query inside isIn() or notIn() is checked the same way, on its own object, and so is a child query added
+with subselect(), on the object its relationship reads: the user must be able to read that object and the
+fields it filters or sorts on. A child query built for another object is checked as the object SOQL reads
+through the relationship;
+
+- a child query added with subselect() is refused when the user cannot read the lookup behind its relationship,
+such as `WhatId` for the `Events` of an account, as user mode refuses it, even when the child query selects
+only `Id`. Some objects use one relationship name for two lookups; then the user must be able to read both. A
+relationship name the parent object does not have is refused too. The name may start with the parent object,
+as in `Account.Contacts`, as SOQL allows. count() and exists() do not read the child query, so they refuse
+neither of these;
 
 - toQueryLocator(), toCursor() and every total or group read (toAggregateList(), getFirstAggregate(), or a
 grouped query read as records) are refused, because their rows cannot be cleaned;
 
 - getPage() returns a page with a null cursor, for the same reason.
 
-A filter in your own Evaluable, on a path through a parent such as `Parent__r.Email__c`, or inside a function
-is not checked. Its rows can tell the user something about that field, so do not filter or sort on a field the
-user cannot read that way.
+A filter in your own Evaluable is not checked. Its rows can tell the user something about that field, so do not
+filter on a field the user cannot read that way.
 
 To read a locator, a cursor or totals without sharing, add withSystemMode(). withSystemMode() also turns off
 the object and field permission checks for the read. With the `UserModeQueries_Enabled` flag off, a read runs
@@ -1159,6 +1199,11 @@ global Integer count()
 
 Returns the number of records that match the query criteria.
 
+The count does not read a child query added with subselect(). So with bypassSharing() alone, under user mode,
+the lookup behind a child query is not checked, and a relationship name the parent object does not have is
+not refused. When the relationship is found, the object it reads and the filters and sorts of the child query
+are still checked. When it is not found, the child query is not checked at all.
+
 **Returns** [Integer](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_integer.htm) — Integer count
 
 **Throws**
@@ -1166,7 +1211,7 @@ Returns the number of records that match the query criteria.
 | Exception | Description |
 |-----------|-------------|
 | [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
-| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | With bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters on a field the running user cannot read. Add withSystemMode(). |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | With bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters or sorts on a field the running user cannot read. Add withSystemMode(). |
 
 **Example**
 
@@ -1404,6 +1449,10 @@ global Boolean exists()
 
 Checks whether any records exist matching the query criteria.
 
+It counts the records as count() does, so with bypassSharing() alone it checks a child query added with
+subselect() the way count() does: the lookup behind it is not checked, and a relationship name the parent
+object does not have is not refused.
+
 **Returns** [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) — Boolean true if at least one record exists
 
 **Throws**
@@ -1411,7 +1460,7 @@ Checks whether any records exist matching the query criteria.
 | Exception | Description |
 |-----------|-------------|
 | [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
-| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | With bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters on a field the running user cannot read. Add withSystemMode(). |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | With bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters or sorts on a field the running user cannot read. Add withSystemMode(). |
 
 **Example**
 
@@ -1729,8 +1778,8 @@ and the paging flags stay correct. Ask for each later page with getPage().
 | Exception | Description |
 |-----------|-------------|
 | [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | When the page number is below 1, or the page size is outside 1 to 2000 |
-| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
-| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | When the transaction has used up its cursors (about fifty paged reads in one transaction that could not use a pagination cursor), and the requested page also starts past the 2,000-row offset a plain query can reach. Spread the paged reads across transactions, or narrow the query. Also with bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters or sorts on a field the running user cannot read. Add withSystemMode(). |
+| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, the object of a query inside isIn(), notIn() or subselect(), or a parent object on a selected path. |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | When the transaction has used up its cursors (about fifty paged reads in one transaction that could not use a pagination cursor), and the requested page also starts past the 2,000-row offset a plain query can reach. Spread the paged reads across transactions, or narrow the query. Also with bypassSharing() alone, under user mode, when the query is an aggregate query, when it filters or sorts on a field the running user cannot read, when it selects a path or adds a child query through a lookup the running user cannot read, or when it selects text the builder cannot check, such as a child query written as text. Add withSystemMode(). |
 
 **Example**
 
@@ -1795,8 +1844,8 @@ toList().
 
 | Exception | Description |
 |-----------|-------------|
-| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
-| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | In a test, when the query is an aggregate query and aggregate rows are registered for the object type. Read such a query with toAggregateList(). Also with bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters or sorts on a field the running user cannot read. Add withSystemMode(). |
+| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, the object of a query inside isIn(), notIn() or subselect(), or a parent object on a selected path. |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | In a test, when the query is an aggregate query and aggregate rows are registered for the object type. Read such a query with toAggregateList(). Also with bypassSharing() alone, under user mode, when the query is an aggregate query, when it filters or sorts on a field the running user cannot read, when it selects a path or adds a child query through a lookup the running user cannot read, or when it selects text the builder cannot check, such as a child query written as text. Add withSystemMode(). |
 
 **Example**
 
@@ -2897,16 +2946,17 @@ List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
 global QRY_Builder.Builder subselect(QRY_Builder.Builder childQuery, String relationshipName)
 ```
 
-Adds a child subquery (child relationship query). The relationship name must be a single API name,
-such as Contacts. Text that comes from a page or a user must first be matched to a relationship through a list
-of names you allow.
+Adds a child subquery (child relationship query). The relationship name is the API name of the child
+relationship, such as Contacts. It may have the parent object and a dot in front, such as Account.Contacts, as
+SOQL allows. Spaces around the name are removed. Text that comes from a page or a user must first be matched to
+a relationship through a list of names you allow.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `childQuery` | [QRY_Builder.Builder](QRY_Builder.Builder.md) | Configured Builder for the child object |
-| `relationshipName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The child relationship API name (e.g., 'Contacts') |
+| `relationshipName` | [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) | The child relationship API name (e.g., 'Contacts' or 'Account.Contacts') |
 
 **Returns** [QRY_Builder.Builder](QRY_Builder.Builder.md) — Builder for chaining
 
@@ -2914,7 +2964,7 @@ of names you allow.
 
 | Exception | Description |
 |-----------|-------------|
-| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the relationship name is not blank and is not a single API name, such as Contacts |
+| [IllegalArgumentException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | if the relationship name is not blank and is not one API name, or API names joined by dots, such as Contacts or Account.Contacts |
 
 **Example**
 
@@ -3103,9 +3153,9 @@ Executes the query and returns a List of SObjects.
 
 | Exception | Description |
 |-----------|-------------|
-| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, or the object of a query inside isIn(), notIn() or subselect(). |
+| [QueryException](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_classes_exception_methods.htm) | With bypassSharing() alone, under user mode, when the running user cannot read the object, the object of a query inside isIn(), notIn() or subselect(), or a parent object on a selected path. |
 | [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | In a test, when the query is an aggregate query and rows registered with TST_Mock.registerAggregateRows answer it. Read an aggregate query with toAggregateList(). The other methods that return records, such as getFirst(), getPage() and asMap(), throw in the same case. |
-| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | With bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters or sorts on a field the running user cannot read. Add withSystemMode(). |
+| [UTIL_Exceptions.IllegalStateException](UTIL_Exceptions.IllegalStateException.md) | With bypassSharing() alone, under user mode, when the query is an aggregate query, when it filters or sorts on a field the running user cannot read, when it selects a path or adds a child query through a lookup the running user cannot read, or when it selects text the builder cannot check, such as a child query written as text. Add withSystemMode(). getFirst() and the as methods, such as asMap(), throw in the same cases. |
 
 **Example**
 

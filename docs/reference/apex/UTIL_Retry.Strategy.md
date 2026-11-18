@@ -3,13 +3,14 @@ title: "UTIL_Retry.Strategy"
 type: class
 pageClass: reference
 description: "Interface defining the retry strategy logic. Implement this interface to create custom retry strategies."
+group: "Resilience"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_Retry.Strategy
 
-**Class**
+**Class** · Group: `Resilience`
 
 <div class="apex-member apex-class">
 

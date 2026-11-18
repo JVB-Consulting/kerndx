@@ -5,7 +5,7 @@ pageClass: reference
 description: "Formula-driven declarative validation framework for advanced validation scenarios that standard Salesforce validation rules cannot handle. This framework enables: Cross-object validation requiring que"
 author: "Jason Van Beukering"
 group: "Validation"
-date: "January 2026, October 2026"
+date: "January 2026, November 2026"
 since: "1.0"
 category: apex
 ---

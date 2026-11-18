@@ -43,7 +43,7 @@ Applies a Masking Rule to a specific field on a specific object. Each record say
 global String CallerClass__c
 ```
 
-Leave this blank to apply the target to every caller. Set it to the handler class that an API setting names, spelled the same way, to limit the target to that service's API calls and API issues. A target with a class name here never masks any other object, and never masks log entries.
+Leave this blank to apply the target to every caller. Set it to the handler class that an API setting names, spelled the same way, to limit the target to that service's API calls and API issues. An active target accepts a class name only when its object is API Call or API Issue, because only those records know which class made them. On any other object an active target with a class name is refused; an inactive one is accepted. A target with a class name here never masks log entries.
 
 **Field Attributes:**
 

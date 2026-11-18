@@ -3,13 +3,14 @@ title: "FLOW_LoggerStart.DTO_Response"
 type: class
 pageClass: reference
 description: "Output containing the generated correlation ID."
+group: "Logging"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_LoggerStart.DTO_Response
 
-**Class**
+**Class** · Group: `Logging`
 
 <div class="apex-member apex-class">
 

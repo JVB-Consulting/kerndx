@@ -3,13 +3,14 @@ title: "QRY_Condition.AndCondition"
 type: class
 pageClass: reference
 description: "Represents a SOQL \"AND\" condition group."
+group: "Query Infrastructure"
 since: "1.0"
 category: apex
 ---
 
 # QRY_Condition.AndCondition
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 

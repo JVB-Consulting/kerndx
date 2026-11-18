@@ -3,13 +3,14 @@ title: "QRY_Builder.Scope"
 type: class
 pageClass: reference
 description: "Enumeration of valid SOQL scope values for use with the USING SCOPE clause."
+group: "Query Infrastructure"
 since: "1.0"
 category: apex
 ---
 
 # QRY_Builder.Scope
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 

@@ -3,13 +3,14 @@ title: "UTIL_FormulaContext.CampaignContext"
 type: class
 pageClass: reference
 description: "Formula evaluation context for Campaign object. Provides typed access to Campaign records in formula evaluations. Auto-detected by Trigger Action Framework when EntryCriteriaContextClassName__c is bla"
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_FormulaContext.CampaignContext
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 
@@ -26,10 +27,10 @@ Formula evaluation context for Campaign object. Provides typed access to Campaig
 ```apex
 // Trigger Action Framework formulas:
 // newRecord.IsActive = true
-// newRecord.Status <> oldRecord.Status
+// TEXT(newRecord.Status) <> TEXT(oldRecord.Status)
 // Direct Apex usage:
 FormulaEval.FormulaInstance formula = Formula.builder()
-    .withFormula('newRecord.IsActive && newRecord.Type = "Email"')
+    .withFormula('newRecord.IsActive && TEXT(newRecord.Type) = "Email"')
     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
     .withType(UTIL_FormulaContext.CampaignContext.class)
     .build();

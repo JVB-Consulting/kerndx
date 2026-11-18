@@ -3,13 +3,14 @@ title: "IF_Trigger.PostActionEntryCriteria"
 type: class
 pageClass: reference
 description: "Optional entry-criteria contract for a post-trigger action. Implementing classes are referenced from PostTriggerAction__mdt.EntryCriteriaContextClassName__c and consulted before the post-action's exec"
+group: "Triggers"
 since: "1.1"
 category: apex
 ---
 
 # IF_Trigger.PostActionEntryCriteria
 
-**Class**
+**Class** · Group: `Triggers`
 
 <div class="apex-member apex-class">
 

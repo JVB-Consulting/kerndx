@@ -3,13 +3,14 @@ title: "UTIL_HttpClient.RequestBuilder"
 type: class
 pageClass: reference
 description: "Fluent builder for configuring and executing HTTP requests through API_Dispatcher."
+group: "Web Services"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_HttpClient.RequestBuilder
 
-**Class**
+**Class** · Group: `Web Services`
 
 <div class="apex-member apex-class">
 

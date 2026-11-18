@@ -3,13 +3,14 @@ title: "UTIL_CircuitBreaker.ProtectedAction"
 type: class
 pageClass: reference
 description: "Interface for code that needs circuit breaker protection (no return value) Implement this interface to use the simplified execute() method which handles allowRequest(), recordSuccess(), and recordFail"
+group: "Resilience"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_CircuitBreaker.ProtectedAction
 
-**Class**
+**Class** · Group: `Resilience`
 
 <div class="apex-member apex-class">
 

@@ -3,13 +3,14 @@ title: "API_Base.WebserviceStatus"
 type: class
 pageClass: reference
 description: "Enum representing the status of a web service call."
+group: "Web Services"
 since: "1.0"
 category: apex
 ---
 
 # API_Base.WebserviceStatus
 
-**Class**
+**Class** · Group: `Web Services`
 
 <div class="apex-member apex-class">
 

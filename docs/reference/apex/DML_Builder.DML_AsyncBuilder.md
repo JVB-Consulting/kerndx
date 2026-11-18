@@ -3,13 +3,14 @@ title: "DML_Builder.DML_AsyncBuilder"
 type: class
 pageClass: reference
 description: "Runs DML in an async job. It groups the registered operations by type and hands them to PROC_ExecuteDML through UTIL_AsynchronousJobLauncher, which picks a Queueable or Batch job to suit the volume. I"
+group: "DML"
 since: "1.0"
 category: apex
 ---
 
 # DML_Builder.DML_AsyncBuilder
 
-**Class**
+**Class** · Group: `DML`
 
 <div class="apex-member apex-class">
 

@@ -3,13 +3,14 @@ title: "FLOW_SendEmail.DTO_Response"
 type: class
 pageClass: reference
 description: "Data Transfer Object (DTO) representing the outcome of an email request."
+group: "Email"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_SendEmail.DTO_Response
 
-**Class**
+**Class** · Group: `Email`
 
 <div class="apex-member apex-class">
 

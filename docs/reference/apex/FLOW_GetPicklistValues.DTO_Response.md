@@ -3,13 +3,14 @@ title: "FLOW_GetPicklistValues.DTO_Response"
 type: class
 pageClass: reference
 description: "Provides the outcome of the picklist values retrieval."
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # FLOW_GetPicklistValues.DTO_Response
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 

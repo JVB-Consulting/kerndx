@@ -3,13 +3,14 @@ title: "IF_Trigger.PostActionContext"
 type: class
 pageClass: reference
 description: "Context handed to a post-trigger action when the dispatcher unwinds the outermost trigger dispatch. Carries the set of SObject types whose triggers participated in the transaction so the post-action c"
+group: "Triggers"
 since: "1.1"
 category: apex
 ---
 
 # IF_Trigger.PostActionContext
 
-**Class**
+**Class** · Group: `Triggers`
 
 <div class="apex-member apex-class">
 

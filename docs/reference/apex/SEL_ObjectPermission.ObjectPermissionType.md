@@ -3,13 +3,14 @@ title: "SEL_ObjectPermission.ObjectPermissionType"
 type: class
 pageClass: reference
 description: "A Permission that a User might have on a SObjectType."
+group: "Selectors"
 since: "1.0"
 category: apex
 ---
 
 # SEL_ObjectPermission.ObjectPermissionType
 
-**Class**
+**Class** · Group: `Selectors`
 
 <div class="apex-member apex-class">
 

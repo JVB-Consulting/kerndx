@@ -3,13 +3,14 @@ title: "QRY_Builder.AggregateRow"
 type: class
 pageClass: reference
 description: "Typed wrapper around AggregateResult for convenient value access. Provides typed accessors that eliminate the need for manual casting from Object. In a test, a row can also hold the values of a row re"
+group: "Query Infrastructure"
 since: "1.0"
 category: apex
 ---
 
 # QRY_Builder.AggregateRow
 
-**Class**
+**Class** · Group: `Query Infrastructure`
 
 <div class="apex-member apex-class">
 

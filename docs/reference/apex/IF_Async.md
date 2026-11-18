@@ -5,7 +5,7 @@ pageClass: reference
 description: "A container for shared global interfaces used by the asynchronous framework."
 author: "Jason Van Beukering"
 group: "Async Processing"
-date: "September 2025, October 2026"
+date: "September 2025, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -43,6 +43,6 @@ public class MyProcessor implements IF_Async.Processable
 | Class | Description |
 |-------|-------------|
 | [AsynchronousExecutionStrategy](IF_Async.AsynchronousExecutionStrategy.md) | Enum defining different asynchronous execution strategies. |
-| [Finishable](IF_Async.Finishable.md) | Optional interface for defining finalizer logic that runs after all data is processed. |
+| [Finishable](IF_Async.Finishable.md) | Optional interface for logic that runs once, after all items are processed. |
 | [Processable](IF_Async.Processable.md) | Interface for defining the core processing logic to be executed by an asynchronous job. |
 

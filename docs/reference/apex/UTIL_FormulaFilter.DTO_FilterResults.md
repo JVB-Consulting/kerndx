@@ -3,13 +3,14 @@ title: "UTIL_FormulaFilter.DTO_FilterResults"
 type: class
 pageClass: reference
 description: "Inner class representing the result of the filter method."
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_FormulaFilter.DTO_FilterResults
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 
