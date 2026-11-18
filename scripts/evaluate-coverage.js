@@ -57,6 +57,7 @@ const COMPANION_TEST_SUITES = {
 	API_Inbound: ['API_InboundIssue_TEST', 'API_InboundRetryLink_TEST'],
 	API_Dispatcher: ['API_InboundIssue_TEST'],
 	SEL_Hierarchy: ['SEL_HierarchyDepthLimit_TEST'],
+	UTIL_SObjectDescribe: ['UTIL_SObjectDescribe_ConnectApi_TEST', 'UTIL_String_TEST'],
 	API_Outbound: [
 		'UTIL_AsyncChainApi_TEST',
 		'API_Dispatcher_TEST',
@@ -67,7 +68,10 @@ const COMPANION_TEST_SUITES = {
 		'UTIL_HttpClientOutcome_TEST'
 	],
 	UTIL_HttpClient: ['UTIL_HttpClientDispatch_TEST', 'UTIL_HttpClientOutcome_TEST', 'UTIL_AsyncChainApi_TEST'],
-	UTIL_ScheduledJobRunner: ['CTRL_HealthCheck_TEST']
+	UTIL_ScheduledJobRunner: ['CTRL_HealthCheck_TEST'],
+	UTIL_String: ['UTIL_FrameworkMasker_TEST'],
+	QRY_Builder: ['QRY_BuilderBypassSharing_TEST'],
+	CTRL_RetryApiIssue: ['CTRL_RetryApiIssueBulkRetry_TEST']
 };
 
 /**

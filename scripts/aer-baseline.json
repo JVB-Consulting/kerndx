@@ -1,15 +1,50 @@
 {
 	"description": "Apex tests that fail on aer, the local Apex runtime, and pass in a Salesforce org. scripts/aer-run.js --gate fails on any other failure and on a test that reports no result. Categories: \"runtime gap\" (aer behaves differently from Salesforce, shown), \"profile\" (the copy has no profiles folder) and \"unclassified\" (the cause is not yet known).",
 	"measuredWith": {
-		"aerVersion": "1.4.45",
-		"commit": "3d2bcd95630750acd81b432ff093fdd42308100f",
+		"aerVersion": "1.6.10",
+		"commit": "e6bf328c04f9275d1d451415ba8225206543c10d",
 		"permissionSet": "Administrator"
 	},
 	"failures": [
 		{
-			"test": "QRY_Condition_TEST.shouldBindIdTextInAnObjectListAsListOfId",
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesAPathThroughALookupTheUserCannotRead",
 			"category": "runtime gap",
-			"error": "Passes in a Salesforce org, and passed on aer 1.4.38. On aer 1.4.45 a 15-character Id in a bound list of Ids does not match its record, so the query returns only the record given by its 18-character Id. First error on aer: AssertException: QRY_Condition_TEST.cls:1158: Assertion Failed: Expected the query to find the two records: Expected: {a05aer000000001AAA, a05aer000000002AAA}, Actual: {a05aer000000001AAA}"
+			"error": "Passes in a Salesforce org. In user mode, Salesforce refuses a selected toLabel(Lookup__r.Picklist__c) when the user cannot read Lookup__c; aer 1.6.9 answers it. Not yet filed upstream. First error on aer: System.AssertException: Assertion Failed: Assertion failed: Expected user mode to refuse the selected toLabel(Lookup__r.Picklist__c) shownLabel; it returned 1 rows"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesAHiddenFieldOfAParentTheUserCanRead",
+			"category": "runtime gap",
+			"error": "Passes in a Salesforce org. In user mode, Salesforce refuses a sort on a field of a parent record that the user cannot read; aer 1.6.9 answers it. Not yet filed upstream. First error on aer: System.AssertException: Assertion Failed: Assertion failed: Expected user mode to refuse the sort on the type of the account; it returned 1 rows"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesASelectedPathThroughALookupTheUserCannotRead",
+			"category": "runtime gap",
+			"error": "Passes in a Salesforce org. In user mode, Salesforce refuses a selected Event.What.Name when the user cannot read WhatId; aer 1.6.9 answers it. Not yet filed upstream. First error on aer: System.AssertException: Assertion Failed: Assertion failed: Expected user mode to refuse the selected Event.What.Name; it returned 1 rows"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesATypeofWithATypeTheUserCannotRead",
+			"category": "runtime gap",
+			"error": "Passes in a Salesforce org. In user mode, Salesforce refuses a TYPEOF whose WHEN branch names an object the user cannot read; aer 1.6.9 answers it. Not yet filed upstream. First error on aer: System.AssertException: Assertion Failed: Assertion failed: Expected user mode to refuse the TYPEOF with an Account branch; it returned 1 rows"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneReadsANameRecordFieldThatTheRelatedObjectHides",
+			"category": "runtime gap",
+			"error": "Passes in a Salesforce org. A filter on Who.Phone being empty, read through the shared Name record, returns the Event in Salesforce; aer 1.6.9 returns no row. Not yet filed upstream. First error on aer: System.AssertException: Assertion Failed: Expected the filter on the phone of the Name record to read the Event, sharing bypassed: true: Expected: 1, Actual: 0"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneReadsAPathThatCanPointToAnObjectTheUserCannotRead",
+			"category": "runtime gap",
+			"error": "Passes in a Salesforce org. A filter on Who.LastName, read through the shared Name record, returns the Event in Salesforce; aer 1.6.9 returns no row. Not yet filed upstream. First error on aer: System.AssertException: Assertion Failed: Expected the filter on the last name of the lead to read the Event, sharing bypassed: true: Expected: 1, Actual: 0"
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneRefusesTheUserFieldsOfTheNameRecordForAMinimumAccessUser",
+			"category": "runtime gap",
+			"error": "Passes in a Salesforce org. For a Minimum Access user, the Apex describe of the shared Name record marks RecordTypeId not readable in Salesforce; aer 1.6.9 marks it readable, so the builder does not refuse and the query fails instead. Not yet filed upstream. First error on aer: System.AssertException: Assertion Failed: The provided object is not an instance of class UTIL_Exceptions.IllegalStateException: Expected the refusal for the sort on What.RecordTypeId. Actual: System.QueryException: No such column 'RecordTypeId' on entity 'Name'."
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneReadsTheUserFieldsOfTheNameRecordForAStandardUser",
+			"category": "runtime gap",
+			"error": "Passes in a Salesforce org. Salesforce reads What.ProfileId on the shared Name record; aer 1.6.9 looks for ProfileId on Account, the related object, so the query fails. Not yet filed upstream. First error on aer: System.QueryException: No such column 'ProfileId' on entity 'Account'."
 		}
 	]
 }
