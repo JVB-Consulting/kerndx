@@ -8,6 +8,8 @@
 // the package has not read the plan. Nor is
 // a word of the team's own slang ("zombie", "sidecar", "latch", "knob", "hand-off") or an em-dash used as prose
 // punctuation. The rule lives in docs/Code Conventions - Guide.md (section ApexDoc, "Plain language, never the plan's words").
+// It also measures each ApexDoc paragraph of a class or trigger: one of more than 60 words is hard to read, so it is
+// reported (the docs writing standard keeps each paragraph under about 60 words; a list item counts on its own).
 //
 // Everything that touches git, the file system or the console is injected, so the whole module is unit-tested.
 
@@ -118,6 +120,17 @@ const LABELS_FILE_SUFFIX = '.labels-meta.xml';
  */
 const RECORD_DESCRIPTION_VALUE = /<field>Description__c<\/field>\s*<(value)(?:\s[^>]*?)?(?<!\/)>([\s\S]*?)<\/\1>/g;
 const RECORD_FILE_SUFFIX = '.md-meta.xml';
+
+/**
+ * The most words one ApexDoc paragraph may hold. A paragraph ends at a blank line, a tag line, a code fence or the end
+ * of the comment, and a list item is a paragraph of its own.
+ */
+const PARAGRAPH_WORD_LIMIT = 60;
+const LONG_PARAGRAPH_KIND = `paragraph over about ${PARAGRAPH_WORD_LIMIT} words`;
+const REPORTED_TEXT_LENGTH = 80;
+const LIST_ITEM = /^(?:[-+]|\d+[.)])\s+/;
+const DESCRIPTION_TAG = /^@description\b\s*/;
+const APEX_EXTENSIONS = new Set(['.cls', '.trigger']);
 
 /**
  * The headings of the report, in the order they print, and the kinds of hit each one gathers.
@@ -248,6 +261,116 @@ function findPlanLanguage(source, isApex = true)
 		...assertionLiterals(source).map((literal) => ({...literal, where: 'assertion'}))
 	];
 	return findInPlaces(places, isApex, isApex ? findHtmlTags(commentLines(source)) : []);
+}
+
+/**
+ * Returns every ApexDoc paragraph of a class or trigger that holds more than PARAGRAPH_WORD_LIMIT words, as hits in
+ * the shape findPlanLanguage reports, plus `lines`: the line numbers the paragraph spans. Only comments that open with
+ * two stars are read. A paragraph ends at a blank line, a tag line, a code fence or the end of the comment. A list
+ * item starts a paragraph of its own, and its marker is not a word. The text after @description counts; any other tag
+ * (@param, @return, @example, @see and so on) does not, and neither do the lines that continue it or the lines inside
+ * a code fence. A paragraph that grows only because a blank line between two paragraphs was deleted has no changed
+ * line, so it is not reported. The word count is a goal: `run` lists these hits as advice and they never fail the run.
+ */
+function findLongParagraphs(source)
+{
+	const hits = [];
+	const state = {paragraph: null, insideDoc: false, insideFence: false, insideTag: false};
+	const lines = source.split(/\r?\n/);
+	for(let index = 0; index < lines.length; index++)
+	{
+		let text = lines[index].trim();
+		if(!state.insideDoc)
+		{
+			if(!text.startsWith('/**'))
+			{
+				continue;
+			}
+			Object.assign(state, {insideDoc: true, insideFence: false, insideTag: false});
+			text = text.slice(3);
+		}
+		const end = text.indexOf('*/');
+		readDocLine((end >= 0 ? text.slice(0, end) : text).replace(/^\*+\s?/, '').trim(), index + 1, state, hits);
+		if(end >= 0)
+		{
+			closeParagraph(state, hits);
+			state.insideDoc = false;
+		}
+	}
+	return hits;
+}
+
+/**
+ * Reads one line of an ApexDoc comment, its leading stars removed, into the paragraph being built, and closes that
+ * paragraph where the line ends it.
+ */
+function readDocLine(text, line, state, hits)
+{
+	if(CODE_FENCE.test(text))
+	{
+		closeParagraph(state, hits);
+		state.insideFence = !state.insideFence;
+		return;
+	}
+	if(state.insideFence)
+	{
+		return;
+	}
+	if(text === '' || text.startsWith('@'))
+	{
+		closeParagraph(state, hits);
+		startTag(text, line, state);
+		return;
+	}
+	if(state.insideTag)
+	{
+		return;
+	}
+	if(LIST_ITEM.test(text))
+	{
+		closeParagraph(state, hits);
+		state.paragraph = {lines: [line], text: [text.replace(LIST_ITEM, '')]};
+		return;
+	}
+	state.paragraph ??= {lines: [], text: []};
+	state.paragraph.lines.push(line);
+	state.paragraph.text.push(text);
+}
+
+/**
+ * Starts what a blank line or a tag line opens: nothing after a blank line, a new paragraph from the text after
+ * @description, and for any other tag a stretch of lines that is not counted until the next blank or tag line.
+ */
+function startTag(text, line, state)
+{
+	const isDescription = DESCRIPTION_TAG.test(text);
+	state.insideTag = text.startsWith('@') && !isDescription;
+	const description = text.replace(DESCRIPTION_TAG, '');
+	if(isDescription && description.length > 0)
+	{
+		state.paragraph = {lines: [line], text: [description]};
+	}
+}
+
+/**
+ * Ends the paragraph being built and adds it to `hits` when it holds more than PARAGRAPH_WORD_LIMIT words.
+ */
+function closeParagraph(state, hits)
+{
+	const paragraph = state.paragraph;
+	state.paragraph = null;
+	if(paragraph === null)
+	{
+		return;
+	}
+	const text = paragraph.text.join(' ').replace(/\s+/g, ' ').trim();
+	const wordCount = text.split(' ').length;
+	if(wordCount > PARAGRAPH_WORD_LIMIT)
+	{
+		// More than 60 words always run past 80 characters, so the text is always shortened.
+		const shown = `${text.slice(0, REPORTED_TEXT_LENGTH)}...`;
+		hits.push({line: paragraph.lines[0], lines: paragraph.lines, token: `${wordCount} words`, kind: LONG_PARAGRAPH_KIND, where: 'comment', text: shown});
+	}
 }
 
 /**
@@ -414,9 +537,10 @@ function allFiles(directory, repositoryRoot, fileSystem)
 
 /**
  * Runs the lint for a command line and returns the exit code: 1 when any checked comment or metadata text carries plan vocabulary,
- * 0 otherwise. With --all every line of every file is read. Without it, only the lines added or changed since the
+ * 0 otherwise. A paragraph over the word goal is advice only: it is listed through io.log and never changes the exit
+ * code. With --all every line of every file is read. Without it, only the lines added or changed since the
  * base reference are read (every line of an untracked file), and one line says how many hits on unchanged lines were
- * left out. `io` carries listModified(baseReference), which returns {file, lines} entries, listAll(),
+ * left out (a long paragraph on an unchanged line is dropped and not counted). `io` carries listModified(baseReference), which returns {file, lines} entries, listAll(),
  * readFile(relativePath), log(text) and error(text).
  */
 function run(argumentList, io)
@@ -428,20 +552,32 @@ function run(argumentList, io)
 	const scope = everything ? 'every force-app class, trigger, module and metadata file' : `the changed lines of the files modified against ${baseReference}`;
 
 	const report = [];
+	const advice = [];
 	let leftOut = 0;
 	for(const {file, lines} of entries)
 	{
 		const extension = path.extname(file);
 		const source = io.readFile(file);
 		const hits = extension === METADATA_EXTENSION ? findPlanLanguageInMetadata(source, file) : findPlanLanguage(source, extension !== '.js');
+		if(APEX_EXTENSIONS.has(extension))
+		{
+			hits.push(...findLongParagraphs(source));
+		}
 		for(const hit of hits)
 		{
-			if(lines !== null && !lines.has(hit.line))
+			const isLong = hit.kind === LONG_PARAGRAPH_KIND;
+			if(lines !== null && !(hit.lines ?? [hit.line]).some((line) => lines.has(line)))
 			{
-				leftOut++;
+				leftOut += isLong ? 0 : 1;
 				continue;
 			}
-			report.push({kind: hit.kind, text: `${file}:${hit.line}: ${hit.kind} "${hit.token}" in ${hit.where} :: ${hit.text}`});
+			const text = `${file}:${hit.line}: ${hit.kind} "${hit.token}" in ${hit.where} :: ${hit.text}`;
+			if(isLong)
+			{
+				advice.push(text);
+				continue;
+			}
+			report.push({kind: hit.kind, text});
 		}
 	}
 	if(!everything)
@@ -451,12 +587,19 @@ function run(argumentList, io)
 	}
 	if(report.length > 0)
 	{
-		io.error(`Plan vocabulary, team slang, an abbreviation, an em-dash or an HTML tag: ${report.length} hit(s) in the comments and metadata text of ${scope}; `
-			+ `say it in plain words (docs/Code Conventions - Guide.md, section ApexDoc):${reportSections(report)}`);
-		return 1;
+		io.error(`Plan vocabulary, team slang, an abbreviation, an em-dash or an HTML tag: ${report.length} hit(s) in the comments and `
+			+ `metadata text of ${scope}; say it in plain words (docs/Code Conventions - Guide.md, section ApexDoc):${reportSections(report)}`);
 	}
-	io.log(`No plan vocabulary, team slang, abbreviation, em-dash or HTML tag in the comments and metadata text of ${scope} (${entries.length} file(s) read).`);
-	return 0;
+	else
+	{
+		io.log(`No plan vocabulary, team slang, abbreviation, em-dash or HTML tag in the comments and metadata text of ${scope} (${entries.length} file(s) read).`);
+	}
+	if(advice.length > 0)
+	{
+		io.log(`Advice, not a failure: ${advice.length} changed paragraph(s) run over about ${PARAGRAPH_WORD_LIMIT} words. `
+			+ `Shorten one only where that reads better and keeps every fact:\n  ${advice.join('\n  ')}`);
+	}
+	return report.length > 0 ? 1 : 0;
 }
 
 /**
@@ -493,6 +636,6 @@ function repositoryInputs(repositoryRoot)
 }
 
 module.exports = {
-	CHECKED_PREFIX, PLAN_LANGUAGE, allFiles, assertionLiterals, commentLines, findPlanLanguage, findPlanLanguageInMetadata, isChecked, modifiedFiles,
+	CHECKED_PREFIX, PLAN_LANGUAGE, allFiles, assertionLiterals, commentLines, findLongParagraphs, findPlanLanguage, findPlanLanguageInMetadata, isChecked, modifiedFiles,
 	repositoryInputs, run
 };

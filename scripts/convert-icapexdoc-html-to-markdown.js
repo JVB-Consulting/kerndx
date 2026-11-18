@@ -2291,12 +2291,69 @@ function mergeDetailSectionsIntoSummaries(md)
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * The name of the top-level type a type sits in: `API_Base` for `API_Base.HttpMethod`, at any depth.
+ * @param {string} cleanName - The type's name, with a dot between each level
+ * @returns {string} The name before the first dot
+ */
+function topLevelTypeName(cleanName)
+{
+	return cleanName.split('.')[0];
+}
+
+/**
+ * Read the group of every top-level type before any page is written. ApexDoc on a type inside another type carries no
+ * group of its own, so its page takes the group of the top-level type it sits in. A page that cannot be read is skipped
+ * here; the conversion that follows reports it.
+ * @param {string[]} htmlFiles - The IcApexDoc HTML pages to convert
+ * @returns {Map<string, {group: string, groupLink: string}>} The group of each top-level type that has one, by type name
+ */
+function collectTopLevelGroups(htmlFiles)
+{
+	const groups = new Map();
+	htmlFiles
+	.filter(file => parseDocumentType(path.basename(file, '.html')).cleanName.includes('.') === false)
+	.forEach(file =>
+	{
+		try
+		{
+			const metadata = extractMetadata(cheerio.load(fs.readFileSync(file, 'utf8')), file);
+			if(metadata.group)
+			{
+				groups.set(metadata.cleanName, {group: metadata.group, groupLink: metadata.groupLink});
+			}
+		}
+		catch
+		{
+			// The conversion reads the page again and names it in its list of failed pages.
+		}
+	});
+	return groups;
+}
+
+/**
+ * Give a type inside another type the group of its top-level type when it has no group of its own.
+ * @param {Object} metadata - The type's metadata; its group and group link are set in place
+ * @param {Map<string, {group: string, groupLink: string}>} groupsByTopLevelType - The group of each top-level type
+ */
+function inheritTopLevelGroup(metadata, groupsByTopLevelType)
+{
+	const outer = groupsByTopLevelType.get(topLevelTypeName(metadata.cleanName));
+	if(!metadata.group && metadata.cleanName.includes('.') && outer)
+	{
+		metadata.group = outer.group;
+		metadata.groupLink = outer.groupLink;
+	}
+}
+
+/**
  * Generate the Markdown content for a file
  * @param {string} filePath - Path to HTML file
+ * @param {Map<string, {group: string, groupLink: string}>} [groupsByTopLevelType] - The group of each top-level type,
+ *        which a type inside it takes when it has none of its own
  * @returns {Object|null} Metadata or null if skipped
  */
 // noinspection FunctionWithMultipleReturnPointsJS,FunctionTooLongJS,OverlyComplexFunctionJS,FunctionWithMultipleLoopsJS
-function convertFile(filePath)
+function convertFile(filePath, groupsByTopLevelType = new Map())
 {
 	let html = fs.readFileSync(filePath, 'utf8');
 
@@ -2320,6 +2377,7 @@ function convertFile(filePath)
 	}
 
 	const metadata = extractMetadata($, filePath);
+	inheritTopLevelGroup(metadata, groupsByTopLevelType);
 	const signatureInfo = extractSignature($, metadata.cleanName);
 	const formattedAuthor = formatAuthorName(metadata.author);
 	const membersSummary = buildMembersSummary($, metadata.cleanName);
@@ -2560,6 +2618,12 @@ const FRAMEWORK_AREAS = [
 		]
 	},
 	{
+		group: 'Validation',
+		title: 'Validation Rules',
+		description: 'Validation rules written as formulas in custom metadata and run from a trigger or a flow, and flow actions that skip validation rules for one transaction.',
+		highlights: []
+	},
+	{
 		group: 'Web Services',
 		title: 'Web Services',
 		description: 'REST integration framework with automatic retry, circuit breaking, and queue-based processing. Configure endpoints via `ApiSetting__mdt`.',
@@ -2587,6 +2651,12 @@ const FRAMEWORK_AREAS = [
 		highlights: ['LOG_Builder']
 	},
 	{
+		group: 'Data Masking',
+		title: 'Data Masking',
+		description: 'The exception thrown when a masking rule stops a record from being saved.',
+		highlights: []
+	},
+	{
 		group: 'Feature Flags',
 		title: 'Feature Flags',
 		description: 'Runtime feature toggling with custom metadata configuration and pluggable evaluation strategies.',
@@ -2612,6 +2682,12 @@ const FRAMEWORK_AREAS = [
 		]
 	},
 	{
+		group: 'Async',
+		title: 'Async Chains',
+		description: 'Runs a chain of queueable steps in order, with shared data, error handling and progress tracking, and marks a chain Stalled when it stops moving.',
+		highlights: []
+	},
+	{
 		group: 'Utilities',
 		title: 'Utilities',
 		description: 'Common utilities for strings, dates, numbers, collections, security, encryption, and system reflection.',
@@ -2624,6 +2700,18 @@ const FRAMEWORK_AREAS = [
 			'UTIL_Set',
 			'UTIL_Security'
 		]
+	},
+	{
+		group: 'Email',
+		title: 'Email',
+		description: 'Checks email addresses and sends emails from Apex or a flow, with merge fields and activity logging.',
+		highlights: []
+	},
+	{
+		group: 'Omnistudio',
+		title: 'Omnistudio',
+		description: 'A `Callable` entry point that lets Omnistudio run an action on an Apex class named at run time.',
+		highlights: []
 	},
 	{
 		group: 'Controllers', title: 'Controllers', description: 'Aura and LWC server-side controllers for UI components.', highlights: []
@@ -2647,7 +2735,7 @@ const FRAMEWORK_AREAS = [
 ];
 
 /**
- * Generate auto-generated master index file with TOC, framework area sections, and core class links.
+ * Generate the master index file: the task index first, then the overview, the framework area sections and core class links.
  * @param {Object} categories - Categories object with items per category
  * @param {string} masterIndexPath - Path to master index file
  */
@@ -2681,90 +2769,35 @@ function generateMasterIndex(categories, masterIndexPath)
 	md += '> Auto-generated documentation for the KernDX Framework\n\n';
 	md += '---\n\n';
 
-	// Table of Contents
-	md += '## Table of Contents\n\n';
-	md += '1. [Overview](#overview)\n';
-	md += '2. [Quick Links by Use Case](#quick-links-by-use-case)\n';
-	md += '3. [Apex Classes](#apex-classes)\n';
-
-	FRAMEWORK_AREAS.forEach(area =>
-	{
-		if(groupedApex[area.group]?.length > 0)
-		{
-			const anchor = area.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-			md += `   - [${area.title}](#${anchor})\n`;
-		}
-	});
-
-	// Add any groups not in FRAMEWORK_AREAS
-	Object.keys(groupedApex).forEach(group =>
-	{
-		if(!FRAMEWORK_AREAS.find(a => a.group === group))
-		{
-			const anchor = group.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-			md += `   - [${group}](#${anchor})\n`;
-		}
-	});
-
-	if(categories.objects?.length > 0)
-	{
-		md += '4. [Custom Objects](#custom-objects)\n';
-	}
-	if(categories.events?.length > 0)
-	{
-		md += '5. [Platform Events](#platform-events)\n';
-	}
-	if(categories.metadata?.length > 0)
-	{
-		md += '6. [Custom Metadata Types](#custom-metadata-types)\n';
-	}
-
-	md += '\n---\n\n';
-
-	// Overview
-	md += '## Overview\n\n';
-	md += `This reference contains **${totalCount} documented items** across the following categories:\n\n`;
-	md += '| Category | Items | Description | Browse |\n';
-	md += '|----------|-------|-------------|--------|\n';
-
-	Object.entries(categories).forEach(([cat, items]) =>
-	{
-		const info = CATEGORY_INFO[cat] || {title: cat, description: ''};
-		md += `| **${info.title}** | ${items.length} | ${info.description} | [Browse All](${cat}/index.md) |\n`;
-	});
-
-	md += '\n---\n\n';
-
-	// Quick Links by Use Case
-	md += '## Quick Links by Use Case\n\n';
-	md += '### I Need To...\n\n';
-	md += '| Use Case | Primary Class | Related Classes |\n';
-	md += '|----------|---------------|-----------------|\n';
+	// The task index comes first: the site shows the page outline beside the page, so the page carries no table of contents.
+	md += '## I Need To...\n\n';
+	md += '| I need to... | Start with | Also see |\n';
+	md += '|--------------|------------|----------|\n';
 
 	const useCases = [
-		{use: 'Build SOQL queries', primary: 'QRY_Builder', related: ['QRY_Condition']},
-		{use: 'Simple record lookup', primary: 'SEL_Base', related: []},
+		{use: 'Read records with a query I build', primary: 'QRY_Builder', related: ['QRY_Condition']},
+		{use: 'Read records of one object', primary: 'SEL_Base', related: []},
 		{
-			use: 'Create trigger actions', primary: 'TRG_Dispatcher', related: [
+			use: 'Run code when records are saved', primary: 'TRG_Dispatcher', related: [
 				'TRG_Base',
 				'IF_Trigger'
 			]
 		},
-		{use: 'Make REST API calls', primary: 'API_Outbound', related: ['DTO_JsonBase']},
-		{use: 'Handle inbound APIs', primary: 'API_Inbound', related: []},
-		{use: 'Transactional DML', primary: 'DML_Builder', related: ['DML_Transaction']},
-		{use: 'Log application events', primary: 'LOG_Builder', related: []},
+		{use: 'Call an outside system', primary: 'API_Outbound', related: ['DTO_JsonBase']},
+		{use: 'Take calls from an outside system', primary: 'API_Inbound', related: []},
+		{use: 'Save records together, all or nothing', primary: 'DML_Builder', related: ['DML_Transaction']},
+		{use: 'Log what happened', primary: 'LOG_Builder', related: []},
 		{
 			use: 'Create test data', primary: 'TST_Builder', related: [
 				'TST_Factory',
 				'TST_Mock'
 			]
 		},
-		{use: 'Check feature flags', primary: 'UTIL_FeatureFlag', related: []},
-		{use: 'Implement circuit breaker', primary: 'UTIL_CircuitBreaker', related: ['UTIL_Retry']},
-		{use: 'Work with strings', primary: 'UTIL_String', related: []},
+		{use: 'Turn a feature on or off', primary: 'UTIL_FeatureFlag', related: []},
+		{use: 'Stop calling a service that keeps failing', primary: 'UTIL_CircuitBreaker', related: ['UTIL_Retry']},
+		{use: 'Work with text', primary: 'UTIL_String', related: []},
 		{use: 'Work with dates', primary: 'UTIL_Date', related: []},
-		{use: 'Work with collections', primary: 'UTIL_List', related: ['UTIL_Map']}
+		{use: 'Work with lists and maps', primary: 'UTIL_List', related: ['UTIL_Map']}
 	];
 
 	useCases.forEach(uc =>
@@ -2779,6 +2812,20 @@ function generateMasterIndex(categories, masterIndexPath)
 		})
 		.join(', ');
 		md += `| **${uc.use}** | ${primaryLink} | ${relatedLinks || '-'} |\n`;
+	});
+
+	md += '\n---\n\n';
+
+	// Overview
+	md += '## Overview\n\n';
+	md += `This reference contains **${totalCount} documented items** across the following categories:\n\n`;
+	md += '| Category | Items | Description | Browse |\n';
+	md += '|----------|-------|-------------|--------|\n';
+
+	Object.entries(categories).forEach(([cat, items]) =>
+	{
+		const info = CATEGORY_INFO[cat] || {title: cat, description: ''};
+		md += `| **${info.title}** | ${items.length} | ${info.description} | [Browse All](${cat}/index.md) |\n`;
 	});
 
 	md += '\n---\n\n';
@@ -2848,24 +2895,22 @@ function generateMasterIndex(categories, masterIndexPath)
 	// Any remaining groups not in FRAMEWORK_AREAS
 	Object.entries(groupedApex).forEach(([group, items]) =>
 	{
-		if(FRAMEWORK_AREAS.find(a => a.group === group))
+		// A group with nothing to list gets no heading.
+		const nonTest = items.filter(i => !i.cleanName.endsWith('_TEST'));
+		if(FRAMEWORK_AREAS.find(a => a.group === group) || nonTest.length === 0)
 		{
 			return;
 		}
 
 		md += `### ${group}\n\n`;
-		const nonTest = items.filter(i => !i.cleanName.endsWith('_TEST'));
-		if(nonTest.length > 0)
+		md += '| Class | Description |\n';
+		md += '|-------|-------------|\n';
+		nonTest.forEach(item =>
 		{
-			md += '| Class | Description |\n';
-			md += '|-------|-------------|\n';
-			nonTest.forEach(item =>
-			{
-				const desc = item.description ? truncateDescription(item.description) : '';
-				md += `| [${item.cleanName}](apex/${item.cleanName}.md) | ${desc} |\n`;
-			});
-			md += '\n';
-		}
+			const desc = item.description ? truncateDescription(item.description) : '';
+			md += `| [${item.cleanName}](apex/${item.cleanName}.md) | ${desc} |\n`;
+		});
+		md += '\n';
 	});
 
 	md += '---\n\n';
@@ -3002,12 +3047,13 @@ function runConverter()
 
 	const results = [];
 	const failedPages = [];
+	const groupsByTopLevelType = collectTopLevelGroups(htmlFiles);
 
 	htmlFiles.forEach(file =>
 	{
 		try
 		{
-			const result = convertFile(file);
+			const result = convertFile(file, groupsByTopLevelType);
 			if(result)
 			{
 				results.push(result);
@@ -3096,6 +3142,8 @@ module.exports = {
 	generateFieldDetailsMd: generateFieldDetails,
 	generateSObjectFieldDetailsMd: generateSObjectFieldDetails, // Main functions
 	convertFile,
+	collectTopLevelGroups,
+	inheritTopLevelGroup,
 	generateIndexes,
 	generateMasterIndex,
 	toGlobPattern,
@@ -3106,5 +3154,6 @@ module.exports = {
 	TRUNCATED_SUMMARY_LENGTH,
 	DOC_TYPE_SUFFIXES,
 	CATEGORY_INFO,
-	FIELD_ATTRIBUTE_ORDER
+	FIELD_ATTRIBUTE_ORDER,
+	FRAMEWORK_AREAS
 };

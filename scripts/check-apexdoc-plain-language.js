@@ -20,6 +20,11 @@
 // npm run docs:validate runs it this way: on a clean tree it reads nothing, and it catches text written but not yet
 // committed. The words a component may use ("cell", "pinned") are allowed in metadata text too.
 //
+// It also measures each ApexDoc paragraph of a class or trigger, and lists one of more than 60 words as advice. A long
+// paragraph is a goal to look at, never a failure: it is printed after the other output and never changes the exit code.
+// A list item is a paragraph of its own; tag lines and code fences are not counted. A long paragraph is listed when any
+// of its lines is changed.
+//
 // Exit code 1 when any checked comment or metadata text carries plan vocabulary, 0 otherwise. The report prints one
 // heading for each kind of hit (plan vocabulary, team slang, abbreviation, em-dash, HTML tag) with its own count. Only
 // comment and metadata text is read: a string literal or an identifier on a code line, and an XML element name or
