@@ -9,7 +9,7 @@
  *
  * @group Utilities
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(seeAllData=false isParallel=true)
@@ -563,12 +563,13 @@ private class UTIL_SObject_TEST
 	 * @see UTIL_SObject.validateId
 	 */
 	@IsTest
-	@SuppressWarnings('PMD.AvoidHardcodingId')
 	private static void validateIdReturnsIdForValidString()
 	{
-		Id result = UTIL_SObject.validateId('001000000000001AAA');
+		String validId = UTIL_Random.randomId(Account.SObjectType);
 
-		Assert.isNotNull(result, 'Should return a valid Id');
+		Id result = UTIL_SObject.validateId(validId);
+
+		Assert.areEqual(validId, result, 'Expected the valid string to come back as the same Id');
 	}
 
 	/**
@@ -769,7 +770,8 @@ private class UTIL_SObject_TEST
 		String relationshipName = Foobar__c.Lookup__c.getDescribe().getRelationshipName();
 
 		return (Foobar__c)JSON.deserialize(
-				'{"attributes":{"type":"Foobar__c"},"Name":"' + TEST_NAME_ALPHA + '","' + relationshipName + '":{"attributes":{"type":"Foobar__c"},"Name":"' + TEST_NAME_BRAVO + '"}}',
+				'{"attributes":{"type":"Foobar__c"},"Name":"' + TEST_NAME_ALPHA + '","' + relationshipName
+				+ '":{"attributes":{"type":"Foobar__c"},"Name":"' + TEST_NAME_BRAVO + '"}}',
 				Foobar__c.class
 		);
 	}
