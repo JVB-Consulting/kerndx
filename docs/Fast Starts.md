@@ -9,7 +9,7 @@ title: "Fast Starts"
 
 ## What do you need to do?
 
-New to KernDX? From Plain Apex to KernDX shows the Apex you already write next
+New to KernDX? [From Plain Apex to KernDX](From%20Plain%20Apex%20to%20KernDX.md) shows the Apex you already write next
 to the KernDX version; then start at the top of the lists below and work down. Deciding whether to use it? Start with [Why KernDX](Strategic%20Guide%20-%20Overview.md).
 
 | I need to | Try it in minutes | Learn it properly | Look up a method |
