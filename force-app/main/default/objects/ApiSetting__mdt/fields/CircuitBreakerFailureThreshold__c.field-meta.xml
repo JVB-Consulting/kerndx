@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>CircuitBreakerFailureThreshold__c</fullName>
-    <description>Number of consecutive failures before opening the circuit (default: 10 for high tolerance)</description>
+    <description>Number of consecutive failures before the circuit opens. Blank means 5.</description>
     <externalId>false</externalId>
     <fieldManageability>DeveloperControlled</fieldManageability>
-    <inlineHelpText>How many consecutive failures before the circuit opens and blocks further calls (default: 10)</inlineHelpText>
+    <inlineHelpText>How many failures in a row open the circuit, which then blocks further calls for a cool-off. Leave blank for 5.</inlineHelpText>
     <label>Circuit Breaker Failure Threshold</label>
     <precision>3</precision>
     <required>false</required>

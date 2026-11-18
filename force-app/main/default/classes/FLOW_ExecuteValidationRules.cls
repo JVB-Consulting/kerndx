@@ -18,7 +18,7 @@
  *
  * @group Validation
  *
- * @date January 2026, October 2026
+ * @date January 2026, November 2026
  *
  * @since 1.0
  *
@@ -199,8 +199,10 @@ global inherited sharing class FLOW_ExecuteValidationRules
 
 		/**
 		 * @description The previous record values before the change. Required for BEFORE_UPDATE and
-		 * AFTER_UPDATE operations to enable change detection in validation formulas (e.g., ISCHANGED,
-		 * PRIORVALUE functions). Leave empty for insert, delete, and undelete operations.
+		 * AFTER_UPDATE operations, so a rule can tell whether a field changed: the rule compares the field's
+		 * old and new values, for example newRecord.Phone against oldRecord.Phone, with a picklist field
+		 * turned into text first, as in TEXT(newRecord.Industry) against TEXT(oldRecord.Industry) (ISCHANGED
+		 * and PRIORVALUE are not available). Leave empty for insert, delete, and undelete operations.
 		 * In Record-Triggered Flows, use {!$Record__Prior} to populate this field.
 		 *
 		 * @since 1.0

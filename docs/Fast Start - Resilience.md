@@ -6,76 +6,60 @@ navOrder: 62
 
 **Framework:** KernDX | **Total time:** ~25 minutes
 
-**What this is:** A way to keep an integration working when the system it calls has a bad moment. You get two tools: automatic retries (try a failed call again after a short, growing wait) and a circuit breaker (after repeated failures the framework stops calling a failing system for a cool-off, then resumes). **Why it matters:** A single timeout or a five-minute outage in someone else's service should not break your org or waste callouts. **Who should follow it:** developers wiring up callouts, plus tech leads who want consistent failure handling. **When to use it:** any time your code calls an external service that can be slow or temporarily down.
+- **What this is:** A way to keep an integration working when the system it calls has a bad moment. You get two
+  tools: automatic retries (try a failed call again after a short, growing wait) and a circuit breaker (after repeated
+  failures the framework stops calling a failing system for a cool-off, then resumes).
+- **Why it matters:** A single timeout or a five-minute outage in someone else's service should not break your org or
+  waste callouts.
+- **Who should follow it:** developers wiring up callouts, plus tech leads who want consistent failure handling.
+- **When to use it:** any time your code calls an external service that can be slow or temporarily down.
+- **What you'll build:** A service whose one callout retries transient failures with exponential backoff and
+  guards the dependency with a circuit breaker. All of this is wired into the framework's HTTP client, with no
+  hand-rolled retry loop. You inspect the response it hands back, and the framework records the retry history for you.
+- **Success looks like:** A single resilient callout that retries a transient failure, opens a circuit breaker on a
+  sustained outage, and hands you back the response to inspect. Your test class passes with 100% coverage.
+  - The transient failure surfaces on the response: it is never thrown at you.
+  - The retry history lands on the matching `ApiCall__c` record (**App Launcher > Kern > API Calls**), and
+    circuit-breaker state transitions show in **App Launcher > Kern > Log Entries**.
+- **In one line:** `kern.UTIL_HttpClient.post('PaymentGateway', '/charges').body(request).withRetry(3).withCircuitBreaker().send();`
+  gives you retry, backoff, and a circuit breaker, with no boilerplate.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** A service whose one callout retries transient failures with exponential backoff and
-guards the dependency with a circuit breaker. All of this is wired into the framework's HTTP client, with no
-hand-rolled retry loop. You inspect the response it hands back, and the framework records the retry history for you.
+## Quick Navigation
 
-**Success looks like:** A single resilient callout that retries a transient failure, opens a circuit breaker
-on a sustained outage, and hands you back the response to inspect. The transient failure surfaces on the
-response: it is never thrown at you. The retry history lands on the matching `ApiCall__c` record
-(**App Launcher > Kern > API Calls**), and circuit-breaker state transitions show in
-**App Launcher > Kern > Log Entries**. Your test class passes with 100% coverage.
-
-**In one line:** `kern.UTIL_HttpClient.post('PaymentGateway', '/charges').body(request).withRetry(3).withCircuitBreaker().send();`
-gives you retry, backoff, and a circuit breaker, with no boilerplate.
+| I need to...                                             | Go to...                                                                                          |
+|----------------------------------------------------------|---------------------------------------------------------------------------------------------------|
+| Choose between retry and a circuit breaker               | [When to reach for each tool](#when-to-reach-for-each-tool)                                       |
+| See retry work on a callout with no setup                | [Retry built into a callout](#retry-built-into-a-callout)                                         |
+| See how long a retry strategy waits                      | [A retry strategy you can inspect](#a-retry-strategy-you-can-inspect)                             |
+| See a circuit breaker's state                            | [A circuit breaker in three lines](#a-circuit-breaker-in-three-lines)                             |
+| Build a resilient callout in my own class                | [Step 1: Make a resilient callout](#step-1-make-a-resilient-callout)                              |
+| Test the retry path without the live API                 | [Step 3: Write and run the test](#step-3-write-and-run-the-test)                                  |
+| Choose exponential or linear backoff                     | [Exponential vs linear backoff](#exponential-vs-linear-backoff)                                   |
+| Stop retrying errors that cannot recover                 | [Only retry the errors worth retrying](#only-retry-the-errors-worth-retrying)                     |
+| Wrap my own action in a circuit breaker                  | [The execute() helper](#the-execute-helper)                                                       |
+| Configure retry and the breaker on an API Setting record | [Declarative resilience on a registered handler](#declarative-resilience-on-a-registered-handler) |
+| Know what the tools cannot do                            | [Honest limits](#honest-limits)                                                                   |
+| Remove the example from my org                           | [Clean up](#clean-up)                                                                             |
+| Fix an error from a step                                 | [Common Issues](#common-issues)                                                                   |
 
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [When to reach for each tool](#when-to-reach-for-each-tool)
-3. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-    - [Retry built into a callout](#retry-built-into-a-callout)
-    - [A retry strategy you can inspect](#a-retry-strategy-you-can-inspect)
-    - [A circuit breaker in three lines](#a-circuit-breaker-in-three-lines)
-4. [Tier 2: Build Your Own (~15 minutes)](#tier-2-build-your-own-15-minutes)
-    - [Step 1: Make a resilient callout](#step-1-make-a-resilient-callout)
-    - [Step 2: Try the callout](#step-2-try-the-callout)
-    - [Step 3: Write and run the test](#step-3-write-and-run-the-test)
-        - [Key Patterns](#key-patterns)
-5. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
-    - [Exponential vs linear backoff](#exponential-vs-linear-backoff)
-    - [Jitter: avoid the thundering herd](#jitter-avoid-the-thundering-herd)
-    - [Only retry the errors worth retrying](#only-retry-the-errors-worth-retrying)
-    - [Circuit breaker states and recovery](#circuit-breaker-states-and-recovery)
-    - [The execute() helper](#the-execute-helper)
-    - [Reading circuit breaker metrics](#reading-circuit-breaker-metrics)
-    - [Declarative resilience on a registered handler](#declarative-resilience-on-a-registered-handler)
-    - [Clean up](#clean-up)
-6. [Common Issues](#common-issues)
-    - [Step 1: Make a resilient callout](#step-1-make-a-resilient-callout-1)
-    - [Step 2: Try the callout](#step-2-try-the-callout-1)
-    - [Step 3: Write and run the test](#step-3-write-and-run-the-test-1)
-    - [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes-1)
-7. [Honest limits](#honest-limits)
-8. [What You Now Know](#what-you-now-know)
-9. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
 ## When to reach for each tool
 
-Retry and circuit breaker solve different problems. Most real integrations use both together. If your callout almost never fails and a rare error is fine to let through, a plain callout is simpler and you may not need either: add resilience once the dependency starts costing you timeouts or wasted callouts.
+Retry and circuit breaker solve different problems. Most real integrations use both together. If your callout almost never fails and a rare error is fine to let through, you may not need either: send it through `kern.UTIL_HttpClient` without them, and add resilience once the dependency starts costing you timeouts or wasted callouts.
 
 | Tool                   | Problem it solves                                                    | Use when                                                       |
 |------------------------|----------------------------------------------------------------------|----------------------------------------------------------------|
@@ -115,14 +99,19 @@ System.debug('Status: ' + response.getStatusCode());
 
 You should see `Status: 201` in the log.
 
-`.withRetry(3)` sends the request again, up to three times, when the answer says the other system did not
-handle it (a 408 or 503), `.withCircuitBreaker()` opens the circuit after repeated failures, and
-`.onFailure(...)` decides what happens once retries are exhausted. No custom classes. Because this is a POST
-with no `Idempotency-Key`, a 500, 502 or 504, or no answer at all, is not sent again: the other system may
-already have created the post, so the call ends `Failed` and its record says so. A GET, PUT or DELETE is also
-sent again after a 500, 502 or 504. See
-[Failures and retries](Web%20Services%20-%20Guide.md#failures-and-retries) in the Web Services Guide. For the full set of
-builder options, see [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md).
+No custom classes:
+
+- `.withRetry(3)` sends the request again, up to three times, when the answer says the other system did not handle it
+  (a 408 or 503).
+- `.withCircuitBreaker()` opens the circuit after repeated failures.
+- `.onFailure(...)` decides what happens once retries are exhausted.
+
+Because this is a POST with no `Idempotency-Key`, a 500, 502 or 504, or no answer at all, is not sent again: the other
+system may already have created the post, so the call ends `Failed` and its record says so. A GET, PUT or DELETE is
+also sent again after a 500, 502 or 504.
+
+See [Failures and retries](Web%20Services%20-%20Guide.md#failures-and-retries) in the Web Services Guide. For the full
+set of builder options, see [Fast Start - Outbound APIs](Fast%20Start%20-%20Outbound%20APIs.md).
 
 ### A retry strategy you can inspect
 
@@ -188,16 +177,16 @@ Cache, so it is shared across transactions and users: one user's failures protec
 > Console > File > New > Apex Class) and run tests from there too (Test > New Run). Paste the code, save,
 > and skip the terminal commands.
 
-We'll build a service that makes one callout to a flaky dependency. Retry-with-backoff and a circuit
-breaker are wired straight into the framework's HTTP client, so there's no hand-rolled loop. The framework
-retries transient failures, guards the dependency, logs every attempt, and hands you back the response.
+The service makes one callout to a flaky dependency. The framework retries transient failures, guards the
+dependency, logs every attempt, and hands you back the response.
 
 ### Step 1: Make a resilient callout
 
 The framework's [`UTIL_HttpClient`](reference/apex/UTIL_HttpClient.md) builds resilience into the call itself.
-You chain the behaviours you want and call `send()`, and it returns an `HttpResponse` you interrogate. A transient
-failure (a 5xx) surfaces on that response: it is **never thrown at you**. So there is no `try/catch` and no
-retry loop to write. You create an empty class with one command, paste the code into it, then send it to your org.
+You chain the behaviours you want and call `send()`, and it returns an `HttpResponse` you interrogate.
+
+A transient failure (a 5xx) surfaces on that response: it is **never thrown at you**. So there is no `try/catch` and
+no retry loop to write. You create an empty class with one command, paste the code into it, then send it to your org.
 
 **1. In the terminal**, from your project's top folder, create the empty class:
 
@@ -266,17 +255,18 @@ public with sharing class SVC_ResilientSync
   `patch`, and `del` start the other verbs.)
 - `.withExponentialBackoff(3, 2)` retries a transient failure up to 3 times, with the backoff growing
   exponentially from a 2-second base. The framework runs the retries for you, so you never write the loop.
-  Because this is a GET, which is safe to send twice, an answer of 408, 500, 502, 503 or 504 is sent again
-  straight away; a 425 or 429 (slow down) and a call that got no answer at all wait for the scheduled retry.
-  (Apex can't pause a thread, so the synchronous retries fire back-to-back. The backoff seconds set the
-  cadence for the framework's *scheduled* retries on a registered handler: see [Honest limits](#honest-limits)
-  and [Declarative resilience](#declarative-resilience-on-a-registered-handler).)
+  - Because this is a GET, which is safe to send twice, an answer of 408, 500, 502, 503 or 504 is sent again
+    straight away; a 425 or 429 (slow down) and a call that got no answer at all wait for the scheduled retry.
+  - Apex can't pause a thread, so the synchronous retries fire back-to-back. The backoff seconds set the
+    cadence for the framework's *scheduled* retries on a registered handler: see [Honest limits](#honest-limits)
+    and [Declarative resilience](#declarative-resilience-on-a-registered-handler).
 - `.withCircuitBreaker()` guards the dependency with a circuit breaker keyed to the credential name, so a
   sustained outage trips the circuit and stops wasting callouts. Every call on the same credential shares
-  that one circuit. To choose the circuit yourself, give it a name: `.withCircuitBreaker('PaymentGateway')`.
-  Calls with the same name share one circuit whatever credential they use, and calls with different names
-  keep separate circuits even on one credential. A call the open circuit refused names that circuit in its
-  error line.
+  that one circuit.
+  - To choose the circuit yourself, give it a name: `.withCircuitBreaker('PaymentGateway')`. Calls with the same
+    name share one circuit whatever credential they use, and calls with different names keep separate circuits even
+    on one credential.
+  - A call the open circuit refused names that circuit in its error line.
 - `.onFailure(kern.UTIL_HttpClient.FailureAction.RETRY_THEN_LOG)` retries first, then logs a failure record
   once retries are exhausted. (`LOG_FAILURE` logs without retrying.)
 - `.send()` returns an `HttpResponse`. On a transient failure the response carries the failing status code
@@ -352,7 +342,7 @@ force-app/main/default/classes/SVC_ResilientSync_TEST.cls
  *
  * @group Resilience
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=true)
@@ -376,13 +366,10 @@ private class SVC_ResilientSync_TEST
 		Assert.areEqual(503, response.getStatusCode(),
 				'The transient failure surfaces on the response — it is never thrown at you');
 
-		List<kern__ApiCall__c> calls =
-		[
-				SELECT kern__StatusCode__c, kern__Retries__c, kern__MaxRetries__c
-				FROM kern__ApiCall__c
-				ORDER BY CreatedDate DESC
-				LIMIT 1
-		];
+		List<kern__ApiCall__c> calls = new SEL_ApiCalls().query
+				.orderBy(kern__ApiCall__c.CreatedDate).descending()
+				.withLimit(1)
+				.toList();
 		Assert.isFalse(calls.isEmpty(), 'The framework logs every callout as an ApiCall record');
 		Assert.areEqual('503', calls[0].kern__StatusCode__c, 'The logged call records the failure status');
 	}
@@ -403,6 +390,37 @@ private class SVC_ResilientSync_TEST
 
 		Assert.areEqual(200, response.getStatusCode(), 'A healthy call returns 200');
 		Assert.isTrue(response.getBody().contains('"title":"ok"'), 'The body comes back for inspection');
+	}
+
+	/**
+	 * @description Reads the call records the framework saves. Every read goes through a selector, in tests too, so the
+	 * test keeps a short one of its own. It reads in user mode, so the person running the test needs read access to
+	 * API calls.
+	 */
+	private with sharing class SEL_ApiCalls extends kern.SEL_Base
+	{
+		/**
+		 * @description Creates the selector for call records.
+		 */
+		public SEL_ApiCalls()
+		{
+			super(kern__ApiCall__c.SObjectType);
+		}
+
+		/**
+		 * @description Lists the fields every read returns.
+		 *
+		 * @return The fields.
+		 */
+		public override List<SObjectField> getFields()
+		{
+			return new List<SObjectField>
+			{
+					kern__ApiCall__c.kern__StatusCode__c,
+					kern__ApiCall__c.kern__Retries__c,
+					kern__ApiCall__c.kern__MaxRetries__c
+			};
+		}
 	}
 }
 ```
@@ -568,9 +586,11 @@ kern.UTIL_CircuitBreaker.Breaker breaker = kern.UTIL_CircuitBreaker.monitor('Pay
 ```
 
 Every state transition writes a log entry, so you can watch a circuit open and recover in
-**App Launcher > Kern > Log Entries**. `reset()` forces it back to CLOSED and `forceOpen()` forces it OPEN.
-Both are manual overrides, so use them sparingly: for example, an admin "kill switch" (a master off-switch
-you can flip in an incident without a deployment) or a recovery script.
+**App Launcher > Kern > Log Entries**.
+
+`reset()` forces it back to CLOSED and `forceOpen()` forces it OPEN. Both are manual overrides, so use them sparingly:
+for example, an admin "kill switch" (a master off-switch you can flip in an incident without a deployment) or a
+recovery script.
 
 ### The execute() helper
 
@@ -618,10 +638,13 @@ runs your action, records success, and on any thrown exception records the failu
 caller still knows the call failed.
 
 > **Surfacing the open-circuit message to a user.** If a circuit-open outcome reaches the UI (a toast, an
-> inline error, an LWC message), pull that text from a Custom Label, never a hardcoded string. In Apex,
-> `throw new AuraHandledException(System.Label.Service_Temporarily_Unavailable);`. In an LWC, import it with
-> `import message from '@salesforce/label/c.Service_Temporarily_Unavailable';`. That keeps the copy
-> translatable and overridable. See [Fast Start - Logging](Fast%20Start%20-%20Logging.md) for the LWC logging side.
+> inline error, an LWC message), pull that text from a Custom Label, never a hardcoded string, so the copy stays
+> translatable and overridable:
+>
+> - In Apex: `throw new AuraHandledException(System.Label.Service_Temporarily_Unavailable);`
+> - In an LWC: `import message from '@salesforce/label/c.Service_Temporarily_Unavailable';`
+>
+> See [Fast Start - Logging](Fast%20Start%20-%20Logging.md) for the LWC logging side.
 >
 > **`Service_Temporarily_Unavailable` is illustrative.** The framework does not ship this Custom Label.
 > Create your own label (any name) in your org and reference it the same way so the examples compile.
@@ -659,10 +682,11 @@ you don't write retry or breaker code at all: you configure it on the handler's 
 
 The framework ships a record-triggered flow that processes scheduled retries automatically, with no custom
 scheduled jobs or platform events needed. It schedules a retry only for a failure that sending the request again
-could fix: see [Failures and retries](Web%20Services%20-%20Guide.md#failures-and-retries). The builder methods on `UTIL_HttpClient`
-(`.withRetry(n)`, `.withRetry(n, backoff)`, `.withCircuitBreaker()`) override these per call. See the
-[Resilience - Guide](Resilience%20-%20Guide.md) and [Web Services - Guide](Web%20Services%20-%20Guide.md)
-for the full configuration reference.
+could fix: see [Failures and retries](Web%20Services%20-%20Guide.md#failures-and-retries).
+
+The builder methods on `UTIL_HttpClient` (`.withRetry(n)`, `.withRetry(n, backoff)`, `.withCircuitBreaker()`) override
+these per call. See the [Resilience - Guide](Resilience%20-%20Guide.md) and
+[Web Services - Guide](Web%20Services%20-%20Guide.md) for the full configuration reference.
 
 ### Clean up
 
@@ -716,9 +740,10 @@ method in this step does.
 
 The strategy has no exception filter. Wrap it with `dontRetryOnException(...)` / `retryOnlyOnException(...)` and pass
 the exception in `withCustomData(...)`. Inside an `API_Outbound` handler the framework passes the exception for you,
-so the wrapped strategy filters exception failures on its own. A failure the external system answered with a status
-(a 400, say) carries no exception: the filter cannot stop it, and the handler's `getRetryableStatusCodes()` decides
-whether it retries.
+so the wrapped strategy filters exception failures on its own.
+
+A failure the external system answered with a status (a 400, say) carries no exception: the filter cannot stop it, and
+the handler's `getRetryableStatusCodes()` decides whether it retries.
 
 #### The exception filter doesn't match
 
@@ -742,18 +767,18 @@ Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?templ
 
 ## Honest limits
 
-Resilience tools manage *failure*, they don't erase it. Know these boundaries before you rely on them.
+Resilience tools manage *failure*, they don't erase it:
 
 - **Retry decisions are synchronous; the wait is not "free" sleep.** `UTIL_Retry` tells you whether to
-  retry and how long to wait, but it does not block the thread for you. For real backoff between callouts, the
-  wait belongs in an asynchronous path. The framework's registered-handler retry schedules attempts for
-  you; a hand-rolled synchronous loop should not busy-wait across the backoff.
+  retry and how long to wait, but it does not block the thread for you.
+  - For real backoff between callouts, the wait belongs in an asynchronous path. The framework's registered-handler
+    retry schedules attempts for you; a hand-rolled synchronous loop should not busy-wait across the backoff.
 - **Circuit breaker state lives in Platform Cache.** If a cache partition isn't provisioned, the breaker
   gracefully degrades to in-memory state that resets every transaction. That is fine for tests, but not for
   protecting a shared dependency in production. Provision the cache partition so state persists across
   transactions and users.
 - **Exception filtering is exact-type, not polymorphic.** `dontRetryOnException` / `retryOnlyOnException`
-  match by exact type name. They will not catch subclasses of a listed type. List concrete types.
+  match by exact type name: see [Only retry the errors worth retrying](#only-retry-the-errors-worth-retrying).
 - **A circuit breaker doesn't retry, and retry doesn't fail fast.** They are complementary, not
   interchangeable. Use retry for transient blips and a breaker for sustained outages; most production
   integrations layer both.

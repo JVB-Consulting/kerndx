@@ -4,7 +4,9 @@
  *
  * @author Jason van Beukering
  *
- * @date 2019, October 2026
+ * @group Testing
+ *
+ * @date 2019, November 2026
  */
 trigger TRG_Foobar on Foobar__c(before insert, before update, before delete, after insert, after update, after delete, after undelete)
 {

@@ -4,7 +4,9 @@
  *
  * @author Jason van Beukering
  *
- * @date September 2026, October 2026
+ * @group Async Processing
+ *
+ * @date September 2026, November 2026
  */
 trigger TRG_BatchApexErrorEvent on BatchApexErrorEvent (after insert)
 {

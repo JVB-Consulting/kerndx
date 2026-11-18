@@ -34,7 +34,7 @@ Configures outbound web service handlers with endpoint paths, retry behavior, ci
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [BypassFeatureFlag__c](#bypassfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [BypassFeatureFlag__r](#bypassfeatureflag__r) | Optional. |
 | global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [CircuitBreakerEnabled__c](#circuitbreakerenabled__c) | Enable circuit breaker pattern to prevent cascading failures when the external service is down |
-| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [CircuitBreakerFailureThreshold__c](#circuitbreakerfailurethreshold__c) | Number of consecutive failures before opening the circuit (default: 10 for high tolerance) |
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [CircuitBreakerFailureThreshold__c](#circuitbreakerfailurethreshold__c) | Number of consecutive failures before the circuit opens. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [CircuitBreakerSuccessThreshold__c](#circuitbreakersuccessthreshold__c) | Number of consecutive successes in half-open state to close the circuit (default: 2) |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [CircuitBreakerTimeout__c](#circuitbreakertimeout__c) | Seconds to wait before attempting to close the circuit (default: 60) |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [ClassName__c](#classname__c) | The name of the Apex class that handles this service, such as API_Handler or MyNamespace.API_Handler. |
@@ -145,7 +145,7 @@ Enable circuit breaker pattern to prevent cascading failures when the external s
 global Decimal CircuitBreakerFailureThreshold__c
 ```
 
-Number of consecutive failures before opening the circuit (default: 10 for high tolerance)
+Number of consecutive failures before the circuit opens. Blank means 5.
 
 **Field Attributes:**
 
@@ -394,7 +394,7 @@ When ticked, a later successful call closes the open API issues of the same requ
 global Decimal RetryBackoffSeconds__c
 ```
 
-The number of seconds to wait between retry attempts under the default linear backoff. 0 means no automatic retry, except while the circuit breaker is open: then the retry waits for its cool-off. Works with Max Retry Count to control retry timing.
+The number of seconds to wait between retry attempts under the default linear backoff. 0 means no automatic retry, except while the circuit breaker is open: then the retry waits for its cool-off. Works with Max Retry Count to control retry timing. The wait worked out from this value is never longer than 300 seconds, so a value above 300 has the same effect as 300, unless the handler class overrides createRetryStrategy() and sets its own maximum.
 
 **Field Attributes:**
 

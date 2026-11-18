@@ -1,0 +1,106 @@
+---
+title: "UTIL_Cache.Status"
+type: class
+pageClass: reference
+description: "Operation status enumeration"
+since: "1.0"
+category: apex
+---
+
+# UTIL_Cache.Status
+
+**Class**
+
+<div class="apex-member apex-class">
+
+```apex
+global enum UTIL_Cache.Status
+```
+
+Operation status enumeration
+
+</div>
+
+---
+
+## Inner Classes
+
+| Class | Description |
+|-------|-------------|
+| [CACHE_MISS](#cache_miss) | Cache miss (one or more keys not found, but operation was successful) |
+| [CACHE_UNAVAILABLE](#cache_unavailable) | Cache partition not available or not configured |
+| [READ_FAILURE](#read_failure) | Read operation failed due to exception |
+| [READ_SUCCESS](#read_success) | Read operation succeeded (all requested keys found) |
+| [REMOVE_FAILURE](#remove_failure) | Remove operation failed due to exception |
+| [REMOVE_SUCCESS](#remove_success) | Remove operation succeeded |
+| [WRITE_FAILURE](#write_failure) | Write operation failed due to exception |
+| [WRITE_SUCCESS](#write_success) | Write operation succeeded |
+
+---
+
+## Value Details
+
+### CACHE_MISS
+
+```apex
+global CACHE_MISS
+```
+
+Cache miss (one or more keys not found, but operation was successful)
+
+### CACHE_UNAVAILABLE
+
+```apex
+global CACHE_UNAVAILABLE
+```
+
+Cache partition not available or not configured
+
+### READ_FAILURE
+
+```apex
+global READ_FAILURE
+```
+
+Read operation failed due to exception
+
+### READ_SUCCESS
+
+```apex
+global READ_SUCCESS
+```
+
+Read operation succeeded (all requested keys found)
+
+### REMOVE_FAILURE
+
+```apex
+global REMOVE_FAILURE
+```
+
+Remove operation failed due to exception
+
+### REMOVE_SUCCESS
+
+```apex
+global REMOVE_SUCCESS
+```
+
+Remove operation succeeded
+
+### WRITE_FAILURE
+
+```apex
+global WRITE_FAILURE
+```
+
+Write operation failed due to exception
+
+### WRITE_SUCCESS
+
+```apex
+global WRITE_SUCCESS
+```
+
+Write operation succeeded
+

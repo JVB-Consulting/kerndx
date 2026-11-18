@@ -4,7 +4,9 @@
  *
  * @author Jason van Beukering
  *
- * @date 2020, October 2026
+ * @group Logging
+ *
+ * @date 2020, November 2026
  */
 trigger TRG_LogEntryEvent on LogEntryEvent__e (after insert)
 {
