@@ -1,21 +1,92 @@
 ---
 navOrder: 36
+navLabel: "Feature Flags (switching features on and off)"
+searchTerms: {"evaluating-a-flag-in-apex":["evaluate a flag"],"evaluating-a-flag-in-flows":["feature flag in flow"]}
+movedAnchors: {"why-choose-this-over-the-built-in-option": "/#feature-flags"}
 ---
 
 # Feature Flags - Guide
 
-**Framework:** KernDX
-**Package Type:** Managed Package
+**Who this page is for:** developers who branch code on runtime flags, target features to groups of users and test
+both paths; architects who design rollout strategies, kill switches and configuration-driven feature control; and
+business analysts who switch features and set targeting rules through Custom Metadata, with no deployment.
+
+New to it? Try [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) first: it builds a working pricing
+service that branches on a flag, with tests for both paths, in about 25 minutes. Deciding whether to use KernDX? See
+[Why KernDX](Strategic%20Guide%20-%20Overview.md).
+
+## Copy this first
+
+```apex
+if(kern.UTIL_FeatureFlag.isEnabled('New_Pricing_Engine'))
+{
+	// New behaviour
+}
+else
+{
+	// Existing behaviour
+}
+```
+
+**What this does:** runs the new behaviour only when the flag named `New_Pricing_Engine` is on for the running user.
+A flag that does not exist, or is not active, reads as off, so the existing behaviour runs. In a test, call
+`kern.TST_Factory.newFeatureFlag('New_Pricing_Engine')` first to turn the flag on for that test.
+
+**Read next:** [Create the flag](#defining-a-flag), [Turn it on for some users only](#scoping-a-flag-with-strategies),
+[Read a flag in a Lightning component](#evaluating-a-flag-in-lwc), [Test both paths](#testing-flags).
+
+---
+
+## Quick Navigation
+
+| I need to...                                                         | Go to...                                                                      |
+|----------------------------------------------------------------------|-------------------------------------------------------------------------------|
+| Check a flag in Apex for the running user                            | [Running-User Check](#running-user-check)                                     |
+| Check a flag for another user (a batch, an event, a security policy) | [Specific-User Check](#specific-user-check)                                   |
+| Create a flag                                                        | [Defining a Flag](#defining-a-flag)                                           |
+| Turn a feature on for some users only                                | [Scoping a Flag with Strategies](#scoping-a-flag-with-strategies)             |
+| Find the `Type__c` value for a strategy                              | [Strategy Types](#strategy-types)                                             |
+| Turn a feature on for everyone except one group                      | [ExpectedValue and the Three Outcomes](#expectedvalue-and-the-three-outcomes) |
+| Write my own targeting rule in Apex                                  | [Custom Strategy Handlers](#custom-strategy-handlers)                         |
+| Branch a Flow on a flag                                              | [Evaluating a Flag in Flows](#evaluating-a-flag-in-flows)                     |
+| Show or hide part of a Lightning component                           | [Evaluating a Flag in LWC](#evaluating-a-flag-in-lwc)                         |
+| Switch a framework feature off in an incident                        | [Framework-Owned Flags](#framework-owned-flags)                               |
+| Keep flag checks cheap in loops and batches                          | [Performance and SOQL Cost](#performance-and-soql-cost)                       |
+| Test both paths                                                      | [Testing Flags](#testing-flags)                                               |
+| Turn a flag off in a test when my org ships it on                    | [Testing the Disabled Path](#testing-the-disabled-path)                       |
+| Understand why a flag returned the value it did                      | [Evaluation Order](#evaluation-order)                                         |
+| Find out why a flag is always `false`                                | [Common Pitfalls](#common-pitfalls)                                           |
+| See why KernDX is worth using                                        | [Why KernDX](/)                                                               |
+
+---
+
+## Quick Start
+
+Pick where your code reads the flag:
+
+| Your code | What to write |
+|---|---|
+| Apex | `kern.UTIL_FeatureFlag.isEnabled(...)`: the sample below checks the running user; for another user see [Specific-User Check](#specific-user-check) |
+| A Flow | The **Is Feature Flag Enabled** action: [Evaluating a Flag in Flows](#evaluating-a-flag-in-flows) |
+| A Lightning component | The `isFlagEnabled` bridge from `kern/featureFlag`, for showing or hiding part of the page, never for an authorisation decision: [Evaluating a Flag in LWC](#evaluating-a-flag-in-lwc) |
+
+```apex
+if(kern.UTIL_FeatureFlag.isEnabled('New_Pricing_Engine'))
+{
+	// New behaviour
+}
+else
+{
+	// Existing behaviour
+}
+```
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**Target Audience:**
-
-- **Developers** - Branching code paths on runtime flags, targeting features to user segments, and testing both paths
-- **Architects** - Designing rollout strategies, kill switches, and configuration-driven feature control
-- **Business Analysts** - Toggling features and configuring targeting rules through Custom Metadata, no deployment
+**To run it:** create (or activate) the `FeatureFlag__mdt` record, as covered in [Defining a Flag](#defining-a-flag).
+Until then the call returns `false` and the `else` branch runs.
 
 ---
 
@@ -25,13 +96,18 @@ Sometimes you want to ship a feature to production but keep it switched off, the
 
 A feature flag does exactly that: it is a runtime on/off switch that your Apex, Flow, and Lightning component code reads to decide whether a piece of behaviour runs. You flip the switch by editing a record in Setup, and the next transaction sees the change.
 
-Read this guide if you build features that need a gradual rollout, an instant off-switch in an incident, or different behaviour for different user groups. It is for you whenever "should this run?" is a decision you want to control after deployment, not bake into compiled code.
+Use it whenever "should this run?" is a decision you want to control after deployment, not bake into compiled code.
 
 ---
 
 ## Mental model
 
-Think of a feature flag as a light switch wired into your code. The wiring (your Apex, Flow, or component) is already in place; the switch decides whether the light comes on. You move the switch by editing a record in Setup, not by rewiring. A strategy is like a dimmer or a motion sensor on that switch: it lets the light come on for some people or in some conditions rather than for the whole room at once.
+Think of a feature flag as a light switch wired into your code. The wiring (your Apex, Flow, or component) is already
+in place; the switch decides whether the light comes on. You move the switch by editing a record in Setup, not by
+rewiring.
+
+A strategy is like a dimmer or a motion sensor on that switch: it lets the light come on for some people or in some
+conditions rather than for the whole room at once.
 
 ---
 
@@ -45,106 +121,25 @@ Think of a feature flag as a light switch wired into your code. The wiring (your
 ## Don't use this when
 
 - You need a hard authorisation gate that must enforce on the server. A flag shapes behaviour; it is not a substitute for object and field permission checks (CRUD/FLS), record sharing, or permission checks on a protected operation.
-- The configuration never changes at runtime. When there is no on/off decision to make, a plain Custom Metadata or Custom Setting record is simpler.
+- The configuration never changes at runtime. When there is no on/off decision to make, keep the value in a Custom Metadata or Custom Setting record of your own; read a Custom Metadata record through a selector, as every read goes.
 
 ---
 
-## Quick Start
+## How to opt out
 
-Check a flag for the running user from anywhere in Apex:
+The `kern.UTIL_FeatureFlag.isEnabled(...)` call reads the flag records for you, and nothing forces you through it.
+When you step outside it, the reads still go through a selector. Pick the row that matches what you need:
 
-```apex
-if(kern.UTIL_FeatureFlag.isEnabled('New_Pricing_Engine'))
-{
-	// New behaviour
-}
-else
-{
-	// Existing behaviour
-}
-```
-
-If `New_Pricing_Engine` does not exist, or exists but is inactive, the call returns `false` and the `else`
-branch runs. To turn the feature on, create (or activate) the `FeatureFlag__mdt` record, as covered in
-[Defining a Flag](#defining-a-flag).
-
-For deeper coverage, continue reading the sections below.
+| You need                                     | Use                                                                                                                        | See                                                                   |
+|----------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
+| **A plain on/off value with no targeting**   | A `Boolean` field on your own `FeatureFlag__mdt` record, or your own Custom Metadata / Custom Setting. Read a Custom Metadata record through your own selector (`kern.SEL_Base`). | [How a Flag Is Defined](#how-a-flag-is-defined)                       |
+| **Zero-SOQL config reads in a tight loop**   | A `CustomHandler__c` strategy that calls your typed `MyCS__c.getInstance(...)`. This reads from the platform cache, so it costs no SOQL.                 | [Performance and SOQL Cost](#performance-and-soql-cost)               |
+| **A package-permission check, nothing else** | `FeatureManagement.checkPermission('YourPermission')`. This is the platform API the framework uses for the running user, and it runs no query. | [Custom Permission Target Formats](#custom-permission-target-formats) |
+| **A flag value on the client**               | The `isFlagEnabled(flagName)` bridge from `kern/featureFlag` (UX-shaping only, not authorisation).                            | [Evaluating a Flag in LWC](#evaluating-a-flag-in-lwc)                 |
 
 ---
 
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Quick Navigation](#quick-navigation)
-2. [Why choose this over the built-in option?](#why-choose-this-over-the-built-in-option)
-3. [How to opt out](#how-to-opt-out)
-4. [How does it work?](#how-does-it-work)
-    - [How a Flag Is Defined](#how-a-flag-is-defined)
-    - [The Custom Metadata Behind a Flag](#the-custom-metadata-behind-a-flag)
-    - [Evaluation Order](#evaluation-order)
-5. [Defining a Flag](#defining-a-flag)
-    - [FeatureFlag__mdt Fields](#featureflag__mdt-fields)
-    - [Create a Flag with the CLI](#create-a-flag-with-the-cli)
-    - [Create a Flag in Setup](#create-a-flag-in-setup)
-6. [Evaluating a Flag in Apex](#evaluating-a-flag-in-apex)
-    - [Running-User Check](#running-user-check)
-    - [Specific-User Check](#specific-user-check)
-    - [Check by Username](#check-by-username)
-7. [Scoping a Flag with Strategies](#scoping-a-flag-with-strategies)
-    - [FeatureFlagStrategy__mdt Fields](#featureflagstrategy__mdt-fields)
-    - [Strategy Types](#strategy-types)
-    - [ExpectedValue and the Three Outcomes](#expectedvalue-and-the-three-outcomes)
-    - [Custom Permission Target Formats](#custom-permission-target-formats)
-    - [Multiple Strategies and Order](#multiple-strategies-and-order)
-8. [Custom Strategy Handlers](#custom-strategy-handlers)
-    - [INT_FeatureFlagStrategy](#int_featureflagstrategy)
-    - [INT_UserAwareFeatureFlagStrategy](#int_userawarefeatureflagstrategy)
-    - [Wiring a Handler to a Flag](#wiring-a-handler-to-a-flag)
-9. [Evaluating a Flag in Flows](#evaluating-a-flag-in-flows)
-10. [Evaluating a Flag in LWC](#evaluating-a-flag-in-lwc)
-11. [Framework-Owned Flags](#framework-owned-flags)
-12. [Performance and SOQL Cost](#performance-and-soql-cost)
-13. [Testing Flags](#testing-flags)
-    - [Seeding a Flag In-Memory](#seeding-a-flag-in-memory)
-    - [Testing the Disabled Path](#testing-the-disabled-path)
-    - [Testing a Custom Handler](#testing-a-custom-handler)
-14. [Best Practices](#best-practices)
-15. [Common Pitfalls](#common-pitfalls)
-16. [Related Documentation](#related-documentation)
-
-</details>
-
----
-
-## Quick Navigation
-
-| I am a...     | I need to...                            | Go to...                                                          |
-|---------------|-----------------------------------------|-------------------------------------------------------------------|
-| **Developer** | Branch code on a flag                   | [Evaluating a Flag in Apex](#evaluating-a-flag-in-apex)           |
-| **Developer** | Target a feature to specific users      | [Scoping a Flag with Strategies](#scoping-a-flag-with-strategies) |
-| **Developer** | Write custom targeting logic            | [Custom Strategy Handlers](#custom-strategy-handlers)             |
-| **Developer** | Test both flag paths                    | [Testing Flags](#testing-flags)                                   |
-| **Architect** | Understand the evaluation model         | [How does it work?](#how-does-it-work)                            |
-| **Architect** | Keep flag checks cheap in loops/batches | [Performance and SOQL Cost](#performance-and-soql-cost)           |
-| **Analyst**   | Toggle a feature without code           | [Defining a Flag](#defining-a-flag)                               |
-
----
-
-## Why choose this over the built-in option?
-
-You could read a `Boolean` field from your own Custom Metadata or Custom Setting yourself and skip the framework entirely. That works for a plain on/off value. The framework earns its place once you want more than that, and here is what it gives you that a hand-rolled check does not:
-
-- **No deployment to toggle.** Flip a Custom Metadata record in Setup and the next transaction sees the change, so you can react in minutes instead of waiting for a release.
-- **Safe by default.** A flag that does not exist returns `false`, so your code never breaks because a flag has not been created yet.
-- **Targeted rollout.** Strategies enable a feature for one profile, permission set, public group, or any logic you write, instead of for everyone at once, so you can pilot before going wide.
-- **One source of truth.** Apex, Flows, and LWC all resolve the same flag through the same evaluation path, so a flag means the same thing everywhere.
-- **Kill switches.** A kill switch is a master off-switch you can flip in an incident without a deployment. Deactivate a flag to disable a feature instantly across the whole org.
-
-The switch is stored as a Custom Metadata record. Your code asks the framework "is this feature enabled?" and branches on the answer. Because the answer comes from a record you can edit, not from compiled code, you change the behaviour without a deployment.
-
-When you call the framework from your own org, use the `kern` namespace prefix exactly as shown throughout this guide (for example, [`kern.UTIL_FeatureFlag.isEnabled(...)`](reference/apex/UTIL_FeatureFlag.md)). The framework is delivered as a managed package, and that prefix is how your code reaches it.
+## How does it work?
 
 The system has two pieces of Custom Metadata and one entry-point class:
 
@@ -154,30 +149,7 @@ The system has two pieces of Custom Metadata and one entry-point class:
 3. **[`UTIL_FeatureFlag`](reference/apex/UTIL_FeatureFlag.md)** - The class your code calls. Its `isEnabled(...)`
    methods read the metadata and return a `Boolean`.
 
-> **Step-by-step walkthrough:** [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) builds a working
-> pricing service that branches on a flag, with tests for both paths, in about 25 minutes. This Guide is the deep
-> reference behind that Fast Start.
-
 > **Responsibilities:** Feature flags decide *whether* a code path runs. They do not contain the feature logic itself, query data, or perform DML (database create/read/update/delete). That work belongs in your service classes, trigger actions, or DML operations. A flag is a switch, not a behaviour.
-
----
-
-## How to opt out
-
-You are never locked into the framework. Feature flags are opt-in: the `kern.UTIL_FeatureFlag.isEnabled(...)` call is a convenience over reading Custom Metadata yourself, and nothing forces you through it. When the framework does not fit your case, the plain Salesforce building blocks are always available, and the table below points you at the right one.
-
-| You need                                     | Use                                                                                                                        | See                                                                   |
-|----------------------------------------------|----------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------|
-| **A plain on/off value with no targeting**   | A `Boolean` field on your own `FeatureFlag__mdt` record read directly, or your own Custom Metadata / Custom Setting.       | [How a Flag Is Defined](#how-a-flag-is-defined)                       |
-| **Zero-SOQL config reads in a tight loop**   | A `CustomHandler__c` strategy that calls your typed `MyCS__c.getInstance(...)`. This reads from the platform cache, so it costs no SOQL.                 | [Performance and SOQL Cost](#performance-and-soql-cost)               |
-| **A package-permission check, nothing else** | `FeatureManagement.checkPermission('YourPermission')` directly. This is the platform API the framework uses for the running user. | [Custom Permission Target Formats](#custom-permission-target-formats) |
-| **A flag value on the client**               | The `isFlagEnabled(flagName)` bridge from `kern/featureFlag` (UX-shaping only, not authorisation).                            | [Evaluating a Flag in LWC](#evaluating-a-flag-in-lwc)                 |
-
-The flag layer is a productivity convenience, not a wall. Use it when its features earn their keep, and skip it when they do not.
-
----
-
-## How does it work?
 
 ### How a Flag Is Defined
 
@@ -221,7 +193,11 @@ You manage both objects the same way you manage any Custom Metadata Type: edit r
 
 ### Evaluation Order
 
-When you ask "is this flag on?", the framework works through the flag and its strategies in a fixed order, and the first clear answer wins. Knowing that order tells you exactly why any flag returned the value it did. One rule shapes the whole thing: only **active** flags and **active** strategies are loaded, so an inactive flag is never found and returns `false`.
+When you ask "is this flag on?", the framework works through the flag and its strategies in a fixed order, and the
+first clear answer wins, so the order tells you exactly why any flag returned the value it did.
+
+One rule shapes the whole thing: only **active** flags and **active** strategies are loaded, so an inactive flag is
+never found and returns `false`.
 
 ```text
 1. Flag not found (missing or IsActive__c = false)  → return false (safe default / kill switch)
@@ -294,7 +270,9 @@ Save, and the next transaction that calls `isEnabled('New_Pricing_Engine')` retu
 
 ## Evaluating a Flag in Apex
 
-You want your Apex to take one path when a feature is on and another when it is off. The [`UTIL_FeatureFlag`](reference/apex/UTIL_FeatureFlag.md) class gives you three ways to ask the question, depending on *which* user you are asking about. All three return a `Boolean`, and all three return `false` when the flag is missing or inactive, so the off path is always the safe default.
+The [`UTIL_FeatureFlag`](reference/apex/UTIL_FeatureFlag.md) class gives you three ways to ask whether a feature is
+on, depending on *which* user you are asking about. All three return a `Boolean`, and all three return `false` when
+the flag is missing or inactive, so the off path is always the safe default.
 
 ### Running-User Check
 
@@ -309,7 +287,12 @@ if(kern.UTIL_FeatureFlag.isEnabled('Enhanced_Account_Processing'))
 
 ### Specific-User Check
 
-Sometimes the user you care about is not the one running the code. A batch job processes other users' records, a platform-event handler runs as the automated user, or a Transaction Security policy fires under a system context while the event belongs to someone else. For those cases, pass the user's `Id` and the framework evaluates the flag for that user. The call returns `false` when `userId` is blank.
+Pass the user's `Id` when the user you care about is not the one running the code, and the framework evaluates the
+flag for that user. The call returns `false` when `userId` is blank. Typical cases:
+
+- A batch job processes other users' records.
+- A platform-event handler runs as the automated user.
+- A Transaction Security policy fires under a system context while the event belongs to someone else.
 
 ```apex
 // Evaluate the flag for each user being processed, not for the batch's running user.
@@ -355,7 +338,9 @@ Boolean enabled = kern.UTIL_FeatureFlag.isEnabled('Premium_Feature', 'john.doe@c
 
 ## Scoping a Flag with Strategies
 
-You rarely want a feature on for absolutely everyone the moment you turn it on. More often you want it on for one team, one profile, or a beta group first. A plain flag is all-or-nothing (it just reads `IsEnabledByDefault__c`). To narrow a feature to a *subset* of users, attach one or more [`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md) child records, each describing who should get the feature.
+To narrow a feature to a *subset* of users (one team, one profile, or a beta group first), attach one or more
+[`FeatureFlagStrategy__mdt`](reference/metadata/FeatureFlagStrategy__mdt.md) child records, each describing who should
+get the feature. A plain flag is all-or-nothing (it just reads `IsEnabledByDefault__c`).
 
 ### FeatureFlagStrategy__mdt Fields
 
@@ -388,11 +373,29 @@ The framework ships seven built-in strategy types. The `Type__c` value is the ex
 
 </details>
 
-Despite its name, the `Permission Set Group` strategy matches a permission set *or* a permission set group, whichever one the user is assigned. It looks `Target__c` up by name against the user's assignments, and Salesforce gives an assigned permission set group an assignment record carrying the group's own developer name, so one name lookup finds both kinds. Put either a permission set's API name or a permission set group's developer name in `Target__c`. The `Type__c` value stays the literal string `Permission Set Group` for both.
+**`Permission Set Group`:** despite its name, it matches a permission set *or* a permission set group, whichever one
+the user is assigned.
 
-The match is against whatever is *directly* assigned. A permission set that reaches a user only because it sits inside an assigned permission set group will not match under its own name, so target the group instead.
+- Put either a permission set's API name or a permission set group's developer name in `Target__c`. The `Type__c`
+  value stays the literal string `Permission Set Group` for both.
+- It looks `Target__c` up by name against the user's assignments. Salesforce gives an assigned permission set group an
+  assignment record carrying the group's own developer name, so one name lookup finds both kinds.
+- The match is against whatever is *directly* assigned. A permission set that reaches a user only because it sits
+  inside an assigned permission set group will not match under its own name, so target the group instead.
 
-For the Custom Metadata, List Custom Setting, and Hierarchical Custom Setting strategies, `Target__c` is a dotted path that points at a field. The framework reads that field's value and compares it against `ExpectedValue__c`. The Hierarchical Custom Setting strategy follows the standard Salesforce precedence when picking the value: a user-level setting wins over a profile-level one, which wins over the org-level default.
+**`Public Group`:** put the group's API name in `Target__c`. Setup shows it as **Group Name**, next to the label.
+
+- Only public groups count: a queue with the same name is never used.
+- A label also works if exactly one public group has that label, but the framework logs a warning that asks for the
+  API name.
+- If two or more public groups have the label, or nothing matches, the strategy finds no group and logs a warning
+  naming the target. A strategy that finds no group treats the user as not in the group.
+
+**Custom Metadata, List Custom Setting and Hierarchical Custom Setting:** `Target__c` is a dotted path that points at
+a field. The framework reads that field's value and compares it against `ExpectedValue__c`.
+
+- The Hierarchical Custom Setting strategy follows the standard Salesforce precedence when picking the value: a
+  user-level setting wins over a profile-level one, which wins over the org-level default.
 
 The Profile strategy reads the profile in system mode, so it keeps working once the Enable Profile Filtering release update hides other users' profile names from
 ordinary queries (enforced in Winter '27); the [Security guide](Security%20-%20Guide.md#query-sharing-enforcement) explains what that update does to
@@ -438,7 +441,11 @@ For the **running user**, namespaced and `core.`-prefixed permissions resolve th
 
 ### Multiple Strategies and Order
 
-When a flag carries several strategies, they evaluate in `Order__c` ascending and the first clear result wins. Put your most specific rule first and your broadest rule last. For example, place a deny rule (`ExpectedValue__c = false` on a specific group) ahead of a broad allow rule, so the specific case is decided before the general one ever runs.
+When a flag carries several strategies, they evaluate in `Order__c` ascending and the first clear result wins, so put
+your most specific rule first and your broadest rule last.
+
+For example, place a deny rule (`ExpectedValue__c = false` on a specific group) ahead of a broad allow rule, so the
+specific case is decided before the general one ever runs.
 
 ---
 
@@ -448,7 +455,12 @@ Some targeting rules are too specific for the built-in strategies: a percentage 
 
 > **Naming convention:** The strategy interface is `kern.UTIL_FeatureFlag.INT_FeatureFlagStrategy`. Note the `INT_` prefix: interfaces nested inside a `UTIL_*` class use `INT_*`, while top-level framework interfaces use `IF_*`. This is a deliberate codebase convention.
 
-> **Declare the class `global`.** The package finds your handler by name at runtime and can only see classes you have declared `global`. A handler declared `public` fails with a "Type is not visible" error, so declare it `global with sharing`. (If you would rather keep it `public`, register it with the Type Resolver, which is how you tell the framework where to find your Apex classes: see [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).)
+> **Declare the class `global`.** The package finds your handler by name at runtime and can only see classes you have
+> declared `global`. A handler declared `public` fails with a "Type is not visible" error, so declare it
+> `global with sharing`.
+>
+> If you would rather keep it `public`, register it with the Type Resolver, which is how you tell the framework where
+> to find your Apex classes: see [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
 
 ### INT_FeatureFlagStrategy
 
@@ -517,7 +529,11 @@ global with sharing class FF_RegionStrategy implements kern.UTIL_FeatureFlag.INT
 }
 ```
 
-When `isEnabled(flagName, userId)` runs for someone other than the running user, the framework calls `isEnabledForUser(...)` with that user's `Id`. A handler that implements only `INT_FeatureFlagStrategy` would instead fall back to `isEnabled(...)`, which checks the running user. That is usually the wrong answer in a batch or policy context, where the running user is not the user you care about.
+When `isEnabled(flagName, userId)` runs for someone other than the running user, the framework calls `isEnabledForUser(...)` with that user's `Id`.
+
+A handler that implements only `INT_FeatureFlagStrategy` would instead fall back to `isEnabled(...)`, which checks the
+running user. That is usually the wrong answer in a batch or policy context, where the running user is not the user
+you care about.
 
 > **Errors in a handler are contained.** If a custom handler throws, the framework logs the error and treats the strategy as no match. It does not let the exception reach your `isEnabled(...)` caller, so one buggy handler cannot break the calls around it.
 
@@ -578,15 +594,29 @@ export default class MyComponent extends ComponentBuilder('notification')
 }
 ```
 
-> **The bridge rejects on error; it does not silently resolve to `false`.** The Apex calls return `false` for a missing or inactive flag, but the client bridge behaves differently: when the controller errors, it *rejects* the promise instead. So wrap the call in `try/catch` (or chain `.catch()`) and fall back to your chosen default, as shown above, so a one-off failure does not leave the value unset.
+> **The bridge rejects on error; it does not silently resolve to `false`.** The Apex calls return `false` for a
+> missing or inactive flag, but when the controller errors, the client bridge *rejects* the promise instead.
+>
+> So wrap the call in `try/catch` (or chain `.catch()`) and fall back to your chosen default, as shown above, so a
+> one-off failure does not leave the value unset.
 
 Any text the component renders should come from a Custom Label, not a hardcoded string. Import labels with `import LABEL_NAME from '@salesforce/label/c.Label_Name';` so the copy stays translatable.
 
-A user who is not a System Administrator also needs access to the Apex class behind the bridge, or the page fails with "You do not have access to the Apex class named
-'CTRL_FeatureFlag'". Assign the **Kern Component Access** permission set (it also grants the matching Flow action), or add Apex class access for
-`kern.CTRL_FeatureFlag` (the name Setup shows under Apex Class Access) to a permission set they already have. Kern Administrator includes it.
+A user who is not a System Administrator also needs access to the Apex class behind the bridge, or the page fails with
+"You do not have access to the Apex class named 'CTRL_FeatureFlag'".
 
-> **Not for client-side authorisation.** `CTRL_FeatureFlag.isEnabled` is marked `@AuraEnabled(cacheable=true)`, so Salesforce may keep serving a cached result after an admin assigns or revokes a permission set that would flip the flag for that user. The cache clears on a full page reload, but not when the same wire re-fires. So use the bridge for shaping the experience (which panel to show, whether a hint is visible). For a real authorisation decision, evaluate the flag inside the Apex method that performs the protected operation, where no cache can get stale. See [LWC - Guide → featureFlag Bridge](LWC%20-%20Guide.md#featureflag---feature-flag-bridge).
+- Assign the **Kern Component Access** permission set (it also grants the matching Flow action), or add Apex class
+  access for `kern.CTRL_FeatureFlag` (the name Setup shows under Apex Class Access) to a permission set they already
+  have.
+- Kern Administrator includes it.
+
+> **Not for client-side authorisation.** `CTRL_FeatureFlag.isEnabled` is marked `@AuraEnabled(cacheable=true)`, so
+> Salesforce may keep serving a cached result after an admin assigns or revokes a permission set that would flip the
+> flag for that user. The cache clears on a full page reload, but not when the same wire re-fires.
+>
+> So use the bridge for shaping the experience (which panel to show, whether a hint is visible). For a real
+> authorisation decision, evaluate the flag inside the Apex method that performs the protected operation, where no
+> cache can get stale. See [LWC - Guide → featureFlag Bridge](LWC%20-%20Guide.md#featureflag---feature-flag-bridge).
 
 ---
 
@@ -594,7 +624,7 @@ A user who is not a System Administrator also needs access to the Apex class beh
 
 KernDX uses feature flags on itself. A small set of `FeatureFlag__mdt` records ships with the package and controls framework-wide behaviour, which gives you the same instant off-switch over the framework that you have over your own features. You do not create these flags, since they arrive with the package, but you can toggle them in Setup.
 
-Two terms appear in the table below. A flag that runs in **USER_MODE** enforces the current user's read/write permissions and record sharing; **SYSTEM_MODE** skips the object and field permission checks only, leaving record sharing to the calling class's sharing keyword. A kill switch is the master off-switch described earlier: flip it in an incident with no deployment.
+Two terms appear in the table below. A flag that runs in **USER_MODE** enforces the current user's read/write permissions and record sharing; **SYSTEM_MODE** skips the object and field permission checks only, leaving record sharing to the calling class's sharing keyword. A kill switch is a master off-switch: flip it in an incident with no deployment.
 
 <details>
 <summary>The framework-owned flags and their defaults</summary>
@@ -617,12 +647,35 @@ Two terms appear in the table below. A flag that runs in **USER_MODE** enforces 
 
 </details>
 
-For the three Chain Monitor action flags, `false` in the Default column is the answer a user gets without the matching permission set: each flag ships active and resolves per user from that permission set, so the capability is off until you grant it. The `AsyncChain` flag works differently: it resolves through a shipped strategy record pointing at the `AsyncChainRuntimeSwitch__c` hierarchy setting, which is what the Chain Monitor's Suspend and Resume actions write. No setting record means chains run; see [Kill Switch](Async%20Processing%20-%20Guide.md#kill-switch) in the Async Processing Guide for the full resolution order and the per-user override pattern.
+How the Default column reads for the flags that resolve per user or through a setting:
 
-To roll one back in an emergency, untick `IsActive__c` on the `FeatureFlag__mdt` record in Setup. Deactivating the record is the off-switch that works for every flag above, and an upgrade never overwrites the edit. Two edits to avoid on the flags that carry strategy records (`AsyncChain`, `DisableAllAPIs`, `BypassApiRecordDeleteGuard`, and the three Chain Monitor action flags):
+- **The three Chain Monitor action flags:** `false` in the Default column is the answer a user gets without the
+  matching permission set. Each flag ships active and resolves per user from that permission set, so the capability is
+  off until you grant it.
+- **`AsyncChain`:** it resolves through a shipped strategy record pointing at the `AsyncChainRuntimeSwitch__c`
+  hierarchy setting, which is what the Chain Monitor's Suspend and Resume actions write. No setting record means chains
+  run; see [Kill Switch](Async%20Processing%20-%20Guide.md#kill-switch) in the Async Processing Guide for the full
+  resolution order and the per-user override pattern.
+
+To roll one back in an emergency, untick `IsActive__c` on the `FeatureFlag__mdt` record in Setup. Deactivating the
+record is the off-switch that works for every flag above, and an upgrade never overwrites the edit.
+
+Two edits to avoid on the flags that carry strategy records (`AsyncChain`, `DisableAllAPIs`, `BypassApiRecordDeleteGuard`, and the three Chain Monitor action flags):
 
 - `IsEnabledByDefault__c` is consulted only when a flag has no active strategies, so on these flags editing it changes nothing. If you ever switched a flag off that way, re-check it after an upgrade, because a newly shipped strategy stops consulting the field.
 - On `AsyncChain`, `ResultOnNoMatch__c = false` leaves chains off whenever no `AsyncChainRuntimeSwitch__c` record exists, and chains then look disabled for no obvious reason.
+
+Never give `UserModeQueries_Enabled` a strategy that needs a query to decide. Every query the framework builds checks
+this flag first, so the strategy's own query checks the flag again, and the check repeats until Salesforce stops the
+transaction at a limit. These strategies need a query:
+
+- Profile, Permission Set Group and Public Group;
+- Hierarchical Custom Setting, List Custom Setting and Custom Metadata;
+- Custom Permission with no prefix (a permission local to your org).
+
+If the flag must differ by user, use a Custom Permission strategy with a namespaced (`pkg__Name`) or `core.` target,
+which the running user's check answers with no query, or a custom handler (`CustomHandler__c`) that runs no query through
+a selector or the query builder. A handler that reads a custom setting with `getInstance()` is safe.
 
 The framework reads these flags itself, so your own code never references them. For how `UserModeQueries_Enabled` and `UserModeDml_Enabled` interact with the per-query `withUserMode()` and `withSystemMode()` overrides, see [Selectors - Guide → Sharing Enforcement](Selectors%20-%20Guide.md#sharing-enforcement).
 
@@ -630,7 +683,18 @@ The framework reads these flags itself, so your own code never references them. 
 
 ## Performance and SOQL Cost
 
-A flag check is cheap on a normal page, but the same check repeated thousands of times in a loop or batch can run you into SOQL limits. The cost comes from one place: the framework caches the flag-and-strategy Custom Metadata for the whole transaction, but it re-checks each strategy's *target* on every `isEnabled(...)` call. A setting or Custom Metadata target is read once and kept in memory for the transaction, until a write through the framework empties that memory; a profile, group or permission set target is read on every check. If your own Apex flips a setting in the same transaction and checks the flag again, write the setting through `kern.DML_Builder`: a plain `insert` or `update` does not empty that memory, so the next check would still see the old value. Knowing exactly where SOQL fires lets you keep flag checks free where it matters.
+A flag check is cheap on a normal page, but the same check repeated thousands of times in a loop or batch can run you
+into SOQL limits.
+
+The cost comes from one place: the framework caches the flag-and-strategy Custom Metadata for the whole transaction,
+but it re-checks each strategy's *target* on every `isEnabled(...)` call.
+
+- A setting or Custom Metadata target is read once and kept in memory for the transaction, until a write through the
+  framework empties that memory.
+- A profile, group or permission set target is read on every check.
+- If your own Apex flips a setting in the same transaction and checks the flag again, write the setting through
+  `kern.DML_Builder`: a plain `insert` or `update` does not empty that memory, so the next check would still see the
+  old value.
 
 **Transaction-level caches (free after the first call):**
 
@@ -648,7 +712,7 @@ A flag check is cheap on a normal page, but the same check repeated thousands of
 | Custom Permission, namespaced (`pkg__Name`) or `core.Name` | 0            | 1                         | Running user uses `FeatureManagement.checkPermission()`.                                           |
 | Custom Permission, no prefix (local to your org)            | 1            | 1                         | The package cannot see your org's local permissions through `FeatureManagement`, so it must use SOQL. |
 | Profile                                                    | 1            | 1                         | Resolves the target profile by name.                                                               |
-| Public Group                                               | 1            | 1                         | Group-membership lookup.                                                                           |
+| Public Group                                               | 4            | 4                         | Finds the group, reads members. Nested groups add more; a label adds 1. A target that matches no group costs 2. |
 | Permission Set or Group                                    | 1            | 1                         | One assignment lookup by name, matching a permission set or a permission set group.                |
 | Hierarchical Custom Setting                                | 1 per transaction | 1 per transaction (+ lazy profile lookup) | Reads `SetupOwnerId IN (userId, profileId, orgId)` once per setting and user, keeps the rows in memory until a framework write, and picks the highest-precedence non-null. |
 | List Custom Setting                                        | 1 per transaction | 1 per transaction    | Single-record lookup by Name, kept in memory until a framework write.                              |
@@ -665,9 +729,9 @@ A flag check is cheap on a normal page, but the same check repeated thousands of
 
    ```apex
    Boolean enabled = kern.UTIL_FeatureFlag.isEnabled('My_Flag');
-   for(Record record : records)
+   for(Account account : accounts)
    {
-       if(enabled) { /* ... */ }
+   	if(enabled) { /* ... */ }
    }
    ```
 
@@ -677,7 +741,11 @@ A flag check is cheap on a normal page, but the same check repeated thousands of
 
 ## Testing Flags
 
-You want a test to control whether a flag is on, without depending on whatever records happen to exist in the org. That is harder than it sounds: Custom Metadata records are visible in every test, so a real `FeatureFlag__mdt` record would leak into tests you did not intend. The framework gives you an in-memory way to set flag state for a single test instead, so each test controls its own world.
+Set flag state in memory for a single test, so each test controls whether a flag is on without depending on whatever
+records happen to exist in the org.
+
+That matters because Custom Metadata records are visible in every test, so a real `FeatureFlag__mdt` record would
+leak into tests you did not intend.
 
 ### Seeding a Flag In-Memory
 
@@ -738,7 +806,11 @@ To test the off path of a flag your org ships on, use `newDisabledFeatureFlag(..
 
 ### Testing a Custom Handler
 
-Test your handler through `isEnabled(...)`, just as production calls it, and cover both the case where it should match and the case where it should not. Keep the flag name in one place by storing it as a `@TestVisible private static final String` constant on the class under test, so your production code and your test always use the same value.
+Test your handler through `isEnabled(...)`, just as production calls it, and cover both the case where it should
+match and the case where it should not.
+
+Keep the flag name in one place by storing it as a `@TestVisible private static final String` constant on the class
+under test, so your production code and your test always use the same value.
 
 ---
 
@@ -767,7 +839,7 @@ Test your handler through `isEnabled(...)`, just as production calls it, and cov
 |-----------------------------------------------|---------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------|
 | `isEnabled(...)` always returns `false`       | Flag does not exist, or `IsActive__c` is unchecked            | Create the `FeatureFlag__mdt` record and check **Is Active**.                                                          |
 | Flag is on for everyone but not for one user  | The strategy's `IsActive__c` is unchecked                     | Check **Is Active** on each `FeatureFlagStrategy__mdt` record.                                                         |
-| A "disabled" test fails (the flag returns `true`) | A real `FeatureFlag__mdt` record exists in the org            | Deactivate or delete it; Custom Metadata is visible in all tests. Use `newFeatureFlag(...)` for the enabled path only. |
+| A "disabled" test fails (the flag returns `true`) | Your org has a real, active `FeatureFlag__mdt` record that turns the flag on; Custom Metadata is visible in all tests | Call `kern.TST_Factory.newDisabledFeatureFlag('Flag_Name')` before the code under test: the test then reads the flag as off, whatever the record says. Do not deactivate or delete the real record. Use `newFeatureFlag(...)` for the enabled path. See [Testing the Disabled Path](#testing-the-disabled-path). |
 | `TST_Factory.newFeatureFlag(...)` not found   | Missing namespace prefix                                      | Call `kern.TST_Factory.newFeatureFlag('Flag_Name')`.                                                                   |
 | Custom Permission strategy never matches      | Permission not assigned, or wrong target prefix               | Verify the Custom Permission → Permission Set → User assignment chain; check the `Target__c` prefix format.            |
 | "Type is not visible" on a custom handler     | The handler class is declared `public` instead of `global`    | Declare it `global with sharing` so the managed package can instantiate it.                                            |

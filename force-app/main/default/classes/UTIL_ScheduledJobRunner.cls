@@ -15,7 +15,7 @@
  *
  * @group Schedulables
  *
- * @date September 2026, October 2026
+ * @date September 2026, November 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class UTIL_ScheduledJobRunner
@@ -744,10 +744,7 @@ public inherited sharing class UTIL_ScheduledJobRunner
 		 */
 		public QRY_Builder.Builder buildRunnerManagementLock()
 		{
-			return QRY_Builder.selectFrom(ScheduleSetting__c.SObjectType)
-					.systemModeInternal()
-					.condition(ScheduleSetting__c.Name).equals(LAST_CHECK_SETTING_NAME)
-					.forUpdate();
+			return SEL_ScheduleSetting.buildLockingReadByName(LAST_CHECK_SETTING_NAME);
 		}
 	}
 

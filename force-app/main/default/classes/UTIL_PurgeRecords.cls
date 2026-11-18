@@ -26,6 +26,13 @@
  * API issues is told so in one warning, and the purge of API calls does not start. A call that is left out is purged by
  * a later run, once its issue is resolved or dismissed.
  *
+ * A purge of chain runs (AsyncChainExecution__c) by their end time (CompletedAt__c) also deletes a run that stays
+ * Stalled, when the time it stalled (StalledAt__c) is older than the same number of days. A Stalled run never gets an
+ * end time, so without this rule it would be kept forever. The user who runs the purge must be able to read both the
+ * Status and the Stalled At fields of a chain run; the Kern Administrator permission set gives this access. An upgrade
+ * does not give a new field to profiles or to permission sets your org made itself. Without that access, the purge
+ * deletes by end time only, so every stalled run is kept, and it logs one warning that says so.
+ *
  * @see PROC_ExecuteDML
  * @see UTIL_FeatureFlag
  * @see UTIL_PurgeRecords_TEST
@@ -34,7 +41,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -270,9 +277,12 @@ global inherited sharing class UTIL_PurgeRecords
 
 		Boolean allOrNothing = isAtomic != null ? isAtomic : false;
 
-		QRY_Condition.Evaluable searchConditions = new QRY_Condition.FieldCondition(
-				String.isBlank(dateFieldApiName) ? 'CreatedDate' : dateFieldApiName
-		).lessThan(new QRY_Condition.DateLiteral().last(daysThreshold - 1, QRY_Condition.UnitOfTime.DAY));
+		String dateField = String.isBlank(dateFieldApiName) ? 'CreatedDate' : dateFieldApiName;
+		QRY_Condition.Evaluable searchConditions = new QRY_Condition.FieldCondition(dateField).lessThan(buildAgeCutoff(daysThreshold));
+		if(isChainRunPurgeByEndTime(objectApiName, dateField))
+		{
+			searchConditions = addStalledChainRunRule(searchConditions, daysThreshold);
+		}
 
 		IF_Queryable queryable = buildPurgeQuery(objectApiName, searchConditions);
 
@@ -281,6 +291,77 @@ global inherited sharing class UTIL_PurgeRecords
 						.withBatchSize(batchSize);
 
 		UTIL_AsynchronousJobLauncher.process(request, new PROC_ExecuteDML(DML_Builder.DatabaseOperation.DML_DELETE, allOrNothing));
+	}
+
+	/**
+	 * @description Builds the cutoff of a purge of old records: a date more than the given number of days ago.
+	 *
+	 * @param daysThreshold Records older than this number of days are deleted.
+	 *
+	 * @return The date condition value that a date field must be earlier than.
+	 */
+	private static QRY_Condition.DateLiteral buildAgeCutoff(Integer daysThreshold)
+	{
+		return new QRY_Condition.DateLiteral().last(daysThreshold - 1, QRY_Condition.UnitOfTime.DAY);
+	}
+
+	/**
+	 * @description Checks whether a purge of old records is a purge of chain runs by their end time (CompletedAt__c). A
+	 * Stalled run has no end time, because it never finished, so such a purge would keep it forever. Such a purge also
+	 * deletes old Stalled runs (see addStalledChainRunRule).
+	 *
+	 * @param objectApiName The API name of the object to purge.
+	 * @param dateFieldApiName The API name of the date field the purge filters on.
+	 *
+	 * @return True when the purge is of chain runs by CompletedAt__c.
+	 */
+	private static Boolean isChainRunPurgeByEndTime(String objectApiName, String dateFieldApiName)
+	{
+		SObjectType objectType = UTIL_SObjectDescribe.getSObjectTypeByName(objectApiName);
+		return objectType == AsyncChainExecution__c.SObjectType
+				&& UTIL_SObjectDescribe.getDescribe(objectType).getField(dateFieldApiName) == AsyncChainExecution__c.CompletedAt__c;
+	}
+
+	/**
+	 * @description Adds the rule for runs that stay Stalled to a purge of chain runs by their end time: the purge also
+	 * deletes a Stalled run whose stall time (StalledAt__c) is older than the same number of days. A Stalled run with no
+	 * stall time is kept.
+	 *
+	 * The purge reads as the user who runs it, and a query cannot filter on a field the user cannot read. When that user
+	 * cannot read the Status or the Stalled At field of a chain run, the purge deletes by end time only, so every stalled
+	 * run is kept. This logs one warning that says so and names the two fields the user needs. An upgrade does not give a
+	 * new field to profiles or to permission sets your org made itself, so this warning is how such an org finds out.
+	 *
+	 * @param endTimeCondition The condition on the end time.
+	 * @param daysThreshold Records older than this number of days are deleted.
+	 *
+	 * @return The condition on the end time or the stall time, or the condition on the end time alone when the user cannot
+	 * read both fields.
+	 */
+	private static QRY_Condition.Evaluable addStalledChainRunRule(QRY_Condition.Evaluable endTimeCondition, Integer daysThreshold)
+	{
+		if(!canReadStallTimeFields())
+		{
+			LOG_Builder.build().warn(System.Label.PurgeChainRuns_StallTimeReadAccessRequired).emitAt(UTIL_PurgeRecords.class.getName() + '/deleteOlderThanNDays');
+			return endTimeCondition;
+		}
+		return new QRY_Condition.OrCondition()
+				.add(endTimeCondition)
+				.add(new QRY_Condition.AndCondition()
+						.add(new QRY_Condition.FieldCondition(AsyncChainExecution__c.Status__c).equals(SEL_AsyncChainExecution.STATUS_STALLED))
+						.add(new QRY_Condition.FieldCondition(AsyncChainExecution__c.StalledAt__c).lessThan(buildAgeCutoff(daysThreshold))));
+	}
+
+	/**
+	 * @description Checks whether the running user can read the Status and Stalled At fields of a chain run. The purge of
+	 * chain runs needs both to find the runs that stay Stalled.
+	 *
+	 * @return True when the user can read both fields, false otherwise.
+	 */
+	private static Boolean canReadStallTimeFields()
+	{
+		return UTIL_SObjectDescribe.getCachedFieldDescribe(AsyncChainExecution__c.Status__c).isAccessible()
+				&& UTIL_SObjectDescribe.getCachedFieldDescribe(AsyncChainExecution__c.StalledAt__c).isAccessible();
 	}
 
 	/**
@@ -361,10 +442,7 @@ global inherited sharing class UTIL_PurgeRecords
 
 		if(objectType == ApiCall__c.SObjectType)
 		{
-			QRY_Builder.Builder callsWithOpenIssue = QRY_Builder.selectFrom(ApiIssue__c.SObjectType)
-					.fields(new List<SObjectField> {ApiIssue__c.ApiCall__c})
-					.condition(ApiIssue__c.Status__c).equals(SEL_ApiIssue.STATUS_OPEN);
-			query.condition(ApiCall__c.Id).notIn(callsWithOpenIssue);
+			query.condition(ApiCall__c.Id).notIn(SEL_ApiIssue.buildApiCallsWithOpenIssueSubquery());
 		}
 
 		return query;

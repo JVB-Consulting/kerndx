@@ -11,7 +11,7 @@
  *
  * @group Schedulables
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 public inherited sharing class SEL_ScheduleSetting
 {
@@ -42,5 +42,24 @@ public inherited sharing class SEL_ScheduleSetting
 	public static ScheduleSetting__c getScheduleSetting(String scheduleName)
 	{
 		return ScheduleSetting__c.getValues(scheduleName);
+	}
+
+	/**
+	 * @description Builds a read of the Schedule Setting with the given name that locks the row (FOR UPDATE). The lock is
+	 * held to the end of the transaction, so a second transaction that runs the same read waits until the first ends. The
+	 * read skips the running user's object and field permission checks (system mode). Run it with toList.
+	 *
+	 * @param scheduleName The name of the Schedule Setting to read and lock.
+	 *
+	 * @return The read, ready to run.
+	 *
+	 * @see UTIL_ScheduledJobRunner.FrameworkWriter.buildRunnerManagementLock
+	 */
+	public static QRY_Builder.Builder buildLockingReadByName(String scheduleName)
+	{
+		return QRY_Builder.selectFrom(ScheduleSetting__c.SObjectType)
+				.systemModeInternal()
+				.condition(ScheduleSetting__c.Name).equals(scheduleName)
+				.forUpdate();
 	}
 }

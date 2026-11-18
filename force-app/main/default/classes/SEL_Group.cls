@@ -11,7 +11,7 @@
  *
  * @group Selectors
  *
- * @date October 2024, October 2026
+ * @date October 2024, November 2026
  *
  * @since 1.0
  *
@@ -29,6 +29,18 @@ global inherited sharing class SEL_Group extends SEL_Base
 	 * @description The child relationship name for GroupMembers on the Group object.
 	 */
 	private static final String RELATIONSHIP_MEMBERS = 'GroupMembers';
+
+	/**
+	 * @description The Type value of a public group. Queues and role groups have other Type values.
+	 */
+	public static final String TYPE_REGULAR = 'Regular';
+
+	/**
+	 * @description The most rows a public group lookup reads. Two rows are enough to see that a value names more
+	 * than one group, without reading every group that has it.
+	 */
+	@TestVisible
+	private static final Integer MAXIMUM_GROUPS_PER_LOOKUP = 2;
 
 	/**
 	 * @description Reads Group records, such as public groups, queues and role groups. Every query skips the running user's object and field permission checks (system mode).
@@ -100,6 +112,42 @@ global inherited sharing class SEL_Group extends SEL_Base
 	global Group findByName(String groupName)
 	{
 		return (Group)query.condition('Name').equals(groupName).getFirst();
+	}
+
+	/**
+	 * @description Finds the public groups whose API name (DeveloperName, shown as Group Name in Setup) is the given
+	 * value. Queues and role groups are left out. It reads at most two rows, so a caller can tell one match from
+	 * more than one.
+	 *
+	 * @param developerName The API name to look for.
+	 *
+	 * @return The matching public groups: none, one, or two when more than one group has the value.
+	 */
+	public List<Group> findPublicGroupsByDeveloperName(String developerName)
+	{
+		return query
+				.condition(Group.DeveloperName).equals(developerName)
+				.andCondition(Group.Type).equals(TYPE_REGULAR)
+				.withLimit(MAXIMUM_GROUPS_PER_LOOKUP)
+				.toList();
+	}
+
+	/**
+	 * @description Finds the public groups whose label (the Name field) is the given value. Labels are not unique, so
+	 * several groups can have the same one. Queues and role groups are left out. It reads at most two rows, so a
+	 * caller can tell one match from more than one.
+	 *
+	 * @param groupLabel The label to look for.
+	 *
+	 * @return The matching public groups: none, one, or two when more than one group has the label.
+	 */
+	public List<Group> findPublicGroupsByLabel(String groupLabel)
+	{
+		return query
+				.condition(Group.Name).equals(groupLabel)
+				.andCondition(Group.Type).equals(TYPE_REGULAR)
+				.withLimit(MAXIMUM_GROUPS_PER_LOOKUP)
+				.toList();
 	}
 
 	/**
@@ -211,38 +259,47 @@ global inherited sharing class SEL_Group extends SEL_Base
 		if(String.isNotBlank(userId) && String.isNotBlank(groupName))
 		{
 			Group foundGroup = findByName(groupName);
-			List<User> foundUsers = foundGroup == null ? new List<User>() : findAllUsers(new Set<Id> {foundGroup.Id});
-			isInGroup = !UTIL_SObject.findWhere(foundUsers, 'Id', userId).isEmpty();
+			isInGroup = foundGroup != null && isUserInGroup(userId, foundGroup.Id);
 		}
 
 		return isInGroup;
 	}
 
 	/**
+	 * @description Checks whether a user is a member of the group with the given Id. A user counts as a member when
+	 * they are in the group directly, through a nested group, or through a role the group includes (see findAllUsers).
+	 *
+	 * @param userId The User Id to check.
+	 * @param groupId The Id of the group to check membership in.
+	 *
+	 * @return True if the user is a member of the group. False when either Id is blank.
+	 */
+	public Boolean isUserInGroup(Id userId, Id groupId)
+	{
+		if(String.isBlank(userId) || String.isBlank(groupId))
+		{
+			return false;
+		}
+
+		return !UTIL_SObject.findWhere(findAllUsers(new Set<Id> {groupId}), 'Id', userId).isEmpty();
+	}
+
+	/**
 	 * @description Retrieves Group records by their IDs and includes their GroupMembers child relationship.
-	 * Uses manual SOQL because QRY_Builder does not support child relationship subqueries.
 	 *
 	 * @param groupIds Set of Group IDs to retrieve with their members.
 	 *
 	 * @return List of Group records with populated GroupMembers child relationship.
 	 */
-	@SuppressWarnings('PMD.ApexSOQLInjection')
 	private List<Group> findByIdWithMembers(Set<Id> groupIds)
 	{
-		List<String> fieldNames = new List<String>();
+		QRY_Builder.Builder memberRead = QRY_Builder.selectFrom(GroupMember.SObjectType)
+				.systemModeInternal()
+				.fields(new List<SObjectField> {GroupMember.UserOrGroupId});
 
-		for(SObjectField field : getFields())
-		{
-			fieldNames.add(UTIL_SObjectDescribe.getCachedFieldName(field));
-		}
-
-		String memberField = UTIL_SObjectDescribe.getCachedFieldName(GroupMember.UserOrGroupId);
-
-		String soql = 'SELECT ' + String.join(fieldNames, ', ') +
-				', (SELECT ' + memberField + ' FROM ' + RELATIONSHIP_MEMBERS + ')' +
-				' FROM ' + UTIL_SObjectDescribe.getObjectNameFromType(Group.SObjectType) +
-				' WHERE Id IN :groupIds';
-
-		return Database.query(soql, AccessLevel.SYSTEM_MODE);
+		return query
+				.subselect(memberRead, RELATIONSHIP_MEMBERS)
+				.condition(Group.Id).isIn(new List<Id>(groupIds))
+				.toList();
 	}
 }

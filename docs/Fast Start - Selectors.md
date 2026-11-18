@@ -1,82 +1,46 @@
 ---
 navOrder: 12
+movedAnchors: {"qry-builder-for-one-off-queries": "/fast-start-selectors#try-qry-builder-in-anonymous-apex"}
 ---
 
 # Fast Start - Selectors
 
 **Framework:** KernDX | **Total time:** ~30 minutes
 
-**What this is:** A way to keep every database query (SOQL) for an object in one reusable Apex class, so the same field lists and filters are used everywhere you read that object. **Why it exists:** When queries are scattered across the codebase, field lists drift, a renamed field breaks at runtime, and the same query gets rewritten over and over. Putting them in one place fixes all three: you get ready-made query methods you inherit for free, and the compiler catches a missing or renamed field before it ships. **Who should care:** Developers writing Apex queries, and tech leads who want consistent, testable data access. **When to use it:** Any time you query the same object from more than one place; for a true one-off, a quick inline query is fine.
+- **What this is:** A way to keep every database query (SOQL) for an object in one reusable Apex class, so the same field lists and filters are used everywhere you read that object.
+- **Why it exists:** When queries are scattered across the codebase, field lists drift, a renamed field breaks at runtime, and the same query gets rewritten over and over. Putting them in one place fixes all three: you get ready-made query methods you inherit for free, and the compiler catches a missing or renamed field before it ships.
+- **Who should care:** Developers writing Apex queries, and tech leads who want consistent, testable data access.
+- **When to use it:** Every time your code reads records. KernDX expects every read to go through a selector, because that is how a query gets user-mode security, caching, logging and test mocks.
+- **What you'll build:** A reusable Account selector with inherited query methods (`findById`, `findByField`),
+  a custom `findByIndustry` filter, and an aggregate `revenueByIndustry` method, all without writing a
+  single line of SOQL.
+- **Success looks like:** You query Accounts through your selector class, get compile-time field validation,
+  and your test class has 100% coverage.
+- **In one line:** `List<Account> accounts = new SEL_Accounts().findByField(Account.Industry, 'Technology');` (no
+  SOQL, compile-time field safety, inherited from the base class).
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** A reusable Account selector with inherited query methods (`findById`, `findByField`),
-a custom `findByIndustry` filter, and an aggregate `revenueByIndustry` method, all without writing a
-single line of SOQL.
-
-**Success looks like:** You query Accounts through your selector class, get compile-time field validation,
-and your test class has 100% coverage.
-
-**In one line:** `List<Account> accounts = new SEL_Accounts().findByField(Account.Industry, 'Technology');` (no
-SOQL, compile-time field safety, inherited from the base class).
-
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-    - [Query Records](#query-records)
-    - [Add Conditions](#add-conditions)
-    - [Check If Records Exist](#check-if-records-exist)
-3. [Tier 2: Build Your Own (~15 minutes)](#tier-2-build-your-own-15-minutes)
-    - [Step 1: Create the Selector](#step-1-create-the-selector)
-    - [Step 2: Execute](#step-2-execute)
-    - [Step 3: Write Tests](#step-3-write-tests)
-4. [Tier 3: Production Patterns (~5 minutes)](#tier-3-production-patterns-5-minutes)
-    - [Parent Field Access](#parent-field-access)
-    - [Ordering and Limits](#ordering-and-limits)
-    - [Convenience Terminal Methods](#convenience-terminal-methods)
-    - [QRY_Builder for One-Off Queries](#qry_builder-for-one-off-queries)
-    - [Security Modes](#security-modes)
-    - [Compound Conditions](#compound-conditions)
-    - [Date Literals](#date-literals)
-    - [Data Category Filtering (Knowledge)](#data-category-filtering-knowledge)
-    - [Multi-Field GROUP BY and ROLLUP](#multi-field-group-by-and-rollup)
-    - [SOQL Functions (Date, toLabel, FORMAT)](#soql-functions-date-tolabel-format)
-    - [Clean up](#clean-up)
-5. [Common Issues](#common-issues)
-    - [Step 1: Create the Selector](#step-1-create-the-selector-1)
-    - [Step 2: Execute](#step-2-execute-1)
-    - [Step 3: Write Tests](#step-3-write-tests-1)
-    - [Parent Field Access](#parent-field-access-1)
-    - [Clean up](#clean-up-1)
-6. [What You Now Know](#what-you-now-know)
-7. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
 ## Tier 1: See It Work (~2 minutes)
 
-The fastest way to see the value is a query you can run right now, with nothing to set up first. Use
-[`QRY_Builder`](reference/apex/QRY_Builder.md) directly from anonymous Apex: you describe the query with short chained calls,
-then one call runs it and returns the records. No
-custom classes needed.
+The fastest way to see the value is a query you can run right now, with nothing to set up first. Try
+[`QRY_Builder`](reference/apex/QRY_Builder.md), the engine every selector runs on, from anonymous Apex: you describe the
+query with short chained calls, then one call runs it and returns the records. No custom classes needed yet; in Tier 2
+you put your queries in a selector, which is where every read in your code goes. More on trying queries in anonymous Apex:
+[Try QRY_Builder in Anonymous Apex](Fast%20Start%20-%20Selectors.md#try-qry-builder-in-anonymous-apex).
 
 ### Query Records
 
@@ -131,8 +95,8 @@ Boolean hasAccounts = kern.QRY_Builder.selectFrom(Account.SObjectType)
 System.debug('Has Technology accounts: ' + hasAccounts);
 ```
 
-> **When to move to Tier 2:** When you query the same object from multiple places and want consistent field
-> lists, reusable query methods, and compile-time safety.
+> **When to move to Tier 2:** Before you write a query into your code. Every read in your code goes through a
+> selector, which gives you consistent field lists, reusable query methods, and compile-time safety.
 
 ---
 
@@ -173,12 +137,14 @@ force-app/main/default/classes/SEL_Accounts.cls
 > SEL_Accounts()`). The framework never has to look them up by name, so `public` is enough and `global` is
 > not required.
 
-> **Why `kern.SEL_Base` (with prefix) but `SEL_Accounts` (no prefix)?** `SEL_Base` is a framework class
-> (documented under `docs/reference/apex/`), so it needs the `kern.` prefix to be reachable from your own
-> namespace. Your own `SEL_Accounts` lives in your namespace, so adding `kern.` to it throws
-> `Invalid type: kern.SEL_Accounts`. The decision rule is short: **framework classes (the ones in the API
-> reference) take the prefix; your own classes never do.** See
-> [AI Agent Instructions](AI%20Agent%20Instructions.md#critical--namespace-prefix-rule) for the canonical rule.
+> **Why `kern.SEL_Base` (with prefix) but `SEL_Accounts` (no prefix)?** The decision rule is short: **framework
+> classes (the ones in the API reference) take the prefix; your own classes never do.**
+>
+> - `SEL_Base` is a framework class (documented under `docs/reference/apex/`), so it needs the `kern.` prefix to be
+>   reachable from your own namespace.
+> - Your own `SEL_Accounts` lives in your namespace, so adding `kern.` to it throws `Invalid type: kern.SEL_Accounts`.
+>
+> See [AI Agent Instructions](AI%20Agent%20Instructions.md#critical--namespace-prefix-rule) for the canonical rule.
 
 ```apex
 /**
@@ -301,10 +267,11 @@ for(kern.QRY_Builder.AggregateRow row : rows)
 > `Account.Industry` read the variable's field instead of the SObjectField token. Pick another name such as
 > `result` or `found`.
 
-You should see lines like these in the log. They are from a test org, so yours differ in two ways. The `findById` line
-names whichever Account the first query found, which may not be the one you just inserted. The counts include every
-Technology Account your org already holds, and the revenue lines every Account, with Accounts that have no industry
-adding an `Industry: null` line:
+You should see lines like these in the log. They are from a test org, so yours differ in two ways:
+
+- The `findById` line names whichever Account the first query found, which may not be the one you just inserted.
+- The counts include every Technology Account your org already holds, and the revenue lines every Account, with
+  Accounts that have no industry adding an `Industry: null` line.
 
 ```text
 findById: Sample Account for Entitlements — null
@@ -599,10 +566,11 @@ Map<String, SObject> accountByName = kern.QRY_Builder.selectFrom(Account.SObject
 	.asMapByString(Account.Name);
 ```
 
-### QRY_Builder for One-Off Queries
+<a id="try-qry-builder-in-anonymous-apex"></a>
+### Try QRY_Builder in Anonymous Apex
 
-Use `QRY_Builder.selectFrom()` directly when you don't need a full selector class: handy for one-off scripts,
-anonymous Apex, or querying an object you don't have a selector for.
+In your code, every read goes through a selector. `QRY_Builder.selectFrom()` is the engine under every selector, and
+in an anonymous Apex window you can use it to try a query before you put it in a selector (the rule of thumb below says where it goes next).
 
 **In Salesforce**, in an Execute Anonymous window, run:
 
@@ -621,8 +589,8 @@ List<Contact> contacts = kern.QRY_Builder.selectFrom(Contact.SObjectType)
 System.debug('Found ' + contacts.size() + ' contacts for Technology accounts');
 ```
 
-> **Rule of thumb:** If you query the same object from two or more places, create a selector. If it's a one-off,
-> use `QRY_Builder.selectFrom()` directly.
+> **Rule of thumb:** Every object your code reads gets a selector. When a query you tried here moves into your code,
+> make it a method on that object's selector that uses `query`.
 
 ### Security Modes
 
@@ -665,19 +633,24 @@ List<Account> stripped = kern.QRY_Builder.selectFrom(Account.SObjectType)
 System.debug('Strip inaccessible: ' + stripped.size() + ' accounts');
 ```
 
-> **Note:** As an admin you'll often see USER_MODE and SYSTEM_MODE return the same rows, because an admin
-> already holds every permission. The difference only shows up when you run as a lower-permission user (for
-> example via `System.runAs()` in tests). Your own code should almost never need `.withSystemMode()`. It is
-> reserved for framework-internal reads that must bypass the running user's permissions, such as audit tables
-> and configuration metadata. If a selector genuinely must run in SYSTEM_MODE, subclass `kern.SEL_Base` and
-> override `systemModeRequired()` to return `true`. That keeps the opt-out in one selector rather than
-> scattered across call sites. The strip example above uses `.withSystemMode()` only so the strip can run. In system mode the query itself skips
-> the object permission check, so use this form only where the user may read the object.
+> **Note:**
+>
+> - As an admin you'll often see USER_MODE and SYSTEM_MODE return the same rows, because an admin already holds every
+>   permission. The difference only shows up when you run as a lower-permission user (for example via
+>   `System.runAs()` in tests).
+> - Your own code should almost never need `.withSystemMode()`. It is reserved for framework-internal reads that must
+>   bypass the running user's permissions, such as audit tables and configuration metadata.
+> - If a selector genuinely must run in SYSTEM_MODE, subclass `kern.SEL_Base` and override `systemModeRequired()` to
+>   return `true`. That keeps the opt-out in one selector rather than scattered across call sites.
+> - The strip example above uses `.withSystemMode()` only so the strip can run. In system mode the query itself skips
+>   the object permission check, so use this form only where the user may read the object.
 >
 > **Kill switch:** if you need to turn this off org-wide during an incident without a code deployment, set
 > `IsEnabledByDefault__c` to `false` on the `FeatureFlag.UserModeQueries_Enabled` record (a `kern__FeatureFlag__mdt`
-> record in your org). You can do this in Setup or with a metadata deploy. The framework then falls back to SYSTEM_MODE
-> for every query. Use it for emergencies only, while the offending code is being fixed.
+> record in your org). You can do this in Setup or with a metadata deploy.
+>
+> The framework then falls back to SYSTEM_MODE for every query. Use it for emergencies only, while the offending code
+> is being fixed.
 
 ### Compound Conditions
 
@@ -832,7 +805,9 @@ The code stops before it runs. A variable named `account` shadows the `Account` 
 
 Step 2's code always passes the Id of an Account that exists, so you meet this in your own code, when you call
 `findById()` with an Id that matches no record. `findById()` then returns `null`, and reading a field of `null`
-fails. Check for `null` before you use the result, or call `findByIdOrThrow()` instead: it stops with a message that
+fails.
+
+Check for `null` before you use the result, or call `findByIdOrThrow()` instead: it stops with a message that
 starts `Account record not found:` and names the Id, which tells you straight away what was missing.
 
 ### Step 3: Write Tests
@@ -851,10 +826,14 @@ You only need tests for the methods you write: the framework already tests the i
 
 #### `SObject row was retrieved via SOQL without querying the requested field`
 
-The code read a field that the query did not fetch, and the message ends with that field. `Account.Owner` means the
-check ran before you added `getFieldPaths()` to the selector and sent it to your org again. Any other field means it
-is missing from `getFields()`, or a method built its query with `QRY_Builder.selectFrom()`, which starts without your
-default fields (the message ends `Account.Industry` when that happens with the guide's selector).
+The code read a field that the query did not fetch, and the message ends with that field:
+
+- `Account.Owner` means the check ran before you added `getFieldPaths()` to the selector and sent it to your org again.
+- Any other field means it is missing from `getFields()`, or a method built its query with `QRY_Builder.selectFrom()`,
+  which starts without your default fields (the message ends `Account.Industry` when that happens with the guide's
+  selector).
+
+To fix it:
 
 - Add the field to `getFields()`, or add it with `.addField()` in that one query method.
 - Name a parent's fields, such as `Owner.Name`, in `getFieldPaths()` or with `.addFields(List<String>)`: a field
@@ -880,17 +859,16 @@ After completing this guide, you understand the **selector pattern** in KernDX:
 | **`SEL_Base`**        | Base class for all selectors; provides inherited query methods               |
 | **`getFields()`**     | Defines default fields for every query (compile-time validated)              |
 | **`query` property**  | Pre-configured `QRY_Builder.Builder` with your default fields                |
-| **`QRY_Builder`**     | Fluent query builder for ad-hoc queries without a selector                   |
+| **`QRY_Builder`**     | The query engine every selector runs on; you reach it through `query`        |
 | **Inherited methods** | `findById()`, `findByField()`, `toList()`, `count()`, `exists()`; all free   |
 
 **Key patterns:**
 
 - **One class per object**: all queries for an object go through its `SEL_*` class
 - **`with sharing`**: the default this guide uses for your own selectors (framework-internal selectors use `inherited sharing`)
-- **`SObjectField` tokens**: compile-time field validation, no hardcoded strings
-- **`query` property**: always use inside selectors (not `QRY_Builder.selectFrom()`)
-- **Cast results**: `findById()` returns `SObject`, cast to your specific type
-- **`public`**: selectors are directly instantiated, so `global` is not required
+- **Field tokens, the `query` property, casting the result of `findById()`**: see
+  [Why it works](#step-2-execute) in Step 2. Why a selector is `public`, not `global`: see
+  [Step 1](#step-1-create-the-selector).
 
 ---
 
