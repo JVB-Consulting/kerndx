@@ -16,7 +16,7 @@
 
 Spend your team on the features that move the business, not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, open source on GitHub.
 
-`108 global API classes` · `204 production classes` · `78 LWC components` · `6,380 tests` · `100% Apex / 95% LWC coverage`
+`109 global API classes` · `204 production classes` · `78 LWC components` · `6,380 tests` · `100% Apex / 95% LWC coverage`
 
 **Most Salesforce open-source ships a library and stops there. KernDX ships the library plus the onboarding, CI, and guardrails that keep it consistent.**
 
