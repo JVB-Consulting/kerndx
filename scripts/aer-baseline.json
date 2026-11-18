@@ -45,6 +45,16 @@
 			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneReadsTheUserFieldsOfTheNameRecordForAStandardUser",
 			"category": "runtime gap",
 			"error": "Passes in a Salesforce org. Salesforce reads What.ProfileId on the shared Name record; aer 1.6.9 looks for ProfileId on Account, the related object, so the query fails. Not yet filed upstream. First error on aer: System.QueryException: No such column 'ProfileId' on entity 'Account'."
+		},
+		{
+			"test": "QRY_BuilderBypassSharing_TEST.bypassSharingAloneChecksATypeofWhoseWhenNamesLocationLikeAnyObject",
+			"category": "runtime gap",
+			"error": "Passes in a Salesforce org. A TYPEOF whose WHEN branch names Location reaches the access check, which refuses it with a QueryException; aer 1.6.10 to 1.6.16 treat the name Location as the System.Location type and throws a TypeException first. Not yet filed upstream. First error on aer: System.TypeException: Invalid conversion from runtime type System.Location to SObject"
+		},
+		{
+			"test": "UTIL_SObjectDescribe_TEST.shouldFindObjectWhoseNameIsAlsoSystemTypeName",
+			"category": "runtime gap",
+			"error": "Passes in a Salesforce org. The describe finds the Location object even though Location is also the name of a System type; aer 1.6.10 to 1.6.16 resolve the name to System.Location and fails to convert it to SObject. Not yet filed upstream. First error on aer: System.TypeException: Invalid conversion from runtime type System.Location to SObject"
 		}
 	]
 }
