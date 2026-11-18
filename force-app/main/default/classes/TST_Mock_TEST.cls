@@ -8,7 +8,7 @@
  *
  * @group Testing
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
 @IsTest(seeAllData=false isParallel=true)
@@ -744,6 +744,52 @@ private class TST_Mock_TEST
 	}
 
 	/**
+	 * @description Tests that count() and exists() on a read with a condition count only the registered records that
+	 * match the condition. They agree with the number of rows the same read returns.
+	 */
+	@IsTest
+	private static void shouldCountOnlyTheRegisteredRecordsThatMatchTheCondition()
+	{
+		TST_Mock.register(ApiIssue__c.SObjectType, new List<SObject> {newApiIssue(SEL_ApiIssue.STATUS_OPEN), newApiIssue(SEL_ApiIssue.STATUS_RESOLVED)});
+
+		Integer openCount = newOpenIssueRead().count();
+		Boolean openExists = newOpenIssueRead().exists();
+		Integer openRows = newOpenIssueRead().toList().size();
+
+		Assert.areEqual(1, openCount, 'Expected count() to count only the open issue');
+		Assert.isTrue(openExists, 'Expected exists() to find the open issue');
+		Assert.areEqual(openRows, openCount, 'Expected count() to equal the number of rows the same read returns');
+	}
+
+	/**
+	 * @description Tests that count() and exists() on a read with a condition find nothing when no registered record
+	 * matches the condition.
+	 */
+	@IsTest
+	private static void shouldCountNothingWhenNoRegisteredRecordMatchesTheCondition()
+	{
+		TST_Mock.register(ApiIssue__c.SObjectType, newApiIssue(SEL_ApiIssue.STATUS_RESOLVED));
+
+		Integer openCount = newOpenIssueRead().count();
+		Boolean openExists = newOpenIssueRead().exists();
+
+		Assert.areEqual(0, openCount, 'Expected count() to find no open issue');
+		Assert.isFalse(openExists, 'Expected exists() to find no open issue');
+	}
+
+	/**
+	 * @description Tests that a queued answer to a count is checked against the read's condition, in the same way as a
+	 * queued answer to a row read.
+	 */
+	@IsTest
+	private static void shouldCountOnlyTheQueuedRecordsThatMatchTheCondition()
+	{
+		TST_Mock.registerNext(ApiIssue__c.SObjectType, new List<SObject> {newApiIssue(SEL_ApiIssue.STATUS_OPEN), newApiIssue(SEL_ApiIssue.STATUS_RESOLVED)});
+
+		Assert.areEqual(1, newOpenIssueRead().count(), 'Expected the count to keep only the open issue of the queued answer');
+	}
+
+	/**
 	 * @description Tests that the rows registered with registerAggregateRows answer a grouped count, in the order they
 	 * were registered, and that each value is read back under the alias it was registered with.
 	 */
@@ -1085,5 +1131,33 @@ private class TST_Mock_TEST
 	private static Integer readFoobarTotal()
 	{
 		return QRY_Builder.selectFrom(Foobar__c.SObjectType).count(Foobar__c.Id, TOTAL_ALIAS).getFirstAggregate().getInteger(TOTAL_ALIAS);
+	}
+
+	/**
+	 * @description Builds an issue record that is never saved, with a fake Id and the given status.
+	 *
+	 * @param status The value for Status__c.
+	 *
+	 * @return The issue record.
+	 */
+	private static ApiIssue__c newApiIssue(String status)
+	{
+		return (ApiIssue__c)TST_Builder.of(ApiIssue__c.SObjectType)
+				.withOverride(ApiIssue__c.Status__c, status)
+				.withoutInsertion(true)
+				.build();
+	}
+
+	/**
+	 * @description Starts a new read of the open issues. System mode is used, because field access is not what these
+	 * tests check.
+	 *
+	 * @return The read, ready to run.
+	 */
+	private static QRY_Builder.Builder newOpenIssueRead()
+	{
+		return QRY_Builder.selectFrom(ApiIssue__c.SObjectType)
+				.withSystemMode()
+				.condition(ApiIssue__c.Status__c).equals(SEL_ApiIssue.STATUS_OPEN);
 	}
 }

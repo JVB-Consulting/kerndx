@@ -9,7 +9,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.NcssCount,PMD.CognitiveComplexity')
 @IsTest(seeAllData=false isParallel=true)
@@ -60,6 +60,180 @@ private class QRY_Engine_TEST
 	 * @description The relationship name of an account's contacts, used to subselect child rows.
 	 */
 	private static final String CONTACTS_RELATIONSHIP = 'Contacts';
+
+	/**
+	 * @description The most characters the split tests let into one formula: about two names of a list beside one other
+	 * condition, so that a list of three names is already split.
+	 */
+	private static final Integer SMALL_FORMULA_LENGTH = 100;
+
+	/**
+	 * @description The name of the first mock of the split tests.
+	 */
+	private static final String ALPHA = 'Alpha';
+
+	/**
+	 * @description The name of the second mock of the split tests.
+	 */
+	private static final String BETA = 'Beta';
+
+	/**
+	 * @description The name of the third mock of the split tests.
+	 */
+	private static final String GAMMA = 'Gamma';
+
+	/**
+	 * @description The name of the fourth mock of the split tests.
+	 */
+	private static final String DELTA = 'Delta';
+
+	/**
+	 * @description The name of the fifth mock of the split tests.
+	 */
+	private static final String EPSILON = 'Epsilon';
+
+	/**
+	 * @description The name of the sixth mock of the split tests.
+	 */
+	private static final String ZETA = 'Zeta';
+
+	/**
+	 * @description The names of the mock records the split tests filter, one for each mock.
+	 */
+	private static final List<String> SPLIT_MOCK_NAMES = new List<String> {ALPHA, BETA, GAMMA, DELTA, EPSILON, ZETA};
+
+	/**
+	 * @description The number of Ids in each list of the real-size test with two lists, as many as a bulk trigger holds.
+	 */
+	private static final Integer REAL_SIZE_LIST_COUNT = 200;
+
+	/**
+	 * @description The number of Ids in each list of the test that needs more formulas than one read may use.
+	 */
+	private static final Integer OVERSIZED_LIST_COUNT = 400;
+
+	/**
+	 * @description The length of a value too long to fit in one formula on its own.
+	 */
+	private static final Integer TOO_LONG_VALUE_LENGTH = 4000;
+
+	/**
+	 * @description The number of short values in the list of the test that splits by the number of comparisons.
+	 */
+	private static final Integer SHORT_VALUE_COUNT = 200;
+
+	/**
+	 * @description The length of each short value: three letters, shorter than any name of the split tests' mocks.
+	 */
+	private static final Integer SHORT_VALUE_LENGTH = 3;
+
+	/**
+	 * @description The number of formulas a list of 200 short values needs: 80 comparisons, 80 and 40.
+	 */
+	private static final Integer SHORT_VALUE_FORMULA_COUNT = 3;
+
+	/**
+	 * @description The number of Ids in the list of the test that needs too many checks: 13 formulas of at most 80 Ids.
+	 */
+	private static final Integer CHECK_BUDGET_LIST_COUNT = 1000;
+
+	/**
+	 * @description The number of mocks in the test that needs too many checks: 13 formulas times 800 mocks is more than
+	 * the 10,000 checks one read may make.
+	 */
+	private static final Integer CHECK_BUDGET_MOCK_COUNT = 800;
+
+	/**
+	 * @description The number of name and number pairs in the test with a long condition and no list to split.
+	 */
+	private static final Integer PAIR_COUNT = 100;
+
+	/**
+	 * @description The length of each random name in the test with a long condition and no list to split.
+	 */
+	private static final Integer PAIR_NAME_LENGTH = 10;
+
+	/**
+	 * @description A name with a backslash in it, for the containsLiteral tests.
+	 */
+	private static final String NAME_WITH_BACKSLASH = 'Folder\\Sub';
+
+	/**
+	 * @description The same name without the backslash.
+	 */
+	private static final String NAME_WITHOUT_INNER_BACKSLASH = 'FolderSub';
+
+	/**
+	 * @description The text the backslash test searches for: the end of the folder, the backslash and the start of the
+	 * sub folder.
+	 */
+	private static final String SEARCH_WITH_BACKSLASH = 'r\\S';
+
+	/**
+	 * @description A name with an underscore in it, for the containsLiteral tests.
+	 */
+	private static final String NAME_WITH_UNDERSCORE = 'ACME_West';
+
+	/**
+	 * @description A name with another character where the underscore is, which a LIKE underscore would also match.
+	 */
+	private static final String NAME_WITH_OTHER_CHARACTER = 'ACMEXWest';
+
+	/**
+	 * @description The text the underscore test searches for.
+	 */
+	private static final String SEARCH_WITH_UNDERSCORE = 'E_W';
+
+	/**
+	 * @description A name with a percent sign in it, for the containsLiteral tests.
+	 */
+	private static final String NAME_WITH_PERCENT_SIGN = '50% off';
+
+	/**
+	 * @description A name with other characters where the percent sign is, which a LIKE percent sign would also match.
+	 */
+	private static final String NAME_WITH_OTHER_CHARACTERS = '500 off';
+
+	/**
+	 * @description The text the percent sign test searches for.
+	 */
+	private static final String SEARCH_WITH_PERCENT_SIGN = '0% ';
+
+	/**
+	 * @description The whole numbers of the mock records the split tests filter, one for each mock, in the order of
+	 * the names.
+	 */
+	private static final List<Integer> SPLIT_MOCK_NUMBERS = new List<Integer> {5, 15, 25, 5, 15, 25};
+
+	/**
+	 * @description The smallest number of the split tests' mocks.
+	 */
+	private static final Integer LOW_NUMBER = 5;
+
+	/**
+	 * @description A number between the low and the high numbers of the split tests' mocks.
+	 */
+	private static final Integer MIDDLE_NUMBER = 10;
+
+	/**
+	 * @description The largest number of the split tests' mocks.
+	 */
+	private static final Integer HIGH_NUMBER = 25;
+
+	/**
+	 * @description A number that none of the split tests' mocks has.
+	 */
+	private static final Integer MISSING_NUMBER = 35;
+
+	/**
+	 * @description A name that ends in a backslash, the character a formula uses to escape the next one.
+	 */
+	private static final String NAME_ENDING_IN_BACKSLASH = 'Folder\\';
+
+	/**
+	 * @description The same name without the backslash at the end.
+	 */
+	private static final String NAME_WITHOUT_BACKSLASH = 'Folder';
 
 	/**
 	 * @description Time-to-live, in seconds, the cached-read tests ask for.
@@ -138,6 +312,60 @@ private class QRY_Engine_TEST
 	 * @description Message of the aggregate-only exception the precedence test registers.
 	 */
 	private static final String AGGREGATE_FAILURE_MESSAGE = 'Aggregate-only failure';
+
+	/**
+	 * @description A value of the picklist field of Foobar__c.
+	 */
+	private static final String PICKLIST_HOT = 'Hot';
+
+	/**
+	 * @description A second value of the picklist field of Foobar__c.
+	 */
+	private static final String PICKLIST_WARM = 'Warm';
+
+	/**
+	 * @description A third value of the picklist field of Foobar__c, which no mock holds.
+	 */
+	private static final String PICKLIST_COLD = 'Cold';
+
+	/**
+	 * @description A value of the multi-select picklist field of Foobar__c that holds two of its values.
+	 */
+	private static final String MULTI_SELECT_TWO_VALUES = 'One;Two';
+
+	/**
+	 * @description A value of the multi-select picklist field of Foobar__c that holds one of its values.
+	 */
+	private static final String MULTI_SELECT_ONE_VALUE = 'Three';
+
+	/**
+	 * @description Field API name for Email__c, the one Foobar__c field the reader of the access level tests cannot read.
+	 */
+	private static final String FIELD_EMAIL = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Email__c);
+
+	/**
+	 * @description The four ways the engine reads from the database: a row read, a count, a query locator for a batch
+	 * job and a cursor.
+	 */
+	private enum EntryPoint
+	{
+		/**
+		 * @description A row read, through QRY_Engine.execute.
+		 */
+		ROW_READ,
+		/**
+		 * @description A count, through QRY_Engine.executeCount.
+		 */
+		COUNT,
+		/**
+		 * @description A query locator for a batch job, through QRY_Engine.getQueryLocator.
+		 */
+		QUERY_LOCATOR,
+		/**
+		 * @description A cursor, through QRY_Engine.getCursor.
+		 */
+		CURSOR
+	}
 
 	/**
 	 * @description Tests basic query execution.
@@ -2120,6 +2348,189 @@ private class QRY_Engine_TEST
 	}
 
 	/**
+	 * @description A row read runs with the exact access level a framework caller gave, instead of plain user mode. The
+	 * reader cannot read Email__c, so plain user mode refuses a read that selects it. The same read with system mode as
+	 * its exact level finds the row with its email, which shows that the engine used the level it was given.
+	 */
+	@IsTest
+	private static void rowReadShouldRunWithTheExactAccessLevel()
+	{
+		User reader = insertFoobarReader();
+		Foobar__c row = insertRowOwnedBy(reader);
+		String query = 'SELECT Id, ' + FIELD_EMAIL + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1';
+
+		QRY_Engine.QueryResult result;
+		Test.startTest();
+		System.runAs(reader)
+		{
+			assertPlainUserModeIsRefused(EntryPoint.ROW_READ, buildUserModeRead(query, row.Id, null));
+			result = QRY_Engine.execute(buildUserModeRead(query, row.Id, AccessLevel.SYSTEM_MODE));
+		}
+		Test.stopTest();
+
+		Assert.areEqual(1, result.records.size(), 'Expected the read with the exact level to find the row');
+		Assert.areEqual(row.Email__c, result.records[0].get(Foobar__c.Email__c), 'Expected the read with the exact level to return the email');
+	}
+
+	/**
+	 * @description A count runs with the exact access level a framework caller gave, instead of plain user mode. The
+	 * count filters on Email__c, which the reader cannot read, so plain user mode refuses it. With system mode as its
+	 * exact level the count finds the row.
+	 */
+	@IsTest
+	private static void countShouldRunWithTheExactAccessLevel()
+	{
+		User reader = insertFoobarReader();
+		Foobar__c row = insertRowOwnedBy(reader);
+		String query = 'SELECT COUNT() FROM ' + OBJECT_NAME + ' WHERE Id = :b1 AND ' + FIELD_EMAIL + ' != null';
+
+		Integer count;
+		Test.startTest();
+		System.runAs(reader)
+		{
+			assertPlainUserModeIsRefused(EntryPoint.COUNT, buildUserModeRead(query, row.Id, null));
+			count = QRY_Engine.executeCount(buildUserModeRead(query, row.Id, AccessLevel.SYSTEM_MODE));
+		}
+		Test.stopTest();
+
+		Assert.areEqual(1, count, 'Expected the count with the exact level to find the row');
+	}
+
+	/**
+	 * @description A query locator for a batch job runs with the exact access level a framework caller gave, instead of
+	 * plain user mode. The reader cannot read Email__c, so plain user mode refuses a locator that selects it. With
+	 * system mode as its exact level the locator returns the row with its email.
+	 */
+	@IsTest
+	private static void queryLocatorShouldRunWithTheExactAccessLevel()
+	{
+		User reader = insertFoobarReader();
+		Foobar__c row = insertRowOwnedBy(reader);
+		String query = 'SELECT Id, ' + FIELD_EMAIL + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1';
+
+		List<SObject> rows = new List<SObject>();
+		Test.startTest();
+		System.runAs(reader)
+		{
+			assertPlainUserModeIsRefused(EntryPoint.QUERY_LOCATOR, buildUserModeRead(query, row.Id, null));
+			Database.QueryLocatorIterator iterator = QRY_Engine.getQueryLocator(buildUserModeRead(query, row.Id, AccessLevel.SYSTEM_MODE)).iterator();
+			while(iterator.hasNext())
+			{
+				rows.add(iterator.next());
+			}
+		}
+		Test.stopTest();
+
+		Assert.areEqual(1, rows.size(), 'Expected the locator with the exact level to find the row');
+		Assert.areEqual(row.Email__c, rows[0].get(Foobar__c.Email__c), 'Expected the locator with the exact level to return the email');
+	}
+
+	/**
+	 * @description A cursor runs with the exact access level a framework caller gave, instead of plain user mode. The
+	 * reader cannot read Email__c, so plain user mode refuses a cursor that selects it. With system mode as its exact
+	 * level the cursor holds the row with its email.
+	 */
+	@IsTest
+	private static void cursorShouldRunWithTheExactAccessLevel()
+	{
+		User reader = insertFoobarReader();
+		Foobar__c row = insertRowOwnedBy(reader);
+		String query = 'SELECT Id, ' + FIELD_EMAIL + ' FROM ' + OBJECT_NAME + ' WHERE Id = :b1';
+
+		List<SObject> rows;
+		Test.startTest();
+		System.runAs(reader)
+		{
+			assertPlainUserModeIsRefused(EntryPoint.CURSOR, buildUserModeRead(query, row.Id, null));
+			Database.Cursor cursor = QRY_Engine.getCursor(buildUserModeRead(query, row.Id, AccessLevel.SYSTEM_MODE));
+			rows = cursor.fetch(0, cursor.getNumRecords());
+		}
+		Test.stopTest();
+
+		Assert.areEqual(1, rows.size(), 'Expected the cursor with the exact level to find the row');
+		Assert.areEqual(row.Email__c, rows[0].get(Foobar__c.Email__c), 'Expected the cursor with the exact level to return the email');
+	}
+
+	/**
+	 * @description Runs a user mode read through one engine entry point and checks that Salesforce refuses it, because
+	 * the read uses a field the running user cannot read.
+	 *
+	 * @param entryPoint The engine entry point to run the read through
+	 * @param parameters The read, with no exact access level
+	 */
+	private static void assertPlainUserModeIsRefused(EntryPoint entryPoint, QRY_Engine.QueryParameters parameters)
+	{
+		try
+		{
+			switch on entryPoint
+			{
+				when COUNT
+				{
+					QRY_Engine.executeCount(parameters);
+				}
+				when QUERY_LOCATOR
+				{
+					QRY_Engine.getQueryLocator(parameters);
+				}
+				when CURSOR
+				{
+					QRY_Engine.getCursor(parameters);
+				}
+				when else
+				{
+					QRY_Engine.execute(parameters);
+				}
+			}
+			Assert.fail('Expected plain user mode to refuse the email field the reader cannot read, through ' + entryPoint);
+		}
+		catch(Exception error)
+		{
+			Assert.isInstanceOfType(error, QueryException.class, 'Expected Salesforce to refuse the field through ' + entryPoint + '. Actual: '
+					+ error.getTypeName() + ': ' + error.getMessage());
+		}
+	}
+
+	/**
+	 * @description Builds a user mode read of one Foobar__c row.
+	 *
+	 * @param query The SOQL to run, with the row Id bound as b1
+	 * @param rowId The Id of the row to read
+	 * @param exactAccessLevel The exact access level the read runs with, or null for plain user mode
+	 *
+	 * @return The query parameters
+	 */
+	private static QRY_Engine.QueryParameters buildUserModeRead(String query, Id rowId, AccessLevel exactAccessLevel)
+	{
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = query;
+		parameters.bindMap = new Map<String, Object> {'b1' => rowId};
+		parameters.userMode = true;
+		parameters.exactAccessLevel = exactAccessLevel;
+		return parameters;
+	}
+
+	/**
+	 * @description Saves a Foobar__c row with an email, owned by the given user, so record sharing lets that user see it.
+	 *
+	 * @param owner The user who owns the row
+	 *
+	 * @return The saved row
+	 */
+	private static Foobar__c insertRowOwnedBy(User owner)
+	{
+		Foobar__c row;
+		System.runAs(new SEL_User().getCurrentUser())
+		{
+			row = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.OwnerId, owner.Id)
+					.withOverride(Foobar__c.Email__c, UTIL_Random.randomEmail().toLowerCase())
+					.build();
+		}
+		return row;
+	}
+
+	/**
 	 * @description Saves a Standard User who may read Foobar__c records and every Foobar__c field except Email__c. The user
 	 * has no View All, so record sharing hides the rows another user owns.
 	 *
@@ -2529,6 +2940,85 @@ private class QRY_Engine_TEST
 	}
 
 	/**
+	 * @description A mocked read of API calls with a condition on Status, a picklist field, gets a formula the platform
+	 * accepts. So the read returns only the matching mock, and writes no error log entry, even when the test has logging
+	 * on.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldWriteNoErrorEntryForAMockedReadWithAPicklistCondition()
+	{
+		List<ApiCall__c> mocks = new List<ApiCall__c>();
+		for(String status : new List<String> {SEL_ApiCall.STATUS_FAILED, SEL_ApiCall.STATUS_COMPLETED})
+		{
+			mocks.add((ApiCall__c)TST_Builder.of(ApiCall__c.SObjectType).withOverride(ApiCall__c.Status__c, status).withoutInsertion(true).build());
+		}
+		QRY_Engine.setMock(ApiCall__c.SObjectType, mocks);
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = ApiCall__c.SObjectType;
+		parameters.queryString = 'SELECT Id FROM ' + String.valueOf(ApiCall__c.SObjectType);
+		parameters.whereCondition = new QRY_Condition.FieldCondition
+				(
+						UTIL_SObjectDescribe.getCachedFieldName(ApiCall__c.Status__c),
+						QRY_Condition.Operator.EQUALS,
+						SEL_ApiCall.STATUS_FAILED
+				);
+
+		Test.startTest();
+		LOG_Builder.ignoreTestMode = true;
+		QRY_Engine.QueryResult result = QRY_Engine.execute(parameters);
+		Test.stopTest();
+		LOG_Builder.ignoreTestMode = false;
+
+		LogEntry__c errorEntry = new SEL_LogEntry().findByMethod(UTIL_FormulaFilter.class.getName() + '/buildBooleanFormula');
+		Assert.isNull(errorEntry, 'Expected no error entry for a mocked read with a picklist condition, got ' + errorEntry);
+		Assert.areEqual(1, result.records.size(), 'Expected only the mock whose Status matches, got ' + result.records);
+		Assert.areEqual(mocks[0].Id, result.records[0].Id, 'Expected the mock whose Status is Failed');
+	}
+
+	/**
+	 * @description A mocked read with a condition on a picklist field returns the mocks a real query would. A blank
+	 * value counts as not equal to any value: not equals and NOT IN return the mock with a blank picklist, and IN does
+	 * not.
+	 *
+	 * The match ignores upper and lower case, as in a real query: a read for hot returns the mock whose value is Hot.
+	 *
+	 * The test also reads a multi-select picklist field for blank and not blank, and gets the matching mocks.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldReturnTheMatchingMocksForAPicklistCondition()
+	{
+		String picklistField = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Picklist__c);
+		String multiSelectField = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.PicklistMultiSelect__c);
+		Foobar__c blankMock = newPicklistMock(null, null);
+		Foobar__c hotMock = newPicklistMock(PICKLIST_HOT, MULTI_SELECT_TWO_VALUES);
+		Foobar__c warmMock = newPicklistMock(PICKLIST_WARM, MULTI_SELECT_ONE_VALUE);
+		QRY_Engine.setMock(Foobar__c.SObjectType, new List<Foobar__c> {blankMock, hotMock, warmMock});
+		List<Object> hotAndCold = new List<Object> {PICKLIST_HOT, PICKLIST_COLD};
+
+		List<Id> notEqualsIds = readMockIds(new QRY_Condition.FieldCondition(picklistField).notEquals(PICKLIST_HOT));
+		List<Id> inIds = readMockIds(new QRY_Condition.SetCondition(picklistField).inX(hotAndCold));
+		List<Id> notInIds = readMockIds(new QRY_Condition.SetCondition(picklistField).notIn(hotAndCold));
+		List<Id> blankIds = readMockIds(new QRY_Condition.FieldCondition(picklistField).equals(null));
+		List<Id> notBlankIds = readMockIds(new QRY_Condition.FieldCondition(picklistField).notEquals(null));
+		List<Id> multiSelectBlankIds = readMockIds(new QRY_Condition.FieldCondition(multiSelectField).equals(null));
+		List<Id> multiSelectNotBlankIds = readMockIds(new QRY_Condition.FieldCondition(multiSelectField).notEquals(null));
+		List<Id> otherCaseIds = readMockIds(new QRY_Condition.FieldCondition(picklistField).equals(PICKLIST_HOT.toLowerCase()));
+
+		Assert.areEqual(new List<Id> {blankMock.Id, warmMock.Id}, notEqualsIds, 'Expected not equals to return the blank and the Warm mock');
+		Assert.areEqual(new List<Id> {hotMock.Id}, inIds, 'Expected IN to return only the Hot mock');
+		Assert.areEqual(new List<Id> {blankMock.Id, warmMock.Id}, notInIds, 'Expected NOT IN to return the blank and the Warm mock');
+		Assert.areEqual(new List<Id> {blankMock.Id}, blankIds, 'Expected the blank check to return only the blank mock');
+		Assert.areEqual(new List<Id> {hotMock.Id, warmMock.Id}, notBlankIds, 'Expected the not-blank check to return the Hot and the Warm mock');
+		Assert.areEqual(new List<Id> {blankMock.Id}, multiSelectBlankIds, 'Expected the multi-select blank check to return only the blank mock');
+		Assert.areEqual(new List<Id> {hotMock.Id, warmMock.Id}, multiSelectNotBlankIds, 'Expected the multi-select not-blank check to return the other two mocks');
+		Assert.areEqual(new List<Id> {hotMock.Id}, otherCaseIds, 'Expected a read for the value in lower case to return the Hot mock');
+	}
+
+	/**
 	 * @description Tests that clearMocks clears the context registry.
 	 */
 	@IsTest
@@ -2696,6 +3186,510 @@ private class QRY_Engine_TEST
 	}
 
 	/**
+	 * @description A long IN list inside an AND, beside another condition, finds the same mocks in the same order when it
+	 * is split as when it fits in one formula. The list names one mock twice, and that mock still comes back once.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindTheSameMocksWhenAnInListInsideAnAndIsSplit()
+	{
+		QRY_Condition.AndCondition condition = new QRY_Condition.AndCondition();
+		condition.add(new QRY_Condition.SetCondition(FIELD_NAME).inX(new List<Object> {ALPHA, BETA, GAMMA, BETA, EPSILON}));
+		condition.add(new QRY_Condition.FieldCondition(FIELD_INTEGER, QRY_Condition.Operator.GREATER_THAN, MIDDLE_NUMBER));
+
+		assertSplitFindsTheSameMocks(condition, new List<String> {BETA, GAMMA, EPSILON});
+	}
+
+	/**
+	 * @description A long NOT IN list inside an AND, beside another condition, finds the same mocks in the same order
+	 * when it is split as when it fits in one formula.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindTheSameMocksWhenANotInListInsideAnAndIsSplit()
+	{
+		QRY_Condition.AndCondition condition = new QRY_Condition.AndCondition();
+		condition.add(new QRY_Condition.SetCondition(FIELD_NAME).notIn(new List<Object> {ALPHA, BETA, GAMMA}));
+		condition.add(new QRY_Condition.FieldCondition(FIELD_INTEGER, QRY_Condition.Operator.GREATER_THAN, MIDDLE_NUMBER));
+
+		assertSplitFindsTheSameMocks(condition, new List<String> {EPSILON, ZETA});
+	}
+
+	/**
+	 * @description A long IN list inside an OR, beside another condition, finds the same mocks in the same order when it
+	 * is split as when it fits in one formula. Delta, the value in the last part of the list, matches only through the
+	 * list, so it is found only when the results of every part are combined.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindTheSameMocksWhenAnInListInsideAnOrIsSplit()
+	{
+		QRY_Condition.OrCondition condition = new QRY_Condition.OrCondition();
+		condition.add(new QRY_Condition.SetCondition(FIELD_NAME).inX(new List<Object> {ALPHA, BETA, DELTA}));
+		condition.add(new QRY_Condition.FieldCondition(FIELD_INTEGER, QRY_Condition.Operator.EQUALS, HIGH_NUMBER));
+
+		assertSplitFindsTheSameMocks(condition, new List<String> {ALPHA, BETA, GAMMA, DELTA, ZETA});
+	}
+
+	/**
+	 * @description A long NOT IN list inside an OR, beside another condition, finds the same mocks in the same order when
+	 * it is split as when it fits in one formula.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindTheSameMocksWhenANotInListInsideAnOrIsSplit()
+	{
+		QRY_Condition.OrCondition condition = new QRY_Condition.OrCondition();
+		condition.add(new QRY_Condition.SetCondition(FIELD_NAME).notIn(new List<Object> {ALPHA, BETA, GAMMA, DELTA, EPSILON}));
+		condition.add(new QRY_Condition.FieldCondition(FIELD_INTEGER, QRY_Condition.Operator.EQUALS, LOW_NUMBER));
+
+		assertSplitFindsTheSameMocks(condition, new List<String> {ALPHA, DELTA, ZETA});
+	}
+
+	/**
+	 * @description Two long lists in one condition, an IN list and a NOT IN list, are both split, and the mocks found are
+	 * the same, in the same order, as with one formula.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindTheSameMocksWhenTwoListsAreSplit()
+	{
+		QRY_Condition.AndCondition condition = new QRY_Condition.AndCondition();
+		condition.add(new QRY_Condition.SetCondition(FIELD_NAME).inX(new List<Object> {ALPHA, BETA, GAMMA, DELTA, EPSILON}));
+		condition.add(new QRY_Condition.SetCondition(FIELD_INTEGER).notIn(new List<Object> {LOW_NUMBER, HIGH_NUMBER, MISSING_NUMBER}));
+
+		assertSplitFindsTheSameMocks(condition, new List<String> {BETA, EPSILON});
+	}
+
+	/**
+	 * @description Two lists of 200 Ids, one on the record Id and one on the lookup, in one AND, find exactly the mocks
+	 * whose Id and lookup are both in the lists. A mock that matches only one list, and a mock that matches neither, are
+	 * left out. The matching values sit at the start and at the end of the lists, so they fall in different parts.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindOnlyTheMocksThatMatchTwoRealSizeIdLists()
+	{
+		List<Foobar__c> mocks = newMocksWithLookups(5);
+		Foobar__c firstMatch = mocks[0];
+		Foobar__c lastMatch = mocks[1];
+		List<Object> recordIds = newRandomIds(REAL_SIZE_LIST_COUNT);
+		recordIds[0] = firstMatch.Id;
+		recordIds[REAL_SIZE_LIST_COUNT / 2] = mocks[2].Id;
+		recordIds[REAL_SIZE_LIST_COUNT - 1] = lastMatch.Id;
+		List<Object> parentIds = newRandomIds(REAL_SIZE_LIST_COUNT);
+		parentIds[0] = firstMatch.Lookup__c;
+		parentIds[REAL_SIZE_LIST_COUNT / 2] = mocks[3].Lookup__c;
+		parentIds[REAL_SIZE_LIST_COUNT - 1] = lastMatch.Lookup__c;
+		QRY_Condition.Evaluable condition = newIdAndLookupCondition(recordIds, parentIds);
+		QRY_Engine.setMock(Foobar__c.SObjectType, mocks);
+
+		List<Foobar__c> foundMocks = findMocks(condition);
+
+		Assert.isNull(QRY_ConditionFormula.splitToFit(condition, Foobar__c.SObjectType).formula, 'Expected the two lists not to fit in one formula');
+		Assert.areEqual(2, foundMocks.size(), 'Expected only the two mocks that match both lists, got ' + foundMocks);
+		Assert.areEqual(firstMatch.Id, foundMocks[0].Id, 'Expected the mock whose values are first in the lists');
+		Assert.areEqual(lastMatch.Id, foundMocks[1].Id, 'Expected the mock whose values are last in the lists');
+	}
+
+	/**
+	 * @description A list of 200 short values on the Name field fits in two formulas by characters, but a formula may
+	 * hold only 80 comparisons, so it is split in three. The mocks named first and last in the list are found, and the
+	 * other mocks are left out.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindOnlyTheMocksNamedInALongListOfShortValues()
+	{
+		QRY_Engine.setMock(Foobar__c.SObjectType, newNamedIntegerMocks(SPLIT_MOCK_NAMES, SPLIT_MOCK_NUMBERS));
+		List<Object> names = new List<Object>();
+		for(Integer index = 0; index < SHORT_VALUE_COUNT; index++)
+		{
+			names.add(UTIL_Random.randomAlphabetic(SHORT_VALUE_LENGTH));
+		}
+		names[0] = ALPHA;
+		names[SHORT_VALUE_COUNT - 1] = DELTA;
+		QRY_Condition.Evaluable condition = new QRY_Condition.SetCondition(FIELD_NAME).inX(names);
+
+		List<Foobar__c> foundMocks = findMocks(condition);
+
+		Assert.areEqual(SHORT_VALUE_FORMULA_COUNT, QRY_ConditionFormula.splitToFit(condition, Foobar__c.SObjectType).formulaCount, 'Expected the list split by its comparisons');
+		Assert.areEqual(2, foundMocks.size(), 'Expected only the two mocks named in the list, got ' + foundMocks);
+		Assert.areEqual(ALPHA, foundMocks[0].Name, 'Expected the mock named first in the list');
+		Assert.areEqual(DELTA, foundMocks[1].Name, 'Expected the mock named last in the list');
+	}
+
+	/**
+	 * @description A read whose conditions need more formulas than one read may plan is checked as one formula, as when
+	 * nothing is split. That formula is too long for Salesforce, so every mock comes back, the one that matches and the
+	 * ones that do not.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldReturnEveryMockWhenAReadNeedsTooManyFormulas()
+	{
+		List<Foobar__c> mocks = newMocksWithLookups(3);
+		List<Object> recordIds = newRandomIds(OVERSIZED_LIST_COUNT);
+		recordIds[0] = mocks[0].Id;
+		List<Object> parentIds = newRandomIds(OVERSIZED_LIST_COUNT);
+		parentIds[0] = mocks[0].Lookup__c;
+		QRY_Condition.Evaluable condition = newIdAndLookupCondition(recordIds, parentIds);
+		QRY_Engine.setMock(Foobar__c.SObjectType, mocks);
+
+		List<Foobar__c> foundMocks = findMocks(condition);
+
+		Assert.isNull(QRY_ConditionFormula.splitToFit(condition, Foobar__c.SObjectType), 'Expected no plan for a read that needs too many formulas');
+		Assert.areEqual(mocks.size(), foundMocks.size(), 'Expected every mock back, got ' + foundMocks);
+	}
+
+	/**
+	 * @description A read with one value too long to fit in a formula on its own cannot be split to fit, so every mock
+	 * comes back.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldReturnEveryMockWhenOneValueIsTooLongForAFormula()
+	{
+		QRY_Engine.setMock(Foobar__c.SObjectType, newNamedIntegerMocks(SPLIT_MOCK_NAMES, SPLIT_MOCK_NUMBERS));
+		QRY_Condition.Evaluable condition = new QRY_Condition.SetCondition(FIELD_NAME).inX(new List<Object> {ALPHA, UTIL_Random.randomAlphabetic(TOO_LONG_VALUE_LENGTH)});
+
+		List<Foobar__c> foundMocks = findMocks(condition);
+
+		Assert.isNull(QRY_ConditionFormula.splitToFit(condition, Foobar__c.SObjectType), 'Expected no plan when one value is too long for a formula');
+		Assert.areEqual(SPLIT_MOCK_NAMES.size(), foundMocks.size(), 'Expected every mock back, got ' + foundMocks);
+	}
+
+	/**
+	 * @description A long condition with no list to split, an OR of 100 name and number pairs, cannot be split to fit, so
+	 * every mock comes back, also the mocks that match no pair.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldReturnEveryMockWhenALongConditionHasNoListToSplit()
+	{
+		QRY_Engine.setMock(Foobar__c.SObjectType, newNamedIntegerMocks(SPLIT_MOCK_NAMES, SPLIT_MOCK_NUMBERS));
+		QRY_Condition.OrCondition condition = new QRY_Condition.OrCondition();
+		for(Integer index = 0; index < PAIR_COUNT; index++)
+		{
+			QRY_Condition.AndCondition pair = new QRY_Condition.AndCondition();
+			pair.add(new QRY_Condition.FieldCondition(FIELD_NAME).equals(index == 0 ? ALPHA : UTIL_Random.randomAlphabetic(PAIR_NAME_LENGTH)));
+			pair.add(new QRY_Condition.FieldCondition(FIELD_INTEGER, QRY_Condition.Operator.EQUALS, LOW_NUMBER));
+			condition.add(pair);
+		}
+
+		List<Foobar__c> foundMocks = findMocks(condition);
+
+		Assert.isNull(QRY_ConditionFormula.splitToFit(condition, Foobar__c.SObjectType), 'Expected no plan for a long condition with no list');
+		Assert.areEqual(SPLIT_MOCK_NAMES.size(), foundMocks.size(), 'Expected every mock back, got ' + foundMocks);
+	}
+
+	/**
+	 * @description A list of 1,000 Ids needs 13 formulas. With 800 mocks that is more checks than one read may make, so
+	 * the list is checked as one formula, which is too long for Salesforce, and every mock comes back.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldReturnEveryMockWhenAReadNeedsTooManyChecks()
+	{
+		List<SObject> mocks = TST_Builder.of(Foobar__c.SObjectType).withCount(CHECK_BUDGET_MOCK_COUNT).withoutInsertion(true).buildList();
+		List<Object> recordIds = newRandomIds(CHECK_BUDGET_LIST_COUNT);
+		recordIds[0] = mocks[0].Id;
+		QRY_Condition.Evaluable condition = new QRY_Condition.SetCondition(UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Id)).inX(recordIds);
+		QRY_Engine.setMock(Foobar__c.SObjectType, mocks);
+
+		List<Foobar__c> foundMocks = findMocks(condition);
+
+		Integer formulaCount = QRY_ConditionFormula.splitToFit(condition, Foobar__c.SObjectType).formulaCount;
+		Assert.isTrue(formulaCount * CHECK_BUDGET_MOCK_COUNT > QRY_Engine.MAXIMUM_MOCK_CHECKS_PER_READ, 'Expected more checks than one read may make, got ' + formulaCount);
+		Assert.areEqual(CHECK_BUDGET_MOCK_COUNT, foundMocks.size(), 'Expected every mock back');
+	}
+
+	/**
+	 * @description When a long list is split, the mocks are tracked by their place in the list, not by Id. A mock without
+	 * an Id that is registered twice comes back once for each place, in the order they were registered. Two mocks share an
+	 * Id, but only one is named in the list, so only that one comes back. A second mock without an Id, and a mock with its
+	 * own Id, are not named and are left out. Results merged by Id would bring back the unnamed mocks that share an Id, or
+	 * have none, with a named one.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldKeepEachMockOnceForEachPlaceWhenAListIsSplit()
+	{
+		Foobar__c withoutId = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Name, ALPHA).withoutInsertion().build();
+		Foobar__c firstWithSharedId = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Name, BETA).withoutInsertion(true).build();
+		Foobar__c secondWithSharedId = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Name, GAMMA).withoutInsertion().build();
+		secondWithSharedId.Id = firstWithSharedId.Id;
+		Foobar__c notNamed = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Name, DELTA).withoutInsertion(true).build();
+		Foobar__c notNamedWithoutId = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.Name, ZETA).withoutInsertion().build();
+		QRY_Engine.setMock
+				(
+						Foobar__c.SObjectType,
+						new List<Foobar__c> {withoutId, firstWithSharedId, secondWithSharedId, notNamed, notNamedWithoutId, withoutId}
+				);
+		QRY_Condition.Evaluable condition = new QRY_Condition.SetCondition(FIELD_NAME).inX(new List<Object> {EPSILON, BETA, ALPHA});
+		QRY_ConditionFormula.maximumFormulaLength = QRY_ConditionFormula.toFormula(condition, Foobar__c.SObjectType).length() - 1;
+
+		List<Foobar__c> foundMocks = findMocks(condition);
+
+		Assert.isNull(QRY_ConditionFormula.splitToFit(condition, Foobar__c.SObjectType).formula, 'Expected the list to be split');
+		List<String> foundNames = new List<String>();
+		List<Id> foundIds = new List<Id>();
+		for(Foobar__c mock : foundMocks)
+		{
+			foundNames.add(mock.Name);
+			foundIds.add(mock.Id);
+		}
+		Assert.areEqual(new List<String> {ALPHA, BETA, ALPHA}, foundNames, 'Expected each named mock once for each place, in order');
+		Assert.areEqual(new List<Id> {null, firstWithSharedId.Id, null}, foundIds, 'Expected the Ids of the mocks found, in order');
+	}
+
+	/**
+	 * @description A long list that holds a value a formula cannot hold, such as a time of day, cannot be written as a
+	 * formula, so every mock comes back.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldReturnEveryMockWhenALongListHoldsAValueAFormulaCannotHold()
+	{
+		QRY_Engine.setMock(Foobar__c.SObjectType, newNamedIntegerMocks(SPLIT_MOCK_NAMES, SPLIT_MOCK_NUMBERS));
+		QRY_Condition.Evaluable condition = new QRY_Condition.SetCondition(FIELD_NAME).inX(new List<Object> {ALPHA, BETA, GAMMA, DELTA, Time.newInstance(1, 0, 0, 0)});
+		QRY_ConditionFormula.maximumFormulaLength = SMALL_FORMULA_LENGTH;
+
+		List<Foobar__c> foundMocks = findMocks(condition);
+
+		Assert.areEqual(SPLIT_MOCK_NAMES.size(), foundMocks.size(), 'Expected every mock back, got ' + foundMocks);
+	}
+
+	/**
+	 * @description containsLiteral with a backslash finds the mock whose name holds that backslash, and leaves out the
+	 * mock with the same name without it.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindAMockByLiteralTextWithABackslash()
+	{
+		assertSearchFindsOnlyTheFirstMock(NAME_WITH_BACKSLASH, NAME_WITHOUT_INNER_BACKSLASH, new QRY_Condition.FieldCondition(FIELD_NAME).containsLiteral(SEARCH_WITH_BACKSLASH));
+	}
+
+	/**
+	 * @description containsLiteral with an underscore finds the mock whose name holds the underscore, and leaves out the
+	 * mock with another character in its place, which a LIKE underscore would match.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindAMockByLiteralTextWithAnUnderscore()
+	{
+		assertSearchFindsOnlyTheFirstMock(NAME_WITH_UNDERSCORE, NAME_WITH_OTHER_CHARACTER, new QRY_Condition.FieldCondition(FIELD_NAME).containsLiteral(SEARCH_WITH_UNDERSCORE));
+	}
+
+	/**
+	 * @description containsLiteral with a percent sign finds the mock whose name holds the percent sign, and leaves out
+	 * the mock with other characters in its place, which a LIKE percent sign would match.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindAMockByLiteralTextWithAPercentSign()
+	{
+		QRY_Condition.Evaluable search = new QRY_Condition.FieldCondition(FIELD_NAME).containsLiteral(SEARCH_WITH_PERCENT_SIGN);
+		assertSearchFindsOnlyTheFirstMock(NAME_WITH_PERCENT_SIGN, NAME_WITH_OTHER_CHARACTERS, search);
+	}
+
+	/**
+	 * @description contains with an underscore, which a real query reads as any one character, searches the mocks for
+	 * the underscore itself: it finds the mock whose name holds the underscore and leaves out the mock with another
+	 * character in its place.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindAMockByContainsWithAnUnderscoreAsPlainText()
+	{
+		assertSearchFindsOnlyTheFirstMock(NAME_WITH_UNDERSCORE, NAME_WITH_OTHER_CHARACTER, new QRY_Condition.FieldCondition(FIELD_NAME).contains(SEARCH_WITH_UNDERSCORE));
+	}
+
+	/**
+	 * @description contains with a percent sign, which a real query reads as any characters, searches the mocks for the
+	 * percent sign itself: it finds the mock whose name holds the percent sign and leaves out the mock with other
+	 * characters in its place.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindAMockByContainsWithAPercentSignAsPlainText()
+	{
+		assertSearchFindsOnlyTheFirstMock(NAME_WITH_PERCENT_SIGN, NAME_WITH_OTHER_CHARACTERS, new QRY_Condition.FieldCondition(FIELD_NAME).contains(SEARCH_WITH_PERCENT_SIGN));
+	}
+
+	/**
+	 * @description A mock whose name ends in a backslash is found by a search for that name, and a mock with the same name
+	 * without the backslash is left out.
+	 *
+	 * @see QRY_Engine.filterMocks
+	 */
+	@IsTest
+	private static void shouldFindAMockWhoseValueEndsInABackslash()
+	{
+		List<Foobar__c> mocks = newNamedIntegerMocks
+				(
+						new List<String> {NAME_WITHOUT_BACKSLASH, NAME_ENDING_IN_BACKSLASH},
+						new List<Integer> {LOW_NUMBER, LOW_NUMBER}
+				);
+		QRY_Engine.setMock(Foobar__c.SObjectType, mocks);
+
+		List<Foobar__c> foundMocks = findMocks(new QRY_Condition.FieldCondition(FIELD_NAME, QRY_Condition.Operator.EQUALS, NAME_ENDING_IN_BACKSLASH));
+
+		Assert.areEqual(1, foundMocks.size(), 'Expected only the mock whose name ends in a backslash, got ' + foundMocks);
+		Assert.areEqual(mocks[1].Id, foundMocks[0].Id, 'Expected the mock whose name ends in a backslash');
+	}
+
+	/**
+	 * @description Checks that a text search finds the first of two mocks and leaves out the second.
+	 *
+	 * @param matchingName The name of the mock the search must find.
+	 * @param otherName The name of the mock the search must leave out.
+	 * @param search The search condition on the name.
+	 */
+	private static void assertSearchFindsOnlyTheFirstMock(String matchingName, String otherName, QRY_Condition.Evaluable search)
+	{
+		List<Foobar__c> mocks = newNamedIntegerMocks(new List<String> {matchingName, otherName}, new List<Integer> {LOW_NUMBER, LOW_NUMBER});
+		QRY_Engine.setMock(Foobar__c.SObjectType, mocks);
+
+		List<Foobar__c> foundMocks = findMocks(search);
+
+		Assert.areEqual(1, foundMocks.size(), 'Expected only the mock named ' + matchingName + ', got ' + foundMocks);
+		Assert.areEqual(mocks[0].Id, foundMocks[0].Id, 'Expected the mock named ' + matchingName);
+	}
+
+	/**
+	 * @description Checks that a condition finds the expected mocks, and that it finds the same mocks in the same order
+	 * when its lists are split to fit in very short formulas.
+	 *
+	 * @param condition The condition to search with.
+	 * @param expectedNames The names of the mocks the condition must find, in the order the mocks were registered.
+	 */
+	private static void assertSplitFindsTheSameMocks(QRY_Condition.Evaluable condition, List<String> expectedNames)
+	{
+		QRY_Engine.setMock(Foobar__c.SObjectType, newNamedIntegerMocks(SPLIT_MOCK_NAMES, SPLIT_MOCK_NUMBERS));
+		Assert.isNotNull(QRY_ConditionFormula.splitToFit(condition, Foobar__c.SObjectType).formula, 'Expected the whole condition to fit in one formula at first');
+
+		List<Foobar__c> oneFormulaMocks = findMocks(condition);
+
+		QRY_ConditionFormula.maximumFormulaLength = SMALL_FORMULA_LENGTH;
+		Assert.isNull(QRY_ConditionFormula.splitToFit(condition, Foobar__c.SObjectType).formula, 'Expected the condition to be split once the limit is lowered');
+		List<Foobar__c> splitMocks = findMocks(condition);
+
+		List<String> oneFormulaNames = new List<String>();
+		for(Foobar__c mock : oneFormulaMocks)
+		{
+			oneFormulaNames.add(mock.Name);
+		}
+		Assert.areEqual(expectedNames, oneFormulaNames, 'Expected one formula to find exactly these mocks, in this order');
+
+		List<Id> oneFormulaIds = new List<Id>();
+		for(Foobar__c mock : oneFormulaMocks)
+		{
+			oneFormulaIds.add(mock.Id);
+		}
+		List<Id> splitIds = new List<Id>();
+		for(Foobar__c mock : splitMocks)
+		{
+			splitIds.add(mock.Id);
+		}
+		Assert.areEqual(oneFormulaIds, splitIds, 'Expected the split lists to find the same mocks as one formula, in the same order');
+	}
+
+	/**
+	 * @description Creates mock Foobar__c records, each with a mock Id and a lookup to another random Foobar__c Id.
+	 *
+	 * @param count The number of mocks.
+	 *
+	 * @return The mocks.
+	 */
+	private static List<Foobar__c> newMocksWithLookups(Integer count)
+	{
+		List<Foobar__c> mocks = new List<Foobar__c>();
+		for(Integer index = 0; index < count; index++)
+		{
+			mocks.add((Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+					.withOverride(Foobar__c.Lookup__c, UTIL_Random.randomId(Foobar__c.SObjectType))
+					.withoutInsertion(true)
+					.build());
+		}
+		return mocks;
+	}
+
+	/**
+	 * @description Creates a list of random Foobar__c Ids.
+	 *
+	 * @param count The number of Ids.
+	 *
+	 * @return The Ids.
+	 */
+	private static List<Object> newRandomIds(Integer count)
+	{
+		List<Object> randomIds = new List<Object>();
+		for(Integer index = 0; index < count; index++)
+		{
+			randomIds.add(UTIL_Random.randomId(Foobar__c.SObjectType));
+		}
+		return randomIds;
+	}
+
+	/**
+	 * @description Creates a condition that the record Id is in one list and the lookup is in another.
+	 *
+	 * @param recordIds The record Ids to search for.
+	 * @param parentIds The lookup Ids to search for.
+	 *
+	 * @return The condition.
+	 */
+	private static QRY_Condition.Evaluable newIdAndLookupCondition(List<Object> recordIds, List<Object> parentIds)
+	{
+		QRY_Condition.AndCondition condition = new QRY_Condition.AndCondition();
+		condition.add(new QRY_Condition.SetCondition(UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Id)).inX(recordIds));
+		condition.add(new QRY_Condition.SetCondition(UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Lookup__c)).inX(parentIds));
+		return condition;
+	}
+
+	/**
+	 * @description Runs a query on the Foobar mocks with a condition and returns what it finds.
+	 *
+	 * @param condition The condition to search with.
+	 *
+	 * @return The mocks found, in the order of the result.
+	 */
+	private static List<Foobar__c> findMocks(QRY_Condition.Evaluable condition)
+	{
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id, ' + FIELD_NAME + ' FROM ' + OBJECT_NAME;
+		parameters.whereCondition = condition;
+
+		List<Foobar__c> foundMocks = new List<Foobar__c>();
+		for(SObject record : QRY_Engine.execute(parameters).records)
+		{
+			foundMocks.add((Foobar__c)record);
+		}
+		return foundMocks;
+	}
+
+	/**
 	 * @description Tests that mocks remain in insertion order when no ORDER BY is specified.
 	 */
 	@IsTest
@@ -2771,6 +3765,44 @@ private class QRY_Engine_TEST
 
 		Assert.areEqual(0, result.records.size(), 'Should return empty when offset exceeds total');
 		Assert.areEqual(1, result.totalRecords, 'Should still report correct total');
+	}
+
+	/**
+	 * @description Creates one mock Foobar__c record, not saved, with the given picklist values.
+	 *
+	 * @param picklistValue The value of the picklist field, or null for a blank field.
+	 * @param multiSelectValue The value of the multi-select picklist field, or null for a blank field.
+	 *
+	 * @return The mock record, with a mock Id.
+	 */
+	private static Foobar__c newPicklistMock(String picklistValue, String multiSelectValue)
+	{
+		return (Foobar__c)TST_Builder.of(Foobar__c.SObjectType)
+				.withOverride(Foobar__c.Picklist__c, picklistValue)
+				.withOverride(Foobar__c.PicklistMultiSelect__c, multiSelectValue)
+				.withoutInsertion(true).build();
+	}
+
+	/**
+	 * @description Reads the mocked Foobar__c records with one condition, through QRY_Engine.execute.
+	 *
+	 * @param condition The condition of the read.
+	 *
+	 * @return The Ids of the mocks the read returns, in the order the mocks were set.
+	 */
+	private static List<Id> readMockIds(QRY_Condition.Evaluable condition)
+	{
+		QRY_Engine.QueryParameters parameters = new QRY_Engine.QueryParameters();
+		parameters.objectType = Foobar__c.SObjectType;
+		parameters.queryString = 'SELECT Id FROM ' + OBJECT_NAME;
+		parameters.whereCondition = condition;
+
+		List<Id> recordIds = new List<Id>();
+		for(SObject record : QRY_Engine.execute(parameters).records)
+		{
+			recordIds.add(record.Id);
+		}
+		return recordIds;
 	}
 
 	/**

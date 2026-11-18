@@ -1292,7 +1292,7 @@ public inherited sharing class QRY_Generator
 	 *
 	 * @return The items, in order. Two commas next to each other give an empty item.
 	 */
-	private static List<String> splitListItems(String text)
+	public static List<String> splitListItems(String text)
 	{
 		List<String> items = new List<String>();
 		Integer itemStart = 0;

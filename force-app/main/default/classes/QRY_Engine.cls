@@ -17,7 +17,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength,PMD.ExcessivePublicCount,PMD.NcssTypeCount')
 public inherited sharing class QRY_Engine
@@ -40,6 +40,15 @@ public inherited sharing class QRY_Engine
 	 */
 	@TestVisible
 	private static final Integer MEMORY_CACHE_ROW_LIMIT = 200;
+
+	/**
+	 * @description The most checks of a mock record against a formula one read may make when its conditions are split
+	 * into several formulas: the number of formulas times the number of mocks. One check of a formula of 80 comparisons
+	 * takes about 0.3 milliseconds of processing time, so 10,000 checks take about 3 seconds, a third of the 10 seconds a
+	 * test may use. Past this number the conditions are checked as one formula, as they are when they fit in one.
+	 */
+	@TestVisible
+	private static final Integer MAXIMUM_MOCK_CHECKS_PER_READ = 10000;
 
 	/**
 	 * @description The transaction's in-memory query cache. Emptied at the start and the end of every DML_Transaction commit attempt.
@@ -571,13 +580,13 @@ public inherited sharing class QRY_Engine
 
 	/**
 	 * @description Adds one answer to the queue for the specified SObjectType: the next row query or count against
-	 * the type returns exactly these records and removes the answer from the queue. Answers are used in the order
-	 * they were added. They are checked after any registered exception and before the records registered with
-	 * setMock, so once the queue is empty the type behaves as if nothing had been queued. An empty list means the
-	 * next query finds nothing.
+	 * the type is answered from these records and removes the answer from the queue. A count gives the number of
+	 * queued records that match the query's conditions. Answers are used in the order they were added. They are
+	 * checked after any registered exception and before the records registered with setMock, so once the queue is
+	 * empty the type behaves as if nothing had been queued. An empty list means the next query finds nothing.
 	 *
 	 * @param objectType The SObjectType to set the next answer for.
-	 * @param mocks The records the next query returns. May be empty; may not be null.
+	 * @param mocks The records the next query is answered from. May be empty; may not be null.
 	 *
 	 * @throws IllegalArgumentException When objectType is null, when mocks is null, or when a record is of another type.
 	 */
@@ -952,8 +961,11 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Counts the matching records. In a test, a mock exception registered for the object is thrown first, and
-	 * registered mock records answer with their number, so no query runs. Otherwise one COUNT() query runs. Null parameters throw IllegalArgumentException.
+	 * @description Counts the matching records. Null parameters throw IllegalArgumentException. In a test, a mock
+	 * exception registered for the object is thrown first. When an answer is queued for the object, or mock records are
+	 * registered for it, no query runs. The count is then the number of those records that match the condition in
+	 * whereCondition, checked in the same way as for a row read, so it equals the number of rows a row read with no limit
+	 * or offset returns. With no queued answer and no mock records, one COUNT() query runs.
 	 *
 	 * @param parameters The query parameters.
 	 *
@@ -963,15 +975,14 @@ public inherited sharing class QRY_Engine
 	{
 		validateAndApplyMockException(parameters);
 
-		List<SObject> queuedAnswer = takeQueuedMock(parameters.objectType);
-		if(queuedAnswer != null)
+		List<SObject> mocks = takeQueuedMock(parameters.objectType);
+		if(mocks == null && hasMock(parameters.objectType))
 		{
-			return queuedAnswer.size();
+			mocks = getMock(parameters.objectType) ?? new List<SObject>();
 		}
-		if(hasMock(parameters.objectType))
+		if(mocks != null)
 		{
-			List<SObject> mocks = getMock(parameters.objectType);
-			return mocks != null ? mocks.size() : 0;
+			return mocks.isEmpty() ? 0 : filterMocks(mocks, parameters).size();
 		}
 
 		return executeCountQuery(parameters);
@@ -990,7 +1001,7 @@ public inherited sharing class QRY_Engine
 
 		UTIL_QueryPerformanceTimer timer = createPerformanceTimer(parameters, 'QueryLocator');
 
-		AccessLevel accessLevel = parameters.userMode ? AccessLevel.USER_MODE : AccessLevel.SYSTEM_MODE;
+		AccessLevel accessLevel = resolveAccessLevel(parameters);
 		Map<String, Object> bindMap = parameters.bindMap ?? new Map<String, Object>();
 
 		// Sent through the same sharing executors as a row query and a count. A locator built directly here
@@ -1028,7 +1039,7 @@ public inherited sharing class QRY_Engine
 
 		UTIL_QueryPerformanceTimer timer = createPerformanceTimer(parameters, 'Cursor');
 
-		AccessLevel accessLevel = parameters.userMode ? AccessLevel.USER_MODE : AccessLevel.SYSTEM_MODE;
+		AccessLevel accessLevel = resolveAccessLevel(parameters);
 		Map<String, Object> bindMap = parameters.bindMap ?? new Map<String, Object>();
 
 		// Sent through the same sharing executors as a row query, a count and a locator. A cursor fixes its
@@ -1151,14 +1162,22 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
-	 * @description Filters mock records in memory using FormulaEval when conditions and a
-	 * context class are available. Falls back to returning all mocks when filtering cannot
-	 * be applied.
+	 * @description Keeps the mock records that match the query's conditions, in the order they were registered. Each
+	 * mock is checked in memory against a formula built from the conditions.
+	 *
+	 * A long IN or NOT IN list is split across several formulas, and their results are combined. The answer is the same
+	 * as one formula would give (see QRY_ConditionFormula.splitToFit).
+	 *
+	 * Every mock comes back, unfiltered, when:
+	 * - the query has no conditions;
+	 * - the object has no context class to give the formula its fields;
+	 * - a condition has no formula form (QRY_ConditionFormula lists which);
+	 * - the formula cannot be built or checked, for example when it is still too long after any split.
 	 *
 	 * @param mocks The mock records to filter.
 	 * @param parameters The query parameters containing conditions.
 	 *
-	 * @return The filtered mock records, or the original list if filtering is not possible.
+	 * @return The matching mock records, or the original list if filtering is not possible.
 	 */
 	private static List<SObject> filterMocks(List<SObject> mocks, QueryParameters parameters)
 	{
@@ -1173,7 +1192,7 @@ public inherited sharing class QRY_Engine
 			return mocks;
 		}
 
-		String formula = QRY_ConditionFormula.toFormula(parameters.whereCondition);
+		String formula = QRY_ConditionFormula.toFormula(parameters.whereCondition, parameters.objectType);
 		if(formula == null)
 		{
 			return mocks;
@@ -1181,14 +1200,110 @@ public inherited sharing class QRY_Engine
 
 		try
 		{
-			UTIL_FormulaFilter filter = new UTIL_FormulaFilter('QRY_Engine.filterMocks', contextClassName, formula);
-			UTIL_FormulaFilter.DTO_FilterResults filterResults = filter.filter(null, mocks);
-			return filterResults.newRecords;
+			QRY_ConditionFormula.ConditionPart plan = QRY_ConditionFormula.splitToFit(parameters.whereCondition, parameters.objectType);
+			if(plan == null || plan.formula != null || plan.formulaCount * mocks.size() > MAXIMUM_MOCK_CHECKS_PER_READ)
+			{
+				return filterMocksWithFormula(mocks, formula, contextClassName);
+			}
+
+			Set<Integer> matchingPositions = findMatchingPositions(mocks, plan, contextClassName);
+			List<SObject> matchingMocks = new List<SObject>();
+			for(Integer position = 0; position < mocks.size(); position++)
+			{
+				if(matchingPositions.contains(position))
+				{
+					matchingMocks.add(mocks[position]);
+				}
+			}
+			return matchingMocks;
 		}
 		catch(Exception error)
 		{
 			return mocks;
 		}
+	}
+
+	/**
+	 * @description Keeps the mock records for which one formula is true, in the order they were registered.
+	 *
+	 * @param mocks The mock records to check.
+	 * @param formula The true-or-false formula.
+	 * @param contextClassName The class that gives the formula the fields of each record.
+	 *
+	 * @return The mock records that match.
+	 *
+	 * @throws Exception When the formula cannot be built or checked.
+	 */
+	private static List<SObject> filterMocksWithFormula(List<SObject> mocks, String formula, String contextClassName)
+	{
+		UTIL_FormulaFilter filter = new UTIL_FormulaFilter(QRY_Engine.class.getName() + '.filterMocks', contextClassName, formula);
+		return filter.filter(null, mocks).newRecords;
+	}
+
+	/**
+	 * @description Finds the positions in the list of the mock records that match one part of a planned condition. A part
+	 * with a formula is checked with it. A part split at an IN list matches a mock when any smaller part does; a part split
+	 * at a NOT IN list matches a mock only when every smaller part does. Positions are used instead of Ids because two
+	 * mocks may share an Id or have none.
+	 *
+	 * @param mocks The mock records to check.
+	 * @param part The part of the plan the mocks must match.
+	 * @param contextClassName The class that gives the formula the fields of each record.
+	 *
+	 * @return The positions, counted from zero, of the mocks that match.
+	 *
+	 * @throws Exception When a formula cannot be built or checked.
+	 */
+	private static Set<Integer> findMatchingPositions(List<SObject> mocks, QRY_ConditionFormula.ConditionPart part, String contextClassName)
+	{
+		if(part.formula != null)
+		{
+			return findPositions(mocks, filterMocksWithFormula(mocks, part.formula, contextClassName));
+		}
+
+		Set<Integer> matchingPositions;
+		for(QRY_ConditionFormula.ConditionPart smallerPart : part.parts)
+		{
+			Set<Integer> partPositions = findMatchingPositions(mocks, smallerPart, contextClassName);
+			if(matchingPositions == null)
+			{
+				matchingPositions = partPositions;
+			}
+			else if(part.isMatchedByAnyPart)
+			{
+				matchingPositions.addAll(partPositions);
+			}
+			else
+			{
+				matchingPositions.retainAll(partPositions);
+			}
+		}
+		return matchingPositions;
+	}
+
+	/**
+	 * @description Finds where each matching mock sits in the full list. The matching mocks are the same records, in the
+	 * same order, as in the full list, so one pass through the full list finds them all.
+	 *
+	 * @param mocks The full list of mock records.
+	 * @param matchingMocks The mock records that matched, taken from the full list in its order.
+	 *
+	 * @return The positions, counted from zero, of the matching mocks in the full list.
+	 */
+	private static Set<Integer> findPositions(List<SObject> mocks, List<SObject> matchingMocks)
+	{
+		Set<Integer> positions = new Set<Integer>();
+		Integer position = 0;
+		for(SObject matchingMock : matchingMocks)
+		{
+			while(mocks[position] !== matchingMock)
+			{
+				position++;
+			}
+			positions.add(position);
+			position++;
+		}
+		return positions;
 	}
 
 	/**
@@ -1326,7 +1441,7 @@ public inherited sharing class QRY_Engine
 		}
 
 		QueryResult result = new QueryResult();
-		AccessLevel accessLevel = parameters.userMode ? AccessLevel.USER_MODE : AccessLevel.SYSTEM_MODE;
+		AccessLevel accessLevel = resolveAccessLevel(parameters);
 		Map<String, Object> bindMap = parameters.bindMap ?? new Map<String, Object>();
 
 		if(parameters.enforceSharing == true)
@@ -1353,6 +1468,8 @@ public inherited sharing class QRY_Engine
 	 * - the read shape is never cached: random results, a row lock (FOR UPDATE, REFERENCE or VIEW), ALL ROWS, which
 	 * may include deleted rows, or a cursor-backed read (getPage or random sampling), because a hit restores only the
 	 * record list, never the total or the cursor;
+	 * - the read runs with an exact access level a framework caller gave (`exactAccessLevel`). A user mode level that
+	 * names a permission set can read more than plain user mode, and the key cannot tell the two apart;
 	 * - a system-mode read leaves its sharing to the calling class, which the engine cannot see when it builds the key:
 	 * the same user's read from a without-sharing class and from a with-sharing class would share one key while
 	 * returning different rows. A user-mode read is not declined, because the platform applies the user's sharing.
@@ -1370,7 +1487,7 @@ public inherited sharing class QRY_Engine
 			return null;
 		}
 		if(parameters.randomResults || parameters.lockForUpdate || parameters.lockForReference || parameters.lockForView
-				|| parameters.includeAllRows || parameters.cursorMode != null)
+				|| parameters.includeAllRows || parameters.cursorMode != null || parameters.exactAccessLevel != null)
 		{
 			return CacheStatus.BYPASS;
 		}
@@ -1888,6 +2005,20 @@ public inherited sharing class QRY_Engine
 	}
 
 	/**
+	 * @description Picks the access level a query runs with. A system mode read always runs with
+	 * `AccessLevel.SYSTEM_MODE`. A user mode read runs with the exact level a framework caller gave, when there is one,
+	 * so a user mode level that names a permission set keeps it. Otherwise it runs with `AccessLevel.USER_MODE`.
+	 *
+	 * @param parameters The query parameters.
+	 *
+	 * @return The access level to run the query with.
+	 */
+	private static AccessLevel resolveAccessLevel(QueryParameters parameters)
+	{
+		return parameters.userMode ? (parameters.exactAccessLevel ?? AccessLevel.USER_MODE) : AccessLevel.SYSTEM_MODE;
+	}
+
+	/**
 	 * @description Runs the COUNT() query against the database and records its time for the performance log. The sharing
 	 * setting picks who runs it: with sharing, without sharing, or the calling class when no setting is made. A count is
 	 * never read from or stored in the cache.
@@ -1900,7 +2031,7 @@ public inherited sharing class QRY_Engine
 	{
 		UTIL_QueryPerformanceTimer timer = createPerformanceTimer(parameters, 'Count');
 
-		AccessLevel accessLevel = parameters.userMode ? AccessLevel.USER_MODE : AccessLevel.SYSTEM_MODE;
+		AccessLevel accessLevel = resolveAccessLevel(parameters);
 		Map<String, Object> bindMap = parameters.bindMap ?? new Map<String, Object>();
 
 		// Sent through the same sharing executors as a row query. Counting directly here would use
@@ -2065,10 +2196,18 @@ public inherited sharing class QRY_Engine
 		public Map<String, Object> bindMap;
 
 		/**
-		 * @description True runs the query with AccessLevel.USER_MODE, so the running user's permissions apply; false runs it
-		 * with AccessLevel.SYSTEM_MODE. A cached user-mode result is kept in memory for this transaction only.
+		 * @description True runs the query with AccessLevel.USER_MODE, or with exactAccessLevel when one is set, so the
+		 * running user's permissions apply; false runs it with AccessLevel.SYSTEM_MODE. A cached user-mode result is kept
+		 * in memory for this transaction only.
 		 */
 		public Boolean userMode = false;
+
+		/**
+		 * @description The exact access level a user mode read runs with, as a framework caller gave it, for example a
+		 * user mode level that names a permission set. Null runs a user mode read with AccessLevel.USER_MODE. A system
+		 * mode read never uses it. A read that has it is never cached.
+		 */
+		public AccessLevel exactAccessLevel;
 
 		/**
 		 * @description Whether to enforce sharing rules. Null = inherited.

@@ -14,7 +14,7 @@
  *
  * @group Testing
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -104,19 +104,20 @@ global inherited sharing class TST_Mock
 
 	/**
 	 * @description Sets the answer to the NEXT query the framework runs against the given SObject type: that one
-	 * query, or count, returns exactly these records, and the answer is then used up. Call it once for each query
+	 * query, or count, is answered from these records, and the answer is then used up. Call it once for each query
 	 * you want to answer; the answers are used in the order you added them. When all of them are used up, the type
 	 * goes back to the records registered with register, or to the database when none are registered. A test can
 	 * therefore make the first read find nothing and the second read find the row. That is what a caller sees
 	 * when another transaction saved the row in between. Nothing needs cleaning up afterwards.
 	 *
 	 * An empty list means the next query finds nothing. A queued answer is filtered, sorted, limited and paged in
-	 * memory in the same way as a registered record. An exception registered with throwsException is thrown
-	 * first, on every query until it is cleared, and the queued answers stay waiting. get returns registered
-	 * records only, never queued answers. clear() and clear(SObjectType) remove queued answers.
+	 * memory in the same way as a registered record. A count gives the number of queued records that match the
+	 * query's conditions. A limit or offset on the query does not change a count. An exception registered with
+	 * throwsException is thrown first, on every query until it is cleared, and the queued answers stay waiting. get
+	 * returns registered records only, never queued answers. clear() and clear(SObjectType) remove queued answers.
 	 *
 	 * @param objectType The SObject type to set the next answer for.
-	 * @param records The records the next query returns. May be empty; may not be null.
+	 * @param records The records the next query is answered from. May be empty; may not be null.
 	 *
 	 * @throws IllegalArgumentException When objectType or records is null, or a record is of another type.
 	 *
@@ -140,7 +141,7 @@ global inherited sharing class TST_Mock
 	 * type. See the list overload for how queued answers are used.
 	 *
 	 * @param objectType The SObject type to set the next answer for.
-	 * @param record The record the next query returns. May not be null.
+	 * @param record The record the next query is answered from. May not be null.
 	 *
 	 * @throws IllegalArgumentException When objectType or record is null, or the record is of another type.
 	 *

@@ -19,7 +19,7 @@
  *
  * @group Query Infrastructure
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -131,11 +131,91 @@ global inherited sharing class QRY_Builder
 	private static final String METHOD_GET_RANDOM_ITEMS = 'getRandomItems';
 
 	/**
-	 * @description Finds the field in one item of a sort list, as the query reads it: the first word, then ASC or DESC if
-	 * written, then NULLS FIRST or NULLS LAST if written, in any letter case and with any spaces around the words. A
-	 * function written with spaces inside its brackets, such as toLabel( Status ), does not match, so it is not checked.
+	 * @description Finds the field side of one item of a sort list, as the query reads it: the text before ASC or DESC if
+	 * written, and before NULLS FIRST or NULLS LAST if written, in any letter case and with any spaces around the words.
+	 * The field side may be a function with spaces inside its brackets, such as toLabel( Status ).
 	 */
-	private static final Pattern SORT_ITEM_FIELD_PATTERN = Pattern.compile('(?i)\\s*(\\S+?)(?:\\s+(?:ASC|DESC))?(?:\\s+NULLS\\s+(?:FIRST|LAST))?\\s*');
+	private static final Pattern SORT_ITEM_FIELD_PATTERN = Pattern.compile('(?i)\\s*(.+?)(?:\\s+(?:ASC|DESC))?(?:\\s+NULLS\\s+(?:FIRST|LAST))?\\s*');
+
+	/**
+	 * @description Finds a function around one field that a filter or a sort may hold, and gives the text inside its round
+	 * brackets. It finds the thirteen date functions, such as CALENDAR_YEAR(CloseDate). It finds convertTimezone, which
+	 * only appears inside a date function. It finds toLabel. Letter case and spaces inside the brackets do not matter.
+	 */
+	private static final Pattern FIELD_FUNCTION_PATTERN = Pattern.compile('(?i)\\s*(?:CALENDAR_MONTH|CALENDAR_QUARTER|CALENDAR_YEAR|DAY_IN_MONTH|DAY_IN_WEEK'
+			+ '|DAY_IN_YEAR|DAY_ONLY|FISCAL_MONTH|FISCAL_QUARTER|FISCAL_YEAR|HOUR_IN_DAY|WEEK_IN_MONTH|WEEK_IN_YEAR|convertTimezone|toLabel)'
+			+ '\\s*\\(\\s*(.*?)\\s*\\)\\s*');
+
+	/**
+	 * @description Finds the distance function, such as DISTANCE(Location__c, GEOLOCATION(37.77,-122.41), 'mi'), and gives
+	 * the field it measures from: the text before the first comma. Letter case and spaces do not matter.
+	 */
+	private static final Pattern DISTANCE_FUNCTION_PATTERN = Pattern.compile('(?i)\\s*DISTANCE\\s*\\(\\s*([^,]*?)\\s*,.*');
+
+	/**
+	 * @description The most parent records a field path may pass through, as in SOQL: Account.Owner.Manager.Profile.CreatedBy.Name
+	 * passes through five. A longer path is not checked, because SOQL refuses the query.
+	 */
+	private static final Integer MAXIMUM_PARENT_LEVELS = 5;
+
+	/**
+	 * @description The lookup fields of each object, by relationship name in lower case, such as owner for OwnerId. Each
+	 * object is read once in a transaction.
+	 */
+	private static final Map<SObjectType, Map<String, SObjectField>> LOOKUP_FIELDS_BY_RELATIONSHIP = new Map<SObjectType, Map<String, SObjectField>>();
+
+	/**
+	 * @description The child relationships of each parent object, by relationship name in lower case, such as contacts
+	 * for the contacts of an account. An object can list one name more than once, for two lookups that point to it, so
+	 * each name keeps every relationship listed with it. Each object is read once in a transaction.
+	 */
+	private static final Map<SObjectType, Map<String, List<ChildRelationship>>> CHILD_RELATIONSHIPS_BY_PARENT = new Map<SObjectType, Map<String, List<ChildRelationship>>>();
+
+	/**
+	 * @description What a path through parent records reads, by object name and path in lower case. Each path is worked
+	 * out once in a transaction. Whether the running user can read the objects and the fields is asked each time.
+	 */
+	private static final Map<String, PathReads> READS_BY_PATH = new Map<String, PathReads>();
+
+	/**
+	 * @description The shared Name record object. SOQL reads a lookup that can point to more than one object, such as
+	 * What on a task or Owner on a case, through this record: What.Name is the Name field of the Name record, not a field
+	 * of the related record. Salesforce sets for each user which fields of the Name record that user can read.
+	 */
+	private static final SObjectType NAME_RECORD_OBJECT = Schema.Name.SObjectType;
+
+	/**
+	 * @description Matches a plain field name, such as Name, or a path through parent records, such as Account.Name:
+	 * names of letters, digits and underscores, joined by single dots. The text cannot start or end with a dot. A
+	 * selected text that is not one of these, once the functions around it are taken away, cannot be checked by
+	 * bypassSharing() alone.
+	 */
+	private static final Pattern SELECTED_PATH_PATTERN = Pattern.compile('\\w+(?:\\.\\w+)*');
+
+	/**
+	 * @description Finds TYPEOF anywhere in a selected text, in any letter case. TYPEOF picks which fields of a related
+	 * record to read by the object of that record.
+	 */
+	private static final Pattern TYPEOF_WORD_PATTERN = Pattern.compile('(?is).*\\bTYPEOF\\b.*');
+
+	/**
+	 * @description Reads a whole TYPEOF text: TYPEOF, the relationship, one or more WHEN branches, an optional ELSE
+	 * branch and END. Each branch lists field names or paths joined by commas. It gives the relationship, the WHEN
+	 * branches together, and the ELSE fields. Letter case and spaces do not matter. Any other text does not match.
+	 */
+	private static final Pattern TYPEOF_PATTERN = Pattern.compile('(?is)\\s*TYPEOF\\s+(\\w+)\\s+((?:WHEN\\s+\\w+\\s+THEN\\s+[\\w.]+(?:\\s*,\\s*[\\w.]+)*\\s+)+)'
+			+ '(?:ELSE\\s+([\\w.]+(?:\\s*,\\s*[\\w.]+)*)\\s+)?END\\s*');
+
+	/**
+	 * @description Finds each WHEN branch of a TYPEOF text: the object after WHEN and the fields after THEN.
+	 */
+	private static final Pattern TYPEOF_BRANCH_PATTERN = Pattern.compile('(?is)WHEN\\s+(\\w+)\\s+THEN\\s+([\\w.]+(?:\\s*,\\s*[\\w.]+)*)');
+
+	/**
+	 * @description Finds a function around a selected field, such as toLabel(Status) or FORMAT(Amount) shownAmount, and
+	 * gives the text inside its round brackets. A name for the result after the brackets is allowed.
+	 */
+	private static final Pattern SELECTED_FUNCTION_PATTERN = Pattern.compile('(?is)\\s*\\w+\\s*\\((.*)\\)(?:\\s+\\w+)?\\s*');
 
 	/**
 	 * @description Returns whether queries a subscriber can reach run in `AccessLevel.USER_MODE` by default, which
@@ -147,6 +227,231 @@ global inherited sharing class QRY_Builder
 	public static Boolean userModeQueriesEnabled()
 	{
 		return UTIL_FeatureFlag.isEnabled(FLAG_USER_MODE_QUERIES);
+	}
+
+	/**
+	 * @description Takes the field out of the functions around it, such as CreatedDate out of
+	 * HOUR_IN_DAY(convertTimezone(CreatedDate)), or Location__c out of DISTANCE(Location__c, GEOLOCATION(1,2), 'mi'). A
+	 * text with no such function is given back as it is.
+	 *
+	 * @param fieldText The field side of a filter or a sort item.
+	 *
+	 * @return The field name or field path inside the functions.
+	 */
+	private static String removeFieldFunctions(String fieldText)
+	{
+		String fieldPath = fieldText;
+		Matcher functionMatcher = FIELD_FUNCTION_PATTERN.matcher(fieldPath);
+		Matcher distanceMatcher = DISTANCE_FUNCTION_PATTERN.matcher(fieldPath);
+		while(functionMatcher.matches() || distanceMatcher.matches())
+		{
+			fieldPath = functionMatcher.matches() ? functionMatcher.group(1) : distanceMatcher.group(1);
+			functionMatcher = FIELD_FUNCTION_PATTERN.matcher(fieldPath);
+			distanceMatcher = DISTANCE_FUNCTION_PATTERN.matcher(fieldPath);
+		}
+		return fieldPath;
+	}
+
+	/**
+	 * @description Gives what a path through parent records reads, such as Account.Owner.Name on a Contact query: each
+	 * lookup on the way (AccountId on Contact, OwnerId on Account), the last field (Name on User), and the parent objects
+	 * on the way (Account and User). The answer is kept for the rest of the transaction.
+	 *
+	 * @param queriedType The object the query reads.
+	 * @param fieldPath The path, with at least one dot.
+	 *
+	 * @return What the path reads. A part of the path that is not a lookup or a field adds nothing.
+	 */
+	private static PathReads getPathReads(SObjectType queriedType, String fieldPath)
+	{
+		String cacheKey = UTIL_SObjectDescribe.getObjectNameFromType(queriedType) + UTIL_String.COLON + fieldPath.toLowerCase();
+		PathReads reads = READS_BY_PATH.get(cacheKey);
+		if(reads == null)
+		{
+			reads = collectPathReads(queriedType, fieldPath.split(Pattern.quote(UTIL_String.DOT)));
+			READS_BY_PATH.put(cacheKey, reads);
+		}
+		return reads;
+	}
+
+	/**
+	 * @description Walks a path through parent records, one name at a time, and gives what it reads. Each name but the
+	 * last is a relationship, such as Account: its lookup field, such as AccountId, is added, and so is each object the
+	 * lookup can point to. The last name is a field, added from each object the walk reached.
+	 *
+	 * SOQL reads some lookups through the shared Name record. These are lookups that can point to more than one object,
+	 * such as What on a task or Owner on a case; the describe of the lookup says so. After such a lookup, the walk
+	 * reaches the Name record and not the related objects:
+	 * - What.Name and What.Type read the Name and Type fields of the Name record, and no field of the related object;
+	 * - What.RecordType.Name reads the RecordTypeId lookup of the Name record, then the record type, as any other path.
+	 * Salesforce checks a path the same way in user mode. The Name record is not added as an object to check: the user's
+	 * access to it is given field by field.
+	 *
+	 * A path through more than five parent records adds nothing more than the lookups and the objects, because SOQL
+	 * refuses the query.
+	 *
+	 * @param queriedType The object the query reads.
+	 * @param names The names of the path, split at each dot.
+	 *
+	 * @return What the path reads.
+	 */
+	private static PathReads collectPathReads(SObjectType queriedType, List<String> names)
+	{
+		PathReads reads = new PathReads();
+		Set<SObjectType> reachedTypes = new Set<SObjectType> {queriedType};
+		Integer lastIndex = names.size() - 1;
+		for(Integer index = 0; index < lastIndex && index < MAXIMUM_PARENT_LEVELS; index++)
+		{
+			Set<SObjectType> parentTypes = new Set<SObjectType>();
+			for(SObjectType reachedType : reachedTypes)
+			{
+				SObjectField lookupField = findLookupField(reachedType, names[index]);
+				if(lookupField != null)
+				{
+					DescribeFieldResult lookupDescribe = UTIL_SObjectDescribe.getCachedFieldDescribe(lookupField);
+					reads.lookupFields.add(lookupField);
+					parentTypes.addAll(lookupDescribe.isNamePointing() ? new List<SObjectType> {NAME_RECORD_OBJECT} : lookupDescribe.getReferenceTo());
+				}
+			}
+			reachedTypes = parentTypes;
+			reads.parentTypes.addAll(reachedTypes);
+		}
+		reads.parentTypes.remove(NAME_RECORD_OBJECT);
+		if(lastIndex > MAXIMUM_PARENT_LEVELS)
+		{
+			return reads;
+		}
+		for(SObjectType reachedType : reachedTypes)
+		{
+			SObjectField lastField = UTIL_SObjectDescribe.getDescribe(reachedType).getField(names[lastIndex]);
+			if(lastField != null)
+			{
+				reads.lastFields.add(lastField);
+			}
+		}
+		return reads;
+	}
+
+	/**
+	 * @description Finds the lookup field behind a relationship name, such as OwnerId for Owner. Letter case does not
+	 * matter. As in SOQL written inside this package, a relationship of the package may be written without the package
+	 * namespace. The field is first looked up by the name SOQL gives most lookups, such as OwnerId for Owner or
+	 * Parent__c for Parent__r, which needs only the one field. When that field is not the lookup, every lookup of the
+	 * object is read once, which costs more.
+	 *
+	 * @param objectType The object that holds the lookup.
+	 * @param relationshipName The relationship name, as written in the path.
+	 *
+	 * @return The lookup field, or null when the object has no relationship of that name.
+	 */
+	private static SObjectField findLookupField(SObjectType objectType, String relationshipName)
+	{
+		SObjectField likelyField = UTIL_SObjectDescribe.getDescribe(objectType).getField(relationshipName);
+		String likelyRelationshipName = likelyField == null ? null : UTIL_SObjectDescribe.getCachedFieldDescribe(likelyField).getRelationshipName();
+		String namespacePrefix = UTIL_System.getManagedPackageNamespacePrefix();
+		if(likelyRelationshipName?.removeStartIgnoreCase(namespacePrefix).equalsIgnoreCase(relationshipName.removeStartIgnoreCase(namespacePrefix)) ?? false)
+		{
+			return likelyField;
+		}
+		return findLookupFieldInAllLookups(objectType, relationshipName);
+	}
+
+	/**
+	 * @description Finds the lookup field behind a relationship name among every lookup of the object. Letter case does
+	 * not matter, and a relationship of the package may be written without the package namespace. The lookups of each
+	 * object are read once in a transaction.
+	 *
+	 * @param objectType The object that holds the lookup.
+	 * @param relationshipName The relationship name, as written in the path.
+	 *
+	 * @return The lookup field, or null when the object has no relationship of that name.
+	 */
+	private static SObjectField findLookupFieldInAllLookups(SObjectType objectType, String relationshipName)
+	{
+		Map<String, SObjectField> lookupFields = LOOKUP_FIELDS_BY_RELATIONSHIP.get(objectType);
+		if(lookupFields == null)
+		{
+			lookupFields = new Map<String, SObjectField>();
+			Map<String, SObjectField> referenceFields = UTIL_SObjectDescribe.getDescribe(objectType).getReferenceFieldMap();
+			for(String name : referenceFields.keySet())
+			{
+				lookupFields.put(name.toLowerCase(), referenceFields.get(name));
+			}
+			LOOKUP_FIELDS_BY_RELATIONSHIP.put(objectType, lookupFields);
+		}
+		String lowerCaseName = relationshipName.toLowerCase();
+		return lookupFields.get(lowerCaseName) ?? lookupFields.get(UTIL_System.getManagedPackageNamespacePrefix().toLowerCase() + lowerCaseName);
+	}
+
+	/**
+	 * @description Finds the child relationships of an object by their name, such as Contacts on Account. A child query
+	 * added with subselect() reads the child records through such a relationship. An object can list one name more than
+	 * once, for two lookups that point to it, so every relationship of the name is returned. The child relationships
+	 * of each object are read once in a transaction.
+	 *
+	 * Letter case does not matter, and a relationship of the package may be written without the package namespace, as
+	 * in SOQL written inside this package. The name is looked up as written and with the package namespace in front.
+	 * An object can have both: a relationship of your own, and one of the package with the same name after the package
+	 * namespace. It is not known which one SOQL inside the package reads then, so the relationships of both names are
+	 * returned and each one is checked.
+	 * Where the package has no namespace, the two names are the same and are looked up once.
+	 *
+	 * @param parentType The object the child relationships belong to.
+	 * @param relationshipName The relationship name, without the name of the parent object in front.
+	 *
+	 * @return The child relationships of that name, written as given or with the package namespace in front. The list is
+	 * empty when the object has no child relationship of either name.
+	 */
+	private static List<ChildRelationship> findChildRelationships(SObjectType parentType, String relationshipName)
+	{
+		Map<String, List<ChildRelationship>> relationships = CHILD_RELATIONSHIPS_BY_PARENT.get(parentType);
+		if(relationships == null)
+		{
+			relationships = new Map<String, List<ChildRelationship>>();
+			for(ChildRelationship relationship : UTIL_SObjectDescribe.getDescribe(parentType).getDescribe().getChildRelationships())
+			{
+				String name = relationship.getRelationshipName()?.toLowerCase();
+				if(name != null)
+				{
+					List<ChildRelationship> relationshipsOfName = relationships.get(name) ?? new List<ChildRelationship>();
+					relationshipsOfName.add(relationship);
+					relationships.put(name, relationshipsOfName);
+				}
+			}
+			CHILD_RELATIONSHIPS_BY_PARENT.put(parentType, relationships);
+		}
+		String lowerCaseName = relationshipName.toLowerCase();
+		List<ChildRelationship> found = new List<ChildRelationship>();
+		for(String name : new Set<String> {lowerCaseName, UTIL_System.getManagedPackageNamespacePrefix().toLowerCase() + lowerCaseName})
+		{
+			found.addAll(relationships.get(name) ?? new List<ChildRelationship>());
+		}
+		return found;
+	}
+
+	/**
+	 * @description What a path through parent records reads. The running user must be able to read all of it before
+	 * bypassSharing() alone may filter or sort on the path. A selected path needs its lookups and its parent objects only:
+	 * a last field the user cannot read is removed from the rows.
+	 */
+	private class PathReads
+	{
+		/**
+		 * @description The lookup on each step of the path, such as AccountId for Account.Name.
+		 */
+		public final List<SObjectField> lookupFields = new List<SObjectField>();
+
+		/**
+		 * @description The last field of the path, on each object the path reaches, such as Name on Account for
+		 * Account.Name.
+		 */
+		public final List<SObjectField> lastFields = new List<SObjectField>();
+
+		/**
+		 * @description The parent objects the path passes through, in the order the walk reaches them. A lookup adds the
+		 * objects it can point to, except a lookup that SOQL reads through the shared Name record, which adds none.
+		 */
+		public final Set<SObjectType> parentTypes = new Set<SObjectType>();
 	}
 
 	/**
@@ -2349,6 +2654,14 @@ global inherited sharing class QRY_Builder
 		private Boolean userModeEnabled = QRY_Builder.userModeQueriesEnabled();
 
 		/**
+		 * @description The exact access level a user mode read runs with, set only by withAccessLevelInternal, for example a
+		 * user mode level that names a permission set. Null runs a user mode read with AccessLevel.USER_MODE. Every
+		 * other access mode call clears it, because the last access mode call wins. A read that runs in system mode, for
+		 * example after bypassSharing() alone, never uses it.
+		 */
+		private AccessLevel exactAccessLevel;
+
+		/**
 		 * @description Whether to strip inaccessible fields from results.
 		 */
 		@TestVisible
@@ -3262,16 +3575,18 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Adds a child subquery (child relationship query). The relationship name must be a single API name,
-		 * such as Contacts. Text that comes from a page or a user must first be matched to a relationship through a list
-		 * of names you allow.
+		 * @description Adds a child subquery (child relationship query). The relationship name is the API name of the child
+		 * relationship, such as Contacts. It may have the parent object and a dot in front, such as Account.Contacts, as
+		 * SOQL allows. Spaces around the name are removed. Text that comes from a page or a user must first be matched to
+		 * a relationship through a list of names you allow.
 		 *
 		 * @param childQuery Configured Builder for the child object
-		 * @param relationshipName The child relationship API name (e.g., 'Contacts')
+		 * @param relationshipName The child relationship API name (e.g., 'Contacts' or 'Account.Contacts')
 		 *
 		 * @return Builder for chaining
 		 *
-		 * @throws IllegalArgumentException if the relationship name is not blank and is not a single API name, such as Contacts
+		 * @throws IllegalArgumentException if the relationship name is not blank and is not one API name, or API names
+		 * joined by dots, such as Contacts or Account.Contacts
 		 *
 		 * @since 1.0
 		 *
@@ -3288,8 +3603,7 @@ global inherited sharing class QRY_Builder
 		{
 			if(childQuery != null && String.isNotBlank(relationshipName))
 			{
-				QRY_Generator.validateFieldPath(relationshipName, 'subselect');
-				childQuery.childRelationshipName = relationshipName;
+				childQuery.childRelationshipName = QRY_Generator.validateFieldPath(relationshipName, 'subselect');
 				childQueries.add(childQuery);
 			}
 			return this;
@@ -4670,6 +4984,7 @@ global inherited sharing class QRY_Builder
 		global Builder withoutSecurity()
 		{
 			userModeEnabled = false;
+			exactAccessLevel = null;
 			stripInaccessibleEnabled = false;
 			sharingEnforced = false;
 			isAuditedSharingBypass = false;
@@ -4696,6 +5011,7 @@ global inherited sharing class QRY_Builder
 		global Builder withUserMode()
 		{
 			userModeEnabled = true;
+			exactAccessLevel = null;
 			return this;
 		}
 
@@ -4747,6 +5063,33 @@ global inherited sharing class QRY_Builder
 		public Builder systemModeInternal()
 		{
 			userModeEnabled = false;
+			exactAccessLevel = null;
+			return this;
+		}
+
+		/**
+		 * @description Sets the access level of the query to the exact value a framework job carries. Only the framework
+		 * calls this. `PROC_UpdateFields` calls it so the query that finds the rows runs with the access level its caller
+		 * chose, unchanged. A user mode level that names a permission set keeps its permission set: it is not turned into
+		 * plain user mode or into the default that the `UserModeQueries_Enabled` flag sets. A system mode level reads in
+		 * system mode. Like `systemModeInternal()`, this call adds no entry to the bypass audit, so a caller that chose
+		 * system mode for a subscriber must call `withSystemMode()` instead. Inside an async job the value is a new object
+		 * that the platform rebuilt, so the mode is checked with `DML_SharingProxy.matchesAccessLevel`, never `==`. If that
+		 * check cannot read a rebuilt system mode level, the level is passed on as it is: the query then runs in system
+		 * mode while the builder reports user mode, and no audit entry is written. A read with a level that is not system
+		 * mode is never cached. Null changes nothing.
+		 *
+		 * @param accessLevel The access level to read with, or null to keep the current access mode.
+		 *
+		 * @return Builder for chaining
+		 */
+		public Builder withAccessLevelInternal(AccessLevel accessLevel)
+		{
+			if(accessLevel != null)
+			{
+				userModeEnabled = !DML_SharingProxy.matchesAccessLevel(accessLevel, System.AccessLevel.SYSTEM_MODE);
+				exactAccessLevel = userModeEnabled ? accessLevel : null;
+			}
 			return this;
 		}
 
@@ -4800,16 +5143,48 @@ global inherited sharing class QRY_Builder
 		 * - a user who cannot read the object is refused with a QueryException;
 		 * - fields the user cannot read are removed from the rows, in parent fields and child rows too, and are not
 		 *   reported;
-		 * - a filter or a sort on a field of the queried object that the user cannot read is refused;
-		 * - a query inside isIn() or notIn(), and a child query added with subselect(), are checked the same way, each on
-		 *   its own object: the user must be able to read that object and the fields it filters or sorts on;
+		 * - a filter or a sort on a field that the user cannot read is refused. This covers a field of the queried object,
+		 *   a field inside a function (a date function such as `CALENDAR_YEAR()`, `convertTimezone()` inside one,
+		 *   `toLabel()` or `DISTANCE()`, written as text or from QRY_Function), and a path through parent records such as
+		 *   `Parent__r.Email__c`, up to five parents deep: the user must be able to read each parent object on the path,
+		 *   each lookup on the path and the last field. A path through a parent object the user cannot read is refused
+		 *   with a QueryException;
+		 * - a lookup that can point to more than one object, such as `What`, `Who` or `Owner`, is read through a shared
+		 *   Name record, and is checked as user mode checks it: the user must be able to read the lookup, such as
+		 *   `WhatId`, and the field of the Name record, such as `Name` in `What.Name`. The objects the lookup points to are
+		 *   not checked;
+		 * - for some users Salesforce hides the `ProfileId`, `UserRoleId` and `RecordTypeId` fields of the Name record, so
+		 *   a filter on `What.ProfileId` or on `What.RecordType.Name` is refused for them;
+		 * - because the read ignores sharing, a filter on `What.Name` covers every activity in the org. It can find, by
+		 *   name, a record on an object the user cannot open, the first and last name of a contact or a lead, and the
+		 *   company of a lead;
+		 * - a read of rows that selects a path through a lookup the user cannot read, or through a parent object the user
+		 *   cannot read, is refused, as user mode refuses it. This covers `What.Name` without read on `WhatId`,
+		 *   `Account.Name` on a contact without read on Account, child queries, and `TYPEOF`, whose relationship and each
+		 *   object after `WHEN` must be readable;
+		 * - in the selected fields, a hidden lookup gives a UTIL_Exceptions.IllegalStateException, and a hidden parent
+		 *   object gives a QueryException. A hidden last field, such as `Phone` in `Account.Phone`, is not refused: it is
+		 *   removed from the rows;
+		 * - selected text the builder cannot check is refused with a UTIL_Exceptions.IllegalStateException, even when the
+		 *   user can read everything in it. Each selected field must be a field name or a path such as `Account.Name`,
+		 *   with or without a function around it. So add a child query with subselect(), not as text, and write each
+		 *   `TYPEOF` as a field of its own: `TYPEOF What WHEN Account THEN Name, Phone ELSE Name END`;
+		 * - a query inside isIn() or notIn() is checked the same way, on its own object, and so is a child query added
+		 *   with subselect(), on the object its relationship reads: the user must be able to read that object and the
+		 *   fields it filters or sorts on. A child query built for another object is checked as the object SOQL reads
+		 *   through the relationship;
+		 * - a child query added with subselect() is refused when the user cannot read the lookup behind its relationship,
+		 *   such as `WhatId` for the `Events` of an account, as user mode refuses it, even when the child query selects
+		 *   only `Id`. Some objects use one relationship name for two lookups; then the user must be able to read both. A
+		 *   relationship name the parent object does not have is refused too. The name may start with the parent object,
+		 *   as in `Account.Contacts`, as SOQL allows. count() and exists() do not read the child query, so they refuse
+		 *   neither of these;
 		 * - toQueryLocator(), toCursor() and every total or group read (toAggregateList(), getFirstAggregate(), or a
 		 *   grouped query read as records) are refused, because their rows cannot be cleaned;
 		 * - getPage() returns a page with a null cursor, for the same reason.
 		 *
-		 * A filter in your own Evaluable, on a path through a parent such as `Parent__r.Email__c`, or inside a function
-		 * is not checked. Its rows can tell the user something about that field, so do not filter or sort on a field the
-		 * user cannot read that way.
+		 * A filter in your own Evaluable is not checked. Its rows can tell the user something about that field, so do not
+		 * filter on a field the user cannot read that way.
 		 *
 		 * To read a locator, a cursor or totals without sharing, add withSystemMode(). withSystemMode() also turns off
 		 * the object and field permission checks for the read. With the `UserModeQueries_Enabled` flag off, a read runs
@@ -5299,6 +5674,19 @@ global inherited sharing class QRY_Builder
 				generator.allRows();
 			}
 
+			addDataCategoryFilters(generator);
+
+			return generator;
+		}
+
+		/**
+		 * @description Adds every data category filter set on this builder to the given generator. The page query and
+		 * the counts a page read may need all call this, so they always match the same articles.
+		 *
+		 * @param generator The generator to add the filters to
+		 */
+		private void addDataCategoryFilters(QRY_Generator generator)
+		{
 			for(DataCategoryEntry entry : dataCategoryFilters.values())
 			{
 				generator.withDataCategory(new QRY_Generator.DataCategoryFilter(
@@ -5307,8 +5695,6 @@ global inherited sharing class QRY_Builder
 						entry.categoryNames
 				));
 			}
-
-			return generator;
 		}
 
 		/**
@@ -5330,6 +5716,7 @@ global inherited sharing class QRY_Builder
 			parameters.queryString = useLiterals ? generator.toSoql() : generator.toSoql(registry);
 			parameters.bindMap = useLiterals ? new Map<String, Object>() : registry.getMap();
 			parameters.userMode = isUserModeRead();
+			parameters.exactAccessLevel = exactAccessLevel;
 			parameters.enforceSharing = sharingEnforced;
 			parameters.limitCount = maxRecords;
 			parameters.cacheTTL = cacheTTL;
@@ -5389,21 +5776,35 @@ global inherited sharing class QRY_Builder
 		 * any query and before any audit entry:
 		 * - the user cannot read the object;
 		 * - the read is toQueryLocator(), toCursor() or an aggregate query, whose rows the builder cannot clean;
-		 * - a filter or a sort uses a field of the queried object that the user cannot read;
+		 * - a filter or a sort uses a field that the user cannot read: a field of the queried object, a field inside a
+		 * function such as CALENDAR_YEAR() or toLabel(), or a lookup or a field on a path through parent records. A path
+		 * through a parent object the user cannot read is refused too;
 		 * - an inner query of the read, which is a query inside isIn() or notIn() or a child query added with
 		 * subselect(), reads an object the user cannot read, or filters or sorts on a field of its own object that the
 		 * user cannot read. A query inside isIn() or notIn() is also refused when it selects a field the user cannot
-		 * read, because the values of that field decide which rows come back. The inner queries of an inner query are
-		 * checked the same way.
+		 * read, because the values of that field decide which rows come back. A child query is checked as the object its
+		 * relationship reads. The inner queries of an inner query are checked the same way;
+		 * - a read of rows reads a child query through a lookup the user cannot read, such as WhatId for the Events of an
+		 * account, or through a relationship name the parent object does not have;
+		 * - a read of rows selects a path through a lookup the user cannot read, or through a parent object the user
+		 * cannot read, in the query or in a child query. TYPEOF is checked the same way. Selected text that is not a field
+		 * name or a path, once the functions around it are taken away, is refused because it cannot be checked.
+		 *
+		 * count() and exists() read no rows: their query has no selected fields and no child query. So the last two
+		 * checks do not apply to them. A child query is still checked on its object and its filters and sorts, and a
+		 * child query whose relationship name is not found is not checked.
 		 *
 		 * Only filters built from field names are checked, inside groups and NOT conditions too. A filter in another
 		 * kind of condition, such as your own Evaluable, is not checked.
 		 *
 		 * @param methodName The name of the method the caller called, shown in the message.
 		 *
-		 * @throws QueryException When the running user cannot read the object, or the object of an inner query.
-		 * @throws UTIL_Exceptions.IllegalStateException When the read is a locator, a cursor or an aggregate query, or when
-		 * a filter or sort uses a field the running user cannot read.
+		 * @throws QueryException When the running user cannot read the object, the object of an inner query, or a parent
+		 * object on a path that a filter, a sort or a selected field reads.
+		 * @throws UTIL_Exceptions.IllegalStateException When the read is a locator, a cursor or an aggregate query, when
+		 * a filter or sort uses a field the running user cannot read, when a selected path or a child query goes through
+		 * a lookup the running user cannot read, when a selected text cannot be checked, or when a child relationship is
+		 * not found.
 		 */
 		private void refuseReadThatCannotKeepChecks(String methodName)
 		{
@@ -5420,7 +5821,267 @@ global inherited sharing class QRY_Builder
 						new List<String> {methodName}));
 			}
 
-			refuseFilterOrSortTheUserCannotRead();
+			Boolean areRowsRead = methodName != METHOD_COUNT;
+			refuseFilterOrSortTheUserCannotRead(objectType, areRowsRead);
+			if(areRowsRead)
+			{
+				refuseSelectedFieldsTheUserCannotRead(objectType);
+			}
+		}
+
+		/**
+		 * @description Refuses the read when this query, or one of its child queries, selects a path through a lookup or
+		 * a parent object the running user cannot read. User mode refuses such a read too. The last field of a path is
+		 * not checked here: a field the user cannot read is removed from the rows after the read. Each child query is
+		 * checked as each object its relationship reads. After selectAllFields() the query reads only the fields of its
+		 * own object, so only its child queries are checked.
+		 *
+		 * This check runs after the check of the filters and sorts, which has already refused a child query whose
+		 * relationship is not found, or whose object or lookup the user cannot read. So those are not checked again here.
+		 *
+		 * @param queriedType The object the query reads. For a child query, an object its relationship reads.
+		 *
+		 * @throws QueryException When the running user cannot read a parent object on a selected path, or an object a
+		 * TYPEOF names after WHEN.
+		 * @throws UTIL_Exceptions.IllegalStateException When the running user cannot read a lookup on a selected path, or
+		 * when a selected text cannot be checked.
+		 */
+		private void refuseSelectedFieldsTheUserCannotRead(SObjectType queriedType)
+		{
+			if(!selectAll)
+			{
+				for(String fieldText : getEffectiveFields())
+				{
+					refuseSelectedTextTheUserCannotRead(queriedType, fieldText);
+				}
+			}
+			for(Builder childQuery : childQueries)
+			{
+				for(ChildRelationship relationship : findChildRelationshipsOf(queriedType, childQuery))
+				{
+					childQuery.refuseSelectedFieldsTheUserCannotRead(relationship.getChildSObject());
+				}
+			}
+		}
+
+		/**
+		 * @description Finds the child relationships a child query added with subselect() reads through, by the name it
+		 * was added with. SOQL also accepts the name with the name of the parent object and a dot in front, such as
+		 * Account.Contacts, so that start is left out first.
+		 *
+		 * @param parentType The object the parent query reads.
+		 * @param childQuery The child query.
+		 *
+		 * @return The child relationships of that name, written as given or with the package namespace in front. The list
+		 * is empty when the parent object has no child relationship of either name.
+		 */
+		private List<ChildRelationship> findChildRelationshipsOf(SObjectType parentType, Builder childQuery)
+		{
+			return findChildRelationships(parentType, removeObjectName(parentType, childQuery.childRelationshipName));
+		}
+
+		/**
+		 * @description Refuses a child query added with subselect() when the running user cannot read what its
+		 * relationship reads. Each object the relationship reads must be readable.
+		 *
+		 * A child query finds its rows through their lookup to the parent, such as WhatId for the Events of an account,
+		 * so its rows tell the user which records point to the parent. User mode refuses the whole read when the user
+		 * cannot read that lookup. So, when the read returns the child rows, each lookup behind the relationship must be
+		 * readable too, and a relationship name the parent object does not have is refused, because it cannot be checked.
+		 *
+		 * count() and exists() do not return the child rows, so for them the lookup is not checked and a name that is not
+		 * found is left alone.
+		 *
+		 * @param relationships The child relationships of the name the child query was added with. An object can list
+		 * one name more than once, for two lookups that point to it.
+		 * @param relationshipName The relationship name, as the child query was added with it. The messages show it.
+		 * @param areRowsRead True when the read returns the child rows; false for count() and exists().
+		 *
+		 * @throws QueryException When the running user cannot read an object the child relationship reads.
+		 * @throws UTIL_Exceptions.IllegalStateException When the read returns the child rows, and the parent object has
+		 * no child relationship of that name or the running user cannot read a lookup behind it.
+		 */
+		private void refuseChildRelationshipTheUserCannotRead(List<ChildRelationship> relationships, String relationshipName, Boolean areRowsRead)
+		{
+			if(areRowsRead && relationships.isEmpty())
+			{
+				throw newSelectedTextNotCheckableException(relationshipName);
+			}
+			for(ChildRelationship relationship : relationships)
+			{
+				refuseObjectTheUserCannotRead(relationship.getChildSObject());
+				if(areRowsRead)
+				{
+					refuseUnreadableLookup(relationship.getField(), relationshipName);
+				}
+			}
+		}
+
+		/**
+		 * @description Refuses the read when one selected text reads a path the running user cannot read, or when the
+		 * text cannot be checked. The text is read as the query reads it:
+		 * - An empty text is left out of the query, so it is not checked.
+		 * - A text with TYPEOF must be one whole TYPEOF field, and it is checked as one.
+		 * - Any other text may hold several fields joined by commas, and each is checked.
+		 * - A field is taken out of the functions around it, such as toLabel(Account.Type) or FORMAT(Amount) shownAmount.
+		 *   When a function reads more than one value, the first one is the field.
+		 * - What is left must be a field name or a path, such as Name or Account.Name. Anything else, such as a child
+		 *   query written as text, cannot be checked, so the read is refused.
+		 * A field with no dot is not a path, so it is not checked here.
+		 *
+		 * @param queriedType The object the query reads.
+		 * @param fieldText The selected text.
+		 *
+		 * @throws QueryException When the running user cannot read a parent object on the path, or an object a TYPEOF
+		 * names after WHEN.
+		 * @throws UTIL_Exceptions.IllegalStateException When the running user cannot read a lookup on the path, or when
+		 * the text cannot be checked.
+		 */
+		private void refuseSelectedTextTheUserCannotRead(SObjectType queriedType, String fieldText)
+		{
+			if(String.isBlank(fieldText))
+			{
+				return;
+			}
+			if(TYPEOF_WORD_PATTERN.matcher(fieldText).matches())
+			{
+				refuseTypeofTheUserCannotRead(queriedType, fieldText);
+				return;
+			}
+			for(String item : QRY_Generator.splitListItems(fieldText))
+			{
+				String fieldPath = item;
+				Matcher functionMatcher = SELECTED_FUNCTION_PATTERN.matcher(fieldPath);
+				while(functionMatcher.matches())
+				{
+					fieldPath = QRY_Generator.splitListItems(functionMatcher.group(1))[0];
+					functionMatcher = SELECTED_FUNCTION_PATTERN.matcher(fieldPath);
+				}
+				fieldPath = fieldPath.trim();
+				if(!SELECTED_PATH_PATTERN.matcher(fieldPath).matches())
+				{
+					throw newSelectedTextNotCheckableException(fieldText);
+				}
+				refuseSelectedPathTheUserCannotRead(queriedType, fieldPath);
+			}
+		}
+
+		/**
+		 * @description Builds the exception that refuses a selected text bypassSharing() alone cannot check, such as a
+		 * child query written as text, or a TYPEOF the builder cannot read.
+		 *
+		 * @param selectedText The selected text, as it is written.
+		 *
+		 * @return The exception, with the message that names the text and says what to write instead.
+		 */
+		private UTIL_Exceptions.IllegalStateException newSelectedTextNotCheckableException(String selectedText)
+		{
+			return new UTIL_Exceptions.IllegalStateException(String.format(System.Label.QueryBuilder_BypassSharingSelectedText_NotCheckable,
+					new List<String> {selectedText}));
+		}
+
+		/**
+		 * @description Refuses the read when a TYPEOF field reads through a lookup or an object the running user cannot
+		 * read. TYPEOF picks which fields of a related record to read by the object of that record, such as
+		 * TYPEOF What WHEN Account THEN Name, Phone ELSE Name END. The lookup of the relationship must be readable, each
+		 * object after WHEN must be readable, and each path after THEN or ELSE is checked as a selected path. A text the
+		 * builder cannot read is refused, because it cannot be checked.
+		 *
+		 * @param queriedType The object the query reads.
+		 * @param typeofText The TYPEOF text, as selected.
+		 *
+		 * @throws QueryException When the running user cannot read an object named after WHEN, or a parent object on a
+		 * path after THEN or ELSE.
+		 * @throws UTIL_Exceptions.IllegalStateException When the text cannot be read, when its relationship or an object
+		 * after WHEN is not found, or when the running user cannot read the lookup of the relationship or a lookup on a
+		 * path after THEN or ELSE.
+		 */
+		private void refuseTypeofTheUserCannotRead(SObjectType queriedType, String typeofText)
+		{
+			Matcher typeofMatcher = TYPEOF_PATTERN.matcher(typeofText);
+			SObjectField lookupField = typeofMatcher.matches() ? findLookupField(queriedType, typeofMatcher.group(1)) : null;
+			if(lookupField == null)
+			{
+				throw newSelectedTextNotCheckableException(typeofText);
+			}
+			refuseUnreadableLookup(lookupField, typeofMatcher.group(1));
+			Matcher branchMatcher = TYPEOF_BRANCH_PATTERN.matcher(typeofMatcher.group(2));
+			while(branchMatcher.find())
+			{
+				SObjectType branchType = findTypeofBranchObject(branchMatcher.group(1));
+				if(branchType == null)
+				{
+					throw newSelectedTextNotCheckableException(typeofText);
+				}
+				refuseObjectTheUserCannotRead(branchType);
+				refuseSelectedTextTheUserCannotRead(branchType, branchMatcher.group(2));
+			}
+			refuseSelectedTextTheUserCannotRead(NAME_RECORD_OBJECT, typeofMatcher.group(3));
+		}
+
+		/**
+		 * @description Finds the object named after WHEN in a TYPEOF text.
+		 *
+		 * @param objectName The name after WHEN, such as Account.
+		 *
+		 * @return The object, or null when the name does not find an object, such as the name of an Apex class or of a system type.
+		 */
+		private SObjectType findTypeofBranchObject(String objectName)
+		{
+			return UTIL_SObjectDescribe.getSObjectTypeByName(objectName);
+		}
+
+		/**
+		 * @description Refuses the read when a selected path goes through a lookup or a parent object that the running
+		 * user cannot read. The read runs without the user's object permissions, so the related record would tell the
+		 * user something that user mode hides. A path written after the name of the object and a dot, such as
+		 * Account.Owner.Name on an Account query, starts after the object name. A field with no dot is not checked.
+		 *
+		 * @param queriedType The object the query reads.
+		 * @param fieldPath The selected path, such as Account.Name.
+		 *
+		 * @throws QueryException When the running user cannot read a parent object on the path. The message names that
+		 * object.
+		 * @throws UTIL_Exceptions.IllegalStateException When the running user cannot read a lookup on the path. The
+		 * message names the lookup and the path as it is written.
+		 */
+		private void refuseSelectedPathTheUserCannotRead(SObjectType queriedType, String fieldPath)
+		{
+			String path = removeObjectName(queriedType, fieldPath);
+			if(!path.contains(UTIL_String.DOT))
+			{
+				return;
+			}
+			PathReads reads = getPathReads(queriedType, path);
+			for(SObjectType parentType : reads.parentTypes)
+			{
+				refuseObjectTheUserCannotRead(parentType);
+			}
+			for(SObjectField lookupField : reads.lookupFields)
+			{
+				refuseUnreadableLookup(lookupField, fieldPath);
+			}
+		}
+
+		/**
+		 * @description Refuses a selected path when the running user cannot read a lookup on it. It asks the platform
+		 * each time, so the answer is right inside System.runAs too. The message names the lookup with its object, such
+		 * as Event.WhatId, or Name.RecordTypeId for a lookup of the shared Name record.
+		 *
+		 * @param lookupField The lookup to check.
+		 * @param shownPath The path or relationship the message shows, as it is written.
+		 *
+		 * @throws UTIL_Exceptions.IllegalStateException When the running user cannot read the lookup.
+		 */
+		private void refuseUnreadableLookup(SObjectField lookupField, String shownPath)
+		{
+			if(!UTIL_SObjectDescribe.isFieldAccessible(lookupField))
+			{
+				DescribeFieldResult lookupDescribe = UTIL_SObjectDescribe.getCachedFieldDescribe(lookupField);
+				String lookupName = UTIL_SObjectDescribe.getObjectNameFromType(lookupDescribe.getSObjectType()) + UTIL_String.DOT + lookupDescribe.getName();
+				throw new UTIL_Exceptions.IllegalStateException(String.format(System.Label.QueryBuilder_BypassSharingLookup_NotReadable,
+						new List<String> {lookupName, shownPath}));
+			}
 		}
 
 		/**
@@ -5442,14 +6103,21 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Refuses the read when this query, or one of its inner queries, filters or sorts on a field the
-		 * running user cannot read. Each query is checked against its own object. The inner queries are the queries
-		 * inside isIn() and notIn() conditions, and the child queries added with subselect(); the object of each one
-		 * must be readable too.
+		 * running user cannot read. The inner queries are the queries inside isIn() and notIn() conditions, each checked
+		 * against its own object, and the child queries added with subselect(), each checked as each object its
+		 * relationship reads. The object of each one must be readable too. When the read returns the child rows, so must
+		 * the lookup behind each child relationship.
 		 *
-		 * @throws QueryException When the running user cannot read the object of an inner query.
-		 * @throws UTIL_Exceptions.IllegalStateException When a filter or sort uses a field the running user cannot read.
+		 * @param queriedType The object the query reads. For a child query, an object its relationship reads.
+		 * @param areRowsRead True when the read returns rows with their child rows; false for count() and exists().
+		 *
+		 * @throws QueryException When the running user cannot read the object of an inner query, or a parent object on a
+		 * path that a filter or a sort reads.
+		 * @throws UTIL_Exceptions.IllegalStateException When a filter or sort uses a field the running user cannot read,
+		 * or, when the read returns the child rows, when the running user cannot read the lookup behind a child query or
+		 * a child relationship is not found.
 		 */
-		private void refuseFilterOrSortTheUserCannotRead()
+		private void refuseFilterOrSortTheUserCannotRead(SObjectType queriedType, Boolean areRowsRead)
 		{
 			Set<String> fieldNames = new Set<String>();
 			List<QRY_Generator> innerQueries = new List<QRY_Generator>();
@@ -5458,13 +6126,17 @@ global inherited sharing class QRY_Builder
 			{
 				fieldNames.add(orderBy.getField());
 			}
-			refuseFieldTheUserCannotRead(objectType, fieldNames);
+			refuseFieldTheUserCannotRead(queriedType, fieldNames);
 			refuseInnerQueryTheUserCannotRead(innerQueries);
 
 			for(Builder childQuery : childQueries)
 			{
-				refuseObjectTheUserCannotRead(childQuery.objectType);
-				childQuery.refuseFilterOrSortTheUserCannotRead();
+				List<ChildRelationship> relationships = findChildRelationshipsOf(queriedType, childQuery);
+				refuseChildRelationshipTheUserCannotRead(relationships, childQuery.childRelationshipName, areRowsRead);
+				for(ChildRelationship relationship : relationships)
+				{
+					childQuery.refuseFilterOrSortTheUserCannotRead(relationship.getChildSObject(), areRowsRead);
+				}
 			}
 		}
 
@@ -5476,7 +6148,8 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @param innerQueries The queries found inside isIn() and notIn() conditions. The list grows while it is read.
 		 *
-		 * @throws QueryException When the running user cannot read the object of one of the queries.
+		 * @throws QueryException When the running user cannot read the object of one of the queries, or a parent object on
+		 * a path that one of them reads.
 		 * @throws UTIL_Exceptions.IllegalStateException When one of the queries filters on or selects a field the running
 		 * user cannot read.
 		 */
@@ -5533,37 +6206,115 @@ global inherited sharing class QRY_Builder
 		}
 
 		/**
-		 * @description Refuses the read when one of the names is a field of the queried object that the running user
-		 * cannot read. Each name is read as the query reads it. A sort text may hold several items joined by commas:
-		 * each item is trimmed, and ASC, DESC, NULLS FIRST and NULLS LAST after the field are left out. A field written
-		 * after the name of the object and a dot, such as Account.Phone on an Account query, is the field itself, so the
-		 * object name is left out too. A name that is not a field of this object, such as a path through a parent or a
-		 * function, is skipped.
+		 * @description Refuses the read when one of the names reads a field that the running user cannot read. Each name
+		 * is read as the query reads it:
+		 * - A sort text may hold several items joined by commas. A comma inside round brackets, as in a distance function,
+		 *   stays inside its item. ASC, DESC, NULLS FIRST and NULLS LAST after the field are left out.
+		 * - The field is taken out of the functions around it: the date functions, such as CALENDAR_YEAR(CloseDate),
+		 *   convertTimezone inside a date function, toLabel and DISTANCE. These are the functions the builder lets a filter
+		 *   or a sort hold.
+		 * - A field written after the name of the object and a dot, such as Account.Phone on an Account query, is the
+		 *   field itself, so the object name is left out.
+		 * - A path through parent records, such as Account.Phone, reads each parent object on the way, each lookup on the
+		 *   way and the last field. The user must be able to read all of them.
+		 * - SOQL reads some lookups that can point to more than one object, such as What on a task or Owner on a case,
+		 *   through a shared Name record. After such a lookup, the user must be able to read the lookup and the field of
+		 *   the Name record, such as What.Name, and not the related objects. User mode checks the same. So a filter on
+		 *   What.Name can be read even when the user cannot read the object of the related record, and because the read
+		 *   ignores sharing, it covers every task in the org.
+		 * A name that is not a field, or a path that is not a path of this object, is skipped, and SOQL refuses it when
+		 * the query runs.
 		 *
 		 * @param queriedType The object the query reads.
 		 * @param fieldNames The field names and sort texts the query filters or sorts on.
 		 *
-		 * @throws UTIL_Exceptions.IllegalStateException When the running user cannot read one of the fields.
+		 * @throws QueryException When the running user cannot read a parent object on a path. The message names that
+		 * object.
+		 * @throws UTIL_Exceptions.IllegalStateException When the running user cannot read one of the fields. The message
+		 * names the field, or the path as it is written.
 		 */
 		private void refuseFieldTheUserCannotRead(SObjectType queriedType, Set<String> fieldNames)
 		{
 			UTIL_SObjectDescribe describe = UTIL_SObjectDescribe.getDescribe(queriedType);
-			DescribeSObjectResult objectDescribe = describe.getDescribe();
-			String objectPrefix = objectDescribe.getName() + UTIL_String.DOT;
-			String localObjectPrefix = objectDescribe.getLocalName() + UTIL_String.DOT;
 			for(String fieldText : fieldNames)
 			{
-				for(String sortItem : (fieldText ?? UTIL_String.EMPTY).split(UTIL_String.COMMA))
+				for(String sortItem : QRY_Generator.splitListItems(fieldText ?? UTIL_String.EMPTY))
 				{
 					Matcher itemMatcher = SORT_ITEM_FIELD_PATTERN.matcher(sortItem);
-					String fieldName = itemMatcher.matches() ? itemMatcher.group(1) : UTIL_String.EMPTY;
-					SObjectField field = describe.getField(fieldName.removeStartIgnoreCase(objectPrefix).removeStartIgnoreCase(localObjectPrefix));
-					if(field != null && !UTIL_SObjectDescribe.isFieldAccessible(field))
+					String fieldPath = removeObjectName(queriedType, removeFieldFunctions(itemMatcher.matches() ? itemMatcher.group(1) : UTIL_String.EMPTY));
+					if(fieldPath.contains(UTIL_String.DOT))
 					{
-						throw new UTIL_Exceptions.IllegalStateException(String.format(System.Label.QueryBuilder_BypassSharingField_NotReadable,
-								new List<String> {UTIL_SObjectDescribe.getCachedFieldName(field)}));
+						refusePathTheUserCannotRead(queriedType, fieldPath);
+					}
+					else
+					{
+						SObjectField field = describe.getField(fieldPath);
+						refuseUnreadableField(field, UTIL_SObjectDescribe.getCachedFieldName(field));
 					}
 				}
+			}
+		}
+
+		/**
+		 * @description Refuses the read when a path through parent records passes through an object, or reads a lookup
+		 * or a field, that the running user cannot read. The read runs without the user's object permissions, so a path
+		 * through an object the user cannot read would tell the user something about its records. After a lookup that
+		 * SOQL reads through the shared Name record, the field of the Name record is checked, as user mode does, and not
+		 * the related objects.
+		 *
+		 * @param queriedType The object the query reads.
+		 * @param fieldPath The path, such as Owner.Email.
+		 *
+		 * @throws QueryException When the running user cannot read a parent object on the path. The message names that
+		 * object.
+		 * @throws UTIL_Exceptions.IllegalStateException When the running user cannot read a lookup on the path or its
+		 * last field. The message names the path as it is written.
+		 */
+		private void refusePathTheUserCannotRead(SObjectType queriedType, String fieldPath)
+		{
+			PathReads reads = getPathReads(queriedType, fieldPath);
+			for(SObjectType parentType : reads.parentTypes)
+			{
+				refuseObjectTheUserCannotRead(parentType);
+			}
+			List<SObjectField> fields = new List<SObjectField>(reads.lookupFields);
+			fields.addAll(reads.lastFields);
+			for(SObjectField field : fields)
+			{
+				refuseUnreadableField(field, fieldPath);
+			}
+		}
+
+		/**
+		 * @description Leaves out the name of the object and a dot at the start of a field or path, such as Account. in
+		 * Account.Phone on an Account query, because SOQL reads that as the field itself. The name with the package
+		 * namespace and the name without it are both left out.
+		 *
+		 * @param queriedType The object the query reads.
+		 * @param fieldPath The field or path, as written.
+		 *
+		 * @return The field or path without the object name.
+		 */
+		private String removeObjectName(SObjectType queriedType, String fieldPath)
+		{
+			DescribeSObjectResult objectDescribe = UTIL_SObjectDescribe.getDescribe(queriedType).getDescribe();
+			return fieldPath.removeStartIgnoreCase(objectDescribe.getName() + UTIL_String.DOT).removeStartIgnoreCase(objectDescribe.getLocalName() + UTIL_String.DOT);
+		}
+
+		/**
+		 * @description Refuses the read when the running user cannot read the field. It asks the platform each time, so
+		 * the answer is right inside System.runAs too.
+		 *
+		 * @param field The field to check; null is not refused.
+		 * @param shownName The name the message shows.
+		 *
+		 * @throws UTIL_Exceptions.IllegalStateException When the running user cannot read the field.
+		 */
+		private void refuseUnreadableField(SObjectField field, String shownName)
+		{
+			if(field != null && !UTIL_SObjectDescribe.isFieldAccessible(field))
+			{
+				throw new UTIL_Exceptions.IllegalStateException(String.format(System.Label.QueryBuilder_BypassSharingField_NotReadable, new List<String> {shownName}));
 			}
 		}
 
@@ -5591,13 +6342,16 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return List<SObject> results
 		 *
-		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
-		 * object of a query inside isIn(), notIn() or subselect().
+		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, the
+		 * object of a query inside isIn(), notIn() or subselect(), or a parent object on a selected path.
 		 * @throws UTIL_Exceptions.IllegalStateException In a test, when the query is an aggregate query and rows
 		 * registered with TST_Mock.registerAggregateRows answer it. Read an aggregate query with toAggregateList(). The
 		 * other methods that return records, such as getFirst(), getPage() and asMap(), throw in the same case.
 		 * @throws UTIL_Exceptions.IllegalStateException With bypassSharing() alone, under user mode, when the query is an
-		 * aggregate query, or when it filters or sorts on a field the running user cannot read. Add withSystemMode().
+		 * aggregate query, when it filters or sorts on a field the running user cannot read, when it selects a path or
+		 * adds a child query through a lookup the running user cannot read, or when it selects text the builder cannot
+		 * check, such as a child query written as text. Add withSystemMode(). getFirst() and the as methods, such as
+		 * asMap(), throw in the same cases.
 		 *
 		 * @since 1.0
 		 *
@@ -5897,12 +6651,13 @@ global inherited sharing class QRY_Builder
 		 *
 		 * @return List of random SObjects
 		 *
-		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
-		 * object of a query inside isIn(), notIn() or subselect().
+		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, the
+		 * object of a query inside isIn(), notIn() or subselect(), or a parent object on a selected path.
 		 * @throws UTIL_Exceptions.IllegalStateException In a test, when the query is an aggregate query and aggregate
 		 * rows are registered for the object type. Read such a query with toAggregateList(). Also with bypassSharing()
-		 * alone, under user mode, when the query is an aggregate query, or when it filters or sorts on a field the running
-		 * user cannot read. Add withSystemMode().
+		 * alone, under user mode, when the query is an aggregate query, when it filters or sorts on a field the running
+		 * user cannot read, when it selects a path or adds a child query through a lookup the running user cannot read,
+		 * or when it selects text the builder cannot check, such as a child query written as text. Add withSystemMode().
 		 *
 		 * @since 1.0
 		 *
@@ -5993,12 +6748,17 @@ global inherited sharing class QRY_Builder
 		/**
 		 * @description Returns the number of records that match the query criteria.
 		 *
+		 * The count does not read a child query added with subselect(). So with bypassSharing() alone, under user mode,
+		 * the lookup behind a child query is not checked, and a relationship name the parent object does not have is
+		 * not refused. When the relationship is found, the object it reads and the filters and sorts of the child query
+		 * are still checked. When it is not found, the child query is not checked at all.
+		 *
 		 * @return Integer count
 		 *
 		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
 		 * object of a query inside isIn(), notIn() or subselect().
 		 * @throws UTIL_Exceptions.IllegalStateException With bypassSharing() alone, under user mode, when the query is an
-		 * aggregate query, or when it filters on a field the running user cannot read. Add withSystemMode().
+		 * aggregate query, or when it filters or sorts on a field the running user cannot read. Add withSystemMode().
 		 *
 		 * @since 1.0
 		 *
@@ -6017,7 +6777,10 @@ global inherited sharing class QRY_Builder
 
 		/**
 		 * @description Counts the records that match the query criteria. count() and getRandomItems use it after their
-		 * own check.
+		 * own check. The count keeps every data category filter, so it counts the same articles as the row read. In a
+		 * test, mock records are checked against the same condition as a row read of them, so the count equals the
+		 * number of rows that read returns when it has no limit or offset. A limit or offset set on the builder is
+		 * never part of the count.
 		 *
 		 * @return The number of matching records.
 		 */
@@ -6034,12 +6797,15 @@ global inherited sharing class QRY_Builder
 			{
 				gen.whereCondition(effectiveCondition);
 			}
+			addDataCategoryFilters(gen);
 
 			QRY_Engine.QueryParameters params = new QRY_Engine.QueryParameters();
 			params.objectType = objectType;
+			params.whereCondition = effectiveCondition;
 			params.queryString = gen.toSoql(registry);
 			params.bindMap = registry.getMap();
 			params.userMode = isUserModeRead();
+			params.exactAccessLevel = exactAccessLevel;
 			params.enforceSharing = sharingEnforced;
 			params.suppressPerformanceLogging = suppressPerformanceLog;
 			params.forcePerformanceLogging = forcePerformanceLog;
@@ -6055,15 +6821,18 @@ global inherited sharing class QRY_Builder
 		 * the platform's row allowance the cursor cannot be opened. The failure is then a governor limit exception
 		 * thrown when the cursor is created, and nothing can catch it, so all three must be ready beforehand.
 		 *
-		 * The counts copy every clause that changes WHICH rows match: the same full condition, the same scope, and
-		 * ALL ROWS. Copying the condition keeps a query that matches few rows on its cursor. Copying ALL ROWS keeps the
-		 * count correct, because a count lower than the rows the page query matches would allow exactly the read that
-		 * fails. Clauses that only change the shape or order of the matched rows are left out, and so is any WITH DATA
-		 * CATEGORY filter. Counting too many only sends a read that would have worked to another way of reading the
-		 * page. That costs the cursor and the deleted-record count, but returns the same records.
+		 * Both counts copy every clause that changes WHICH rows match: the same full condition, the same scope, ALL
+		 * ROWS, and every WITH DATA CATEGORY filter. Clauses that only change the shape or order of the matched rows
+		 * are left out. The count with no limit is the total the caller gets in `totalRecords`, so it must count exactly
+		 * the rows the page query matches.
 		 *
-		 * A LIMIT set on the builder also limits the count that checks the row allowance (the guard count), so a query
-		 * that can never reach the platform limit is never sent another way because of rows it would not have read.
+		 * The limited count that checks the row allowance (the guard count) counts exactly the same rows. That is safe,
+		 * because the platform's row allowance applies to the rows the page query matches. Copying the condition and
+		 * the data category filters keeps a query that matches few rows on its cursor. Copying ALL ROWS keeps the guard
+		 * safe: a count lower than the rows the page query matches would allow exactly the read that fails.
+		 *
+		 * A LIMIT set on the builder also limits the guard count, so a query that can never reach the platform limit is
+		 * never sent another way because of rows it would not have read.
 		 * Such a LIMIT also stops the plain query from being built: a cursor applies that LIMIT across the whole
 		 * result, and a LIMIT on one page cannot do the same. So the plain query is not built, because it would give a
 		 * different answer.
@@ -6099,6 +6868,7 @@ global inherited sharing class QRY_Builder
 			{
 				counter.allRows();
 			}
+			addDataCategoryFilters(counter);
 
 			parameters.totalRecordCountQuery = renderFallbackQuery(counter, registry);
 
@@ -6153,13 +6923,15 @@ global inherited sharing class QRY_Builder
 		 * @return Page containing records and pagination metadata
 		 *
 		 * @throws IllegalArgumentException When the page number is below 1, or the page size is outside 1 to 2000
-		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
-		 * object of a query inside isIn(), notIn() or subselect().
+		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, the
+		 * object of a query inside isIn(), notIn() or subselect(), or a parent object on a selected path.
 		 * @throws UTIL_Exceptions.IllegalStateException When the transaction has used up its cursors (about fifty
 		 * paged reads in one transaction that could not use a pagination cursor), and the requested page also starts
 		 * past the 2,000-row offset a plain query can reach. Spread the paged reads across transactions, or narrow the query.
-		 * Also with bypassSharing() alone, under user mode, when the query is an aggregate query, or when it filters or sorts
-		 * on a field the running user cannot read. Add withSystemMode().
+		 * Also with bypassSharing() alone, under user mode, when the query is an aggregate query, when it filters or sorts
+		 * on a field the running user cannot read, when it selects a path or adds a child query through a lookup the
+		 * running user cannot read, or when it selects text the builder cannot check, such as a child query written as
+		 * text. Add withSystemMode().
 		 *
 		 * @since 1.0
 		 *
@@ -6208,12 +6980,16 @@ global inherited sharing class QRY_Builder
 		/**
 		 * @description Checks whether any records exist matching the query criteria.
 		 *
+		 * It counts the records as count() does, so with bypassSharing() alone it checks a child query added with
+		 * subselect() the way count() does: the lookup behind it is not checked, and a relationship name the parent
+		 * object does not have is not refused.
+		 *
 		 * @return Boolean true if at least one record exists
 		 *
 		 * @throws QueryException With bypassSharing() alone, under user mode, when the running user cannot read the object, or the
 		 * object of a query inside isIn(), notIn() or subselect().
 		 * @throws UTIL_Exceptions.IllegalStateException With bypassSharing() alone, under user mode, when the query is an
-		 * aggregate query, or when it filters on a field the running user cannot read. Add withSystemMode().
+		 * aggregate query, or when it filters or sorts on a field the running user cannot read. Add withSystemMode().
 		 *
 		 * @since 1.0
 		 *
