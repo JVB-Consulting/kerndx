@@ -1,68 +1,47 @@
 ---
 navOrder: 90
+searchTerms: {"suppressing-rules":["suppress a rule"]}
 ---
 
 # Fast Start - Code Scanning
 
 **Framework:** KernDX | **Total time:** ~20 minutes
 
-**What this is:** A set of ready-made code checks that flag risky patterns (inline SOQL, direct DML, leftover `System.debug()`, and others) right in your editor, before the code reaches a teammate's review. **Why it matters:** Catching these the moment you type them is faster and cheaper than catching them in review or production, and it keeps a whole team writing code the same way. **Who should follow this:** developers setting up their IDE, and tech leads or DevOps owners wiring the same checks into the build pipeline. **When to use it:** as soon as you start writing or maintaining code in a KernDX project. The generic PMD and ESLint rules SF Code Analyzer ships are still worth running; these KernDX rules add on top of them, enforcing the framework's own patterns that the generic rules can't know about.
+- **What this is:** A set of ready-made code checks that flag risky patterns (inline SOQL, direct DML, leftover `System.debug()`, and others) right in your editor, before the code reaches a teammate's review.
+- **Why it matters:** Catching these the moment you type them is faster and cheaper than catching them in review or production, and it keeps a whole team writing code the same way.
+- **Who should follow this:** developers setting up their IDE, and tech leads or DevOps owners wiring the same checks into the build pipeline.
+- **When to use it:** as soon as you start writing or maintaining code in a KernDX project. The generic PMD and ESLint rules SF Code Analyzer ships are still worth running; these KernDX rules add on top of them, enforcing the framework's own patterns that the generic rules can't know about.
+- **What you'll build:** a fully configured scanning setup that catches inline SOQL, direct DML, `System.debug()`, and
+  24 other framework violations, both inline in your IDE and in CI/CD.
+- **Success looks like:** You write a class with `System.debug()` and `[SELECT Id FROM Account]`, and your IDE
+  underlines both lines before you even save.
+- **In one line:** Drop `scanner/kerndx-pmd-ruleset.xml` into your Apex PMD settings and every risky pattern the
+  framework guards against lights up in your editor.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** a fully configured scanning setup that catches inline SOQL, direct DML, `System.debug()`, and 24 other framework violations, both inline in your IDE and in CI/CD.
+## Quick Navigation
 
-**Success looks like:** You write a class with `System.debug()` and `[SELECT Id FROM Account]`, and your IDE underlines both lines before you even save.
-
-**In one line:** Drop `scanner/kerndx-pmd-ruleset.xml` into your Apex PMD settings and every risky pattern the framework guards against lights up in your editor.
+| I need to...                                         | Go to...                                                                    |
+|------------------------------------------------------|-----------------------------------------------------------------------------|
+| Install the scanner and point it at the KernDX rules | [Run the scanner](#run-the-scanner)                                         |
+| Decide which rules to fix first                      | [Priority tiers](#priority-tiers)                                           |
+| Turn a rule off for a justified exception            | [Suppressing rules](#suppressing-rules)                                     |
+| Run the checks in a pipeline, or make them fail it   | [GitHub Actions example](#github-actions-example)                           |
+| Fix an error from a step                             | [Common Issues](#common-issues)                                             |
 
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 Nothing in this guide talks to your org: the scanner and the linter read the files in your project.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-    - [The sample violation class](#the-sample-violation-class)
-    - [Run the scanner](#run-the-scanner)
-3. [Tier 2: Set Up Your Project (~15 minutes)](#tier-2-set-up-your-project-15-minutes)
-    - [Step 1: IDE Setup (VS Code)](#step-1-ide-setup-vs-code)
-    - [Step 2: SF Code Analyzer v5](#step-2-sf-code-analyzer-v5)
-    - [Step 3: IntelliJ / Illuminated Cloud](#step-3-intellij--illuminated-cloud)
-    - [Step 4: ESLint for LWC](#step-4-eslint-for-lwc)
-4. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
-    - [Priority tiers](#priority-tiers)
-    - [PMD rule reference](#pmd-rule-reference)
-    - [ESLint rule reference](#eslint-rule-reference)
-    - [Suppressing rules](#suppressing-rules)
-    - [CI/CD integration](#cicd-integration)
-    - [GitHub Actions example](#github-actions-example)
-    - [Org-specific naming rules](#org-specific-naming-rules)
-    - [Clean up](#clean-up)
-5. [Common Issues](#common-issues)
-    - [Run the scanner](#run-the-scanner-1)
-    - [Step 1: IDE Setup (VS Code)](#step-1-ide-setup-vs-code-1)
-    - [Step 2: SF Code Analyzer v5](#step-2-sf-code-analyzer-v5-1)
-    - [Step 3: IntelliJ / Illuminated Cloud](#step-3-intellij--illuminated-cloud-1)
-    - [Step 4: ESLint for LWC](#step-4-eslint-for-lwc-1)
-6. [What You Now Know](#what-you-now-know)
-7. [Next Steps](#next-steps)
-
-</details>
 
 ---
 
@@ -112,10 +91,12 @@ You should see a line that starts `@salesforce/cli: Installing plugin code-analy
 the plugin's version.
 
 The scanner needs to know which rules to apply. SF Code Analyzer v5 reads custom rule sets from a config file, which
-points at the rule set that shipped in your KernDX pipeline bundle. The bundle unpacks it into the `scanner` folder
-inside `.kerndx-pipeline`; copy `kerndx-pmd-ruleset.xml` from there into a new `scanner` folder in your project's top
-folder, which is where the file below looks for it. If you ran the bundle's `kerndx init`, it already wrote a
-`code-analyzer.yml` that points at the bundle's copy, so keep that file and skip the next part.
+points at the rule set that shipped in your KernDX pipeline bundle.
+
+- The bundle unpacks it into the `scanner` folder inside `.kerndx-pipeline`. Copy `kerndx-pmd-ruleset.xml` from there
+  into a new `scanner` folder in your project's top folder, which is where the file below looks for it.
+- If you ran the bundle's `kerndx init`, it already wrote a `code-analyzer.yml` that points at the bundle's copy, so
+  keep that file and skip the next part.
 
 **2. In your editor**, create this file in your project's top folder:
 
@@ -143,7 +124,7 @@ line follows each; it is left out here because its path form differs by computer
 === 1. KernNoInlineSOQL
     severity: 2 (High)
     engine:   pmd
-    message:  Inline SOQL is not allowed. Use a selector (SEL_*) or QRY_Builder.
+    message:  Inline SOQL is not allowed. Read through a selector (SEL_*), or its query property for a custom query.
 
 === 2. KernNoSystemDebug
     severity: 3 (Moderate)
@@ -155,7 +136,10 @@ A `=== Summary` section follows, starting `Found 2 violation(s) across 1 file(s)
 configuration file, the scanner may first print a note that it found the file but did not apply it; this scan checks
 Apex only, so you can ignore that note here.
 
-The scanner found both violations and told you what to use instead: the inline `[SELECT ...]` should go through a selector class or [`QRY_Builder`](reference/apex/QRY_Builder.md), and `System.debug()` should go through [`LOG_Builder`](reference/apex/LOG_Builder.md). The severity word next to each violation comes straight from the rule's PMD priority number: Priority 1 shows as High (the number after `severity:` is Code Analyzer's own scale), Priority 3 as Moderate, Priority 5 as Low.
+The scanner found both violations and told you what to use instead: the inline `[SELECT ...]` should go through a selector class, or its `query` property for a custom query, and `System.debug()` should go through [`LOG_Builder`](reference/apex/LOG_Builder.md).
+
+The severity word next to each violation comes straight from the rule's PMD priority number: Priority 1 shows as High
+(the number after `severity:` is Code Analyzer's own scale), Priority 3 as Moderate, Priority 5 as Low.
 
 > **When to move to Tier 2:** When you want violations to appear inline in your IDE as you type, without running the CLI manually.
 
@@ -165,7 +149,7 @@ Something went wrong? See [Common Issues](#run-the-scanner-1).
 
 ## Tier 2: Set Up Your Project (~15 minutes)
 
-Running the scanner by hand proves it works, but you want the checks to be automatic: inline as you type, and again in your build pipeline. This tier wires that up. Set up whichever editor your team uses, then add the same rules to CI/CD.
+Running the scanner by hand proves it works, but you want the checks to be automatic: inline as you type, and again in your build pipeline. Set up whichever editor your team uses, then add the same rules to CI/CD.
 
 ### Step 1: IDE Setup (VS Code)
 
@@ -250,12 +234,15 @@ Something went wrong? See [Common Issues, Step 3](#step-3-intellij--illuminated-
 The same idea applies to your Lightning Web Components (LWC), checked by the ESLint plugin `eslint-plugin-kerndx`,
 which your KernDX pipeline bundle unpacks into `.kerndx-pipeline/scanner/eslint-plugin-kerndx`.
 
-Five of these rules catch problems in any project, so turn them on first in your project's ESLint configuration file:
-`kerndx/no-coverage-exempt-without-reason`, `kerndx/no-hardcoded-user-text` (at the `warn` level, so it flags without
-failing the run), `kerndx/no-jest-theatre`, `kerndx/no-mutating-shared-fixture`, and
-`kerndx/no-jest-mock-component-module` (also at the `warn` level, because your existing tests may use the pattern it
-reports; fix them, then raise it to `error` if you want). In a clone of the KernDX source
-repository they are **active by default**.
+Five of these rules catch problems in any project, so turn them on first in your project's ESLint configuration file.
+In a clone of the KernDX source repository they are **active by default**.
+
+- `kerndx/no-coverage-exempt-without-reason`
+- `kerndx/no-hardcoded-user-text`, at the `warn` level, so it flags without failing the run
+- `kerndx/no-jest-theatre`
+- `kerndx/no-mutating-shared-fixture`
+- `kerndx/no-jest-mock-component-module`, also at the `warn` level, because your existing tests may use the pattern it
+  reports; fix them, then raise it to `error` if you want
 
 Three more rules push you toward the KernDX component model: `kerndx/use-component-builder`, `kerndx/no-console-log`,
 and `kerndx/enforce-component-naming`. Turn them on when you're ready for that model, so they don't start flagging
@@ -302,7 +289,7 @@ Something went wrong? See [Common Issues, Step 4](#step-4-eslint-for-lwc-1).
 
 ## Tier 3: Production Patterns (~5-10 minutes)
 
-Turning on every rule at once in an existing codebase floods you with violations, which is discouraging and easy to ignore. This tier shows you how to adopt the rules in stages, what each one checks, how to silence a genuine exception, and how to run the whole thing in CI/CD.
+Turning on every rule at once in an existing codebase floods you with violations, which is discouraging and easy to ignore. So adopt the rules in stages, know what each one checks, silence only a genuine exception, and run the whole thing in CI/CD.
 
 ### Priority tiers
 
@@ -323,7 +310,7 @@ The 28 KernDX-authored PMD rules, every one of which can fire on your own code:
 | Rule                               | What It Blocks                                                                         | Use Instead                                                                                     | Priority |
 |------------------------------------|----------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------|----------|
 | `KernTriggerMustDelegate`          | Logic in trigger body, or no dispatcher call at all                                    | `new TRG_Dispatcher().run()`                                                                    | 1        |
-| `KernNoInlineSOQL`                 | `[SELECT ...]`, `Database.query()`                                                     | Selector or [`QRY_Builder`](reference/apex/QRY_Builder.md)                                      | 1        |
+| `KernNoInlineSOQL`                 | `[SELECT ...]`, `Database.query()`                                                     | A selector (`SEL_*`), or its `query` property                                                   | 1        |
 | `KernNoCoverageTheatre`            | Test methods with no assertions                                                        | Real `Assert.*` calls that exercise the behaviour                                               | 1        |
 | `KernCoverageExemptRequiresReason` | Every `@SuppressWarnings('PMD.KernNoCoverageTheatre')`, flagged for review             | A comment above it citing a specific platform limitation; a reviewer confirms it                | 1        |
 | `KernNoDirectDML`                  | `insert`/`update`/`delete`/`upsert`, `Database.*` DML                                  | [`DML_Builder`](reference/apex/DML_Builder.md)                                                  | 3        |

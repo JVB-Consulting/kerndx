@@ -89,19 +89,25 @@
         KERN-SOQL: KernNoInlineSOQL (Priority 1 — Blocker)
         No inline [SELECT ...] or Database.query() anywhere.
         Selectors use the inherited `query` property (QRY_Builder),
-        not inline SOQL. Framework infrastructure classes that need
-        raw SOQL use @SuppressWarnings('PMD.KernNoInlineSOQL').
+        not inline SOQL. Raw SOQL is only for a query the framework
+        cannot express, or code the framework does not reach, marked
+        with @SuppressWarnings('PMD.KernNoInlineSOQL').
         ================================================================ -->
    <rule name="KernNoInlineSOQL"
          language="apex"
-         message="Inline SOQL is not allowed. Use a selector (SEL_*) or QRY_Builder."
+         message="Inline SOQL is not allowed. Read through a selector (SEL_*), or its query property for a custom query."
          class="net.sourceforge.pmd.lang.rule.xpath.XPathRule">
       <description>
-         Inline SOQL queries ([SELECT ...]) and Database.query() calls are
-         not allowed. Selectors use the inherited `query` property which
-         returns a QRY_Builder. All other code should call selectors or
-         use QRY_Builder directly. Framework infrastructure that requires
-         raw SOQL uses @SuppressWarnings to opt out.
+         Inline SOQL queries ([SELECT ...]) and Database query methods such
+         as Database.query() are not allowed in any class, test classes
+         included. Every read goes through a selector (SEL_*). When no
+         selector method fits, use the selector's query property to build
+         a custom query. Plain SOQL is only for two cases: a query the
+         framework cannot express (raise it with the KernDX team so the
+         gap can be closed), or code the framework does not reach. Keep
+         that query in one place, mark it with
+         @SuppressWarnings('PMD.KernNoInlineSOQL'), and say in a comment
+         why it cannot use a selector.
       </description>
       <priority>1</priority>
       <properties>

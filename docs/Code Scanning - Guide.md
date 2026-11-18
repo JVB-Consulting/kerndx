@@ -1,21 +1,73 @@
 ---
 navOrder: 90
+navLabel: "Code Scanning (checking code before it ships)"
+movedAnchors: {"why-use-this-over-plain-salesforce": "/#code-scanning"}
 ---
 
 # Code Scanning - Guide
 
-**Framework:** KernDX
-**Package Type:** Managed Package
+**Who this page is for:** developers who set up the checks, fix what they flag and suppress false positives;
+architects who design quality gates, choose the priority tiers to enforce and plan a phased adoption; and DevOps
+engineers who add the checks to deployment pipelines.
+
+New to it? Try [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md) first. Deciding whether to use
+KernDX? See [Why KernDX](Strategic%20Guide%20-%20Overview.md).
+
+---
+
+## Copy this first
+
+```shell
+sf code-analyzer run --config-file code-analyzer.yml --target force-app/ --view detail
+npm run lint
+node scanner/validate-naming.js force-app
+```
+
+**What this does:** checks everything in `force-app` once, from your project folder, one checker per line: your Apex
+(PMD, through Salesforce Code Analyzer v5), your Lightning web component JavaScript (ESLint), and the names of your
+Flows and custom objects (a Node script). Each check lists what it found; none of them changes your code.
+
+**Read next:** [What each checker looks for](#what-each-checker-covers), [Set up a first scan](Fast%20Start%20-%20Code%20Scanning.md), [What each rule means](#pmd-rule-reference),
+[Turn off a check for one line](#suppression), [Run the checks in your pipeline](#cicd-integration).
+
+---
+
+## Quick Navigation
+
+| I need to...                                                      | Go to...                                                                             |
+|-------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| Understand a PMD violation and how to fix it                      | [PMD Rule Reference](#pmd-rule-reference)                                            |
+| See all 28 PMD rules and their priorities at a glance             | [PMD Rule Summary Table](#pmd-rule-summary-table)                                    |
+| Fix an ESLint error in my LWC                                     | [ESLint Rules (LWC)](#eslint-rules-lwc)                                              |
+| Check Flow and Custom Object names                                | [Naming Validator (Flows & Custom Objects)](#naming-validator-flows--custom-objects) |
+| Use my own org's naming convention                                | [Building Org-Specific Rules](#building-org-specific-rules)                          |
+| Keep passwords, tokens and keys out of the repository             | [Secret Scanning](#secret-scanning)                                                  |
+| Check source against the target org before a deployment           | [Deploy-Time Scanners](#deploy-time-scanners)                                        |
+| Suppress a rule for a valid reason                                | [Suppression](#suppression)                                                          |
+| Review the places where code turns a safety check off on purpose  | [KernSecurityBypassCallSite](#kernsecuritybypasscallsite)                            |
+| See violations in VS Code or IntelliJ as I type                   | [IDE Integration](#ide-integration)                                                  |
+| Add scanning to a CI/CD pipeline                                  | [CI/CD Integration](#cicd-integration)                                               |
+| Plan a phased rollout over an existing codebase                   | [Phased Adoption Strategy](#phased-adoption-strategy)                                |
+| Find out why my tool cannot load the rules                        | [PMD Version Compatibility](#pmd-version-compatibility)                              |
+| Understand how the three checkers fit together                    | [How does it work?](#how-does-it-work)                                               |
+| See why KernDX is worth using                                     | [Why KernDX](/)                                                                      |
+
+---
+
+## Quick start
+
+Pick where you want the checks to run:
+
+| You want to...                              | What to do                                                                                   |
+|---------------------------------------------|----------------------------------------------------------------------------------------------|
+| Get a first scan running                    | The short walkthrough in [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md) |
+| Check the whole project once                | The three commands under [Copy this first](#copy-this-first)                                 |
+| See violations in your editor as you type   | [IDE Integration](#ide-integration)                                                          |
+| Check every change before it reaches an org | [CI/CD Integration](#cicd-integration)                                                       |
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
-
-**Target Audience:**
-
-- **Developers** - Configuring scanners in IDE and CI/CD, understanding rule violations, suppressing false positives
-- **Architects** - Designing quality gates, selecting enforcement tiers, planning phased adoption
-- **DevOps** - Integrating scanners into deployment pipelines, configuring CI/CD tools
 
 ---
 
@@ -23,15 +75,15 @@ navOrder: 90
 
 A framework only helps if people actually use it. Nothing stops a developer from writing a plain `insert record;` or a raw `System.debug()` instead of the framework's safer equivalent, and on a busy team those shortcuts pile up until the framework's guarantees no longer hold.
 
-This guide describes the set of checkers (a "scanner") that watch your code and flag those shortcuts automatically, so they get caught and fixed instead of quietly accumulating. You catch a problem either in your editor as you type, or in your build pipeline before the code reaches a Salesforce org.
-
-Developers use this guide to understand and fix a flagged violation; architects use it to plan a phased rollout; DevOps uses it to wire the checks into a deployment pipeline. Turn to it whenever you set up code quality gates or hit a rule you want to understand.
+The checkers in this guide (together, "the scanner") watch your code and flag those shortcuts automatically, so they get caught and fixed instead of quietly piling up. You see a problem in your editor as you type, or in your build pipeline before the code reaches a Salesforce org.
 
 ---
 
 ## Mental model
 
-Think of the scanner as a spell-checker for your code, but one that knows your house style. A spell-checker underlines a misspelt word as you type and flags the rest in one pass before you publish. This works the same way: it underlines a framework shortcut in your editor as you write, and catches any that slip through in the build before the code reaches an org. It does not rewrite your code for you; it points at the line and tells you the safer phrasing to use instead.
+Think of the scanner as a spell-checker for your code, but one that knows your house style. A spell-checker underlines a misspelt word as you type and flags the rest in one pass before you publish.
+
+The scanner works the same way: it underlines a framework shortcut in your editor as you write, and catches any that slip through in the build before the code reaches an org. It does not rewrite your code for you; it points at the line and tells you the safer phrasing to use instead.
 
 ---
 
@@ -49,146 +101,24 @@ Think of the scanner as a spell-checker for your code, but one that knows your h
 - You only need generic code-quality checks (cyclomatic complexity, unused variables, and the like) with no KernDX framework involved. The standard PMD and ESLint rulesets that ship with Salesforce Code Analyzer cover those without these custom rules.
 - You want a tool that fixes violations for you. This reports and explains; it does not auto-rewrite. You make the change.
 
-## Quick start
-
-If you just want a first scan running, start with the short walkthrough in [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md). The three commands below run each checker once over `force-app`: the first checks your Apex (PMD, through Salesforce Code Analyzer v5), the second your LWC JavaScript (ESLint), and the third your Flow and Custom Object names (a Node script).
-
-```shell
-sf code-analyzer run --config-file code-analyzer.yml --target force-app/ --view detail
-npm run lint
-node scanner/validate-naming.js force-app
-```
-
-This guide is the full reference behind those commands: every rule, every way to suppress one, and every integration option.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Quick Navigation](#quick-navigation)
-2. [Why use this over plain Salesforce?](#why-use-this-over-plain-salesforce)
-3. [How does it work?](#how-does-it-work)
-    - [What each checker covers](#what-each-checker-covers)
-    - [The scanner files](#the-scanner-files)
-4. [PMD Rule Reference](#pmd-rule-reference)
-    - [Priority 1 Blockers](#priority-1-blockers)
-        - [KernTriggerMustDelegate](#kerntriggermustdelegate)
-        - [KernNoInlineSOQL](#kernnoinlinesoql)
-        - [KernNoCoverageTheatre](#kernnocoveragetheatre)
-        - [KernCoverageExemptRequiresReason](#kerncoverageexemptrequiresreason)
-    - [Priority 3 Should Fix](#priority-3-should-fix)
-        - [KernNoDirectDML](#kernnodirectdml)
-        - [KernNoSystemDebug](#kernnosystemdebug)
-        - [KernNoRawHttp](#kernnorawhttp)
-        - [KernUseSchedulerBase](#kernuseschedulerbase)
-        - [KernNoRawSchedule](#kernnorawschedule)
-        - [KernNoRawEventPublish](#kernnoraweventpublish)
-        - [KernNoRawHttpMock](#kernnorawhttpmock)
-        - [KernNoRawRestContext](#kernnorawrestcontext)
-        - [KernNoRawEmail](#kernnorawemail)
-        - [KernRestResourceNaming](#kernrestresourcenaming)
-        - [KernNoInlineDmlInTests](#kernnoinlinedmlintests)
-        - [KernInvocableClassNeedsNoArgConstructor](#kerninvocableclassneedsnoargconstructor)
-        - [KernJsonReadClassNeedsJsonAccess](#kernjsonreadclassneedsjsonaccess)
-    - [Priority 5 Informational](#priority-5-informational)
-        - [KernNoLegacyAssert](#kernnolegacyassert)
-        - [KernUseTestBuilder](#kernusetestbuilder)
-        - [KernNoRawCache](#kernnorawcache)
-        - [KernNoRawDescribe](#kernnorawdescribe)
-        - [KernNoRawTypeForName](#kernnorawtypeforname)
-        - [KernNoRawEnqueueJob](#kernnorawenqueuejob)
-        - [KernNoRawCrypto](#kernnorawcrypto)
-        - [KernLimitsThroughWrapper](#kernlimitsthroughwrapper)
-        - [KernNoRawFeatureManagement](#kernnorawfeaturemanagement)
-        - [KernNoBooleanExceptionThrown](#kernnobooleanexceptionthrown)
-        - [KernSecurityBypassCallSite](#kernsecuritybypasscallsite)
-    - [PMD Rule Summary Table](#pmd-rule-summary-table)
-5. [ESLint Rules (LWC)](#eslint-rules-lwc)
-    - [kerndx/use-component-builder](#kerndxuse-component-builder)
-    - [kerndx/no-console-log](#kerndxno-console-log)
-    - [kerndx/enforce-component-naming](#kerndxenforce-component-naming)
-    - [kerndx/no-coverage-exempt-without-reason](#kerndxno-coverage-exempt-without-reason)
-    - [kerndx/no-hardcoded-user-text](#kerndxno-hardcoded-user-text)
-    - [kerndx/no-jest-theatre](#kerndxno-jest-theatre)
-    - [kerndx/no-mutating-shared-fixture](#kerndxno-mutating-shared-fixture)
-    - [kerndx/no-jest-mock-component-module](#kerndxno-jest-mock-component-module)
-    - [ESLint Setup](#eslint-setup)
-6. [Naming Validator (Flows & Custom Objects)](#naming-validator-flows--custom-objects)
-    - [How do I configure it?](#how-do-i-configure-it)
-    - [Running the Validator](#running-the-validator)
-    - [How do I adapt it to my org?](#how-do-i-adapt-it-to-my-org)
-7. [Secret Scanning](#secret-scanning)
-8. [Deploy-Time Scanners](#deploy-time-scanners)
-    - [Access-Mode Scanner](#access-mode-scanner)
-    - [Flow-Reference Scanner](#flow-reference-scanner)
-    - [Umbrella Scan](#umbrella-scan)
-9. [Suppression](#suppression)
-    - [Apex (PMD)](#apex-pmd)
-    - [LWC (ESLint)](#lwc-eslint)
-    - [Flow/Object Naming](#flowobject-naming)
-10. [IDE Integration](#ide-integration)
-    - [VS Code](#vs-code)
-    - [IntelliJ / Illuminated Cloud](#intellij--illuminated-cloud)
-11. [CI/CD Integration](#cicd-integration)
-    - [Salesforce Code Analyzer v5 (Recommended)](#salesforce-code-analyzer-v5-recommended)
-    - [GitHub Actions](#github-actions)
-    - [Gearset](#gearset)
-    - [Copado](#copado)
-    - [AutoRABIT](#autorabit)
-    - [CodeScan](#codescan)
-    - [Legacy SF Scanner (v4)](#legacy-sf-scanner-v4)
-12. [Building Org-Specific Rules](#building-org-specific-rules)
-13. [Phased Adoption Strategy](#phased-adoption-strategy)
-    - [Phase 1: Blockers Only](#phase-1-blockers-only)
-    - [Phase 2: Framework Compliance](#phase-2-framework-compliance)
-    - [Phase 3: Best Practices](#phase-3-best-practices)
-    - [Tracking Progress](#tracking-progress)
-14. [PMD Version Compatibility](#pmd-version-compatibility)
-15. [Related Documentation](#related-documentation)
-
-</details>
-
----
-
-## Quick Navigation
-
-| I am a...     | I need to...                       | Go to...                                                                             |
-|---------------|------------------------------------|--------------------------------------------------------------------------------------|
-| **Developer** | Understand a PMD violation         | [PMD Rule Reference](#pmd-rule-reference)                                            |
-| **Developer** | Fix an ESLint error in my LWC      | [ESLint Rules (LWC)](#eslint-rules-lwc)                                              |
-| **Developer** | Suppress a rule for a valid reason | [Suppression](#suppression)                                                          |
-| **Developer** | Set up scanning in VS Code         | [IDE Integration](#ide-integration)                                                  |
-| **Architect** | Plan a phased rollout              | [Phased Adoption Strategy](#phased-adoption-strategy)                                |
-| **Architect** | Build org-specific naming rules    | [Building Org-Specific Rules](#building-org-specific-rules)                          |
-| **DevOps**    | Add scanning to a CI/CD pipeline   | [CI/CD Integration](#cicd-integration)                                               |
-| **DevOps**    | Validate Flow and Object naming    | [Naming Validator (Flows & Custom Objects)](#naming-validator-flows--custom-objects) |
-
----
-
-## Why use this over plain Salesforce?
-
-Salesforce will happily compile a plain `insert record;`. The compiler checks syntax, not whether you used the framework's safer pattern, and a normal code review cannot reliably catch every shortcut by hand on a busy team. What you get from this scanner:
-
-- **The gap never reaches production.** Take one example. A developer writes `insert record;` instead of `DML_Builder.newTransaction().doInsert(record).execute()`. The code compiles and works, so nothing looks wrong. But that one line quietly gives up four things the framework would have provided: an all-or-nothing transaction, the running user's own permissions and record sharing enforced, consistent error handling, and logging. The scanner flags that line the moment it is written.
-- **One consistent house style across the team.** Everyone is held to the same patterns automatically, so the framework's guarantees hold even as people come and go.
-- **Coverage of metadata the compiler ignores.** The checks reach Flows, Custom Objects, and LWC naming, not just Apex syntax.
-
-**The three checkers.** Salesforce code comes in different shapes, and no single tool can read all of them, so the scanner uses three complementary checkers, each matched to what it reads best. They live in the `scanner/` directory.
-
-1. **PMD rulesets** check your Apex code: framework compliance, test-quality gates, and optional org-specific naming.
-2. **ESLint plugin** checks your Lightning Web Component (LWC) JavaScript: the shared base class, blocking raw `console` output, naming, and Jest test-quality gates.
-3. **Naming validator** is a Node.js script that checks declarative metadata the first two tools cannot read (Flows and Custom Objects).
-
 ---
 
 ## How does it work?
 
 ### What each checker covers
 
-Each of the three checkers reads a different kind of file, using the tool best suited to that file type. The diagram below shows what each one covers and where it runs (in your editor and in the build pipeline).
+Salesforce code comes in different shapes, and no single tool can read all of them. So the scanner uses three
+checkers, each matched to the kind of file it reads best. They live in the `scanner/` directory:
+
+| Checker              | Reads                                         | Checks                                                                                       |
+|----------------------|-----------------------------------------------|----------------------------------------------------------------------------------------------|
+| **PMD rulesets**     | Your Apex code                                | Framework compliance, test-quality gates, and optional org-specific naming                   |
+| **ESLint plugin**    | Your Lightning Web Component (LWC) JavaScript | The shared base class, blocking raw `console` output, naming, and Jest test-quality gates    |
+| **Naming validator** | Flows and Custom Objects                      | Naming, with a Node.js script that reads the declarative metadata the first two tools cannot |
+
+The three run independently and do not overlap. PMD handles Apex, ESLint handles JavaScript, and the naming validator
+handles the XML and directory-based metadata neither of the others can read. Because none of them duplicates another's
+coverage, you run all three to check the whole project. Each one runs in your editor and in the build pipeline:
 
 ```text
 +----------------------------------+     +----------------------------------+     +----------------------------------+
@@ -207,16 +137,21 @@ Each of the three checkers reads a different kind of file, using the tool best s
           Copado, AutoRABIT, CodeScan)
 ```
 
-**How the layers fit together:** The three checkers run independently and do not overlap. PMD handles Apex, ESLint handles JavaScript, and the naming validator handles the XML and directory-based metadata neither of the others can read. Because none of them duplicates another's coverage, you run all three to check the whole project.
+**A fourth checker you may already have: ApexGuru.** Salesforce's ApexGuru scans the Apex in a production or Full
+Copy Sandbox org for performance anti-patterns (common risky mistakes) and, from Winter '27, for duplicated code.
 
-**A fourth checker you may already have: ApexGuru.** Salesforce's ApexGuru scans the Apex in a production or Full Copy Sandbox org for performance
-anti-patterns and, from Winter '27, for duplicated code. It comes at no extra cost with Unlimited Edition, Signature Success Plan and Scale Test, and it is not
-available in Government Cloud. It does not overlap with the three checkers above: ApexGuru judges how your code behaves in the org, the KernDX rules judge whether
-it follows the framework's conventions before it gets there, so run both when you have both. Salesforce Code Analyzer can run ApexGuru as an engine, but only as
-an opt-in: it is in neither the engine list `kerndx scan` runs by default nor Code Analyzer's own Recommended selection, and unless the org it points at is a
-production or Full Copy Sandbox with ApexGuru enabled it falls back to a static mode that reads only literal SOQL and DML, which the framework's query and DML
-builders do not produce. If you have an ApexGuru-enabled org, add `apex-guru` to `scanner.rule_selector` and set `engines.apexguru.target_org` to that org in
-your `code-analyzer.yml`; leave it off everywhere else.
+It does not overlap with the three checkers above, so run both when you have both. ApexGuru judges how your code
+behaves in the org; the KernDX rules judge whether it follows the framework's conventions before it gets there.
+
+- **Who has it:** it comes at no extra cost with Unlimited Edition, Signature Success Plan and Scale Test, and it is
+  not available in Government Cloud.
+- **In Code Analyzer it is opt-in only:** Salesforce Code Analyzer can run ApexGuru as an engine, but it is in neither
+  the engine list `kerndx scan` runs by default nor Code Analyzer's own Recommended selection.
+- **It needs the right org:** unless the org it points at is a production or Full Copy Sandbox with ApexGuru enabled,
+  it falls back to a static mode that reads only literal SOQL and DML, which the framework's query and DML builders do
+  not produce.
+- **To turn it on:** if you have an ApexGuru-enabled org, add `apex-guru` to `scanner.rule_selector` and set
+  `engines.apexguru.target_org` to that org in your `code-analyzer.yml`; leave it off everywhere else.
 
 ### The scanner files
 
@@ -233,7 +168,12 @@ your `code-analyzer.yml`; leave it off everywhere else.
 
 ## PMD Rule Reference
 
-This section is the lookup table for every Apex rule: what it flags, why, and what to write instead. All 28 PMD rules live in `scanner/kerndx-pmd-ruleset.xml`, and every one is KernDX-authored: under the hood each one is an XPath expression that scans the parsed form of your Apex (the abstract syntax tree, or AST) for a common risky mistake, targeting the PMD 7 engine. The rules are sorted into three priority tiers so you know which ones to fix first.
+Every Apex rule, with what it flags, why, and what to write instead. All 28 PMD rules live in
+`scanner/kerndx-pmd-ruleset.xml`, and every one is KernDX-authored. They are sorted into three priority tiers, so you
+know which ones to fix first.
+
+Under the hood, each rule is an XPath expression, targeting the PMD 7 engine, that scans the parsed form of your Apex
+(the abstract syntax tree, or AST) for a common risky mistake.
 
 > For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
 
@@ -249,12 +189,20 @@ A violation at this top priority means the code has stepped around the core of t
 
 #### KernTriggerMustDelegate
 
-**The goal:** keep your trigger files as thin as possible so all real logic lives in handler classes the framework can control. This rule enforces that: a trigger body must contain only `new TRG_Dispatcher().run()`. Put any other logic directly in the trigger file and it runs outside the framework, losing the configuration-driven run order, the master off-switches admins rely on, performance monitoring, and the ability to test the logic on its own. See the [trigger framework guide](Triggers%20-%20Guide.md) for the full picture.
+**The rule:** a trigger body must contain only `new TRG_Dispatcher().run()`, so all real logic lives in handler
+classes the framework can control. See the [trigger framework guide](Triggers%20-%20Guide.md) for the full picture.
 
-**What the rule detects:** Every statement you write directly in the trigger body other than the call to `run()`. That includes variable declarations, SOQL, DML, loops,
-conditionals, and calls to any other method. A loop or an `if` that wraps the `run()` call counts too: the wrapper itself is extra logic in the trigger.
-A trigger that never calls `run()` at all is reported as well, once, at the trigger itself. The usual case is a freshly generated trigger whose body is
-still empty: it runs none of the trigger actions configured for its object, and the deploy succeeds without a word.
+**Why:** logic put directly in the trigger file runs outside the framework. It loses the configuration-driven run
+order, the master off-switches admins rely on, performance monitoring, and the ability to test the logic on its own.
+
+**What the rule detects:**
+
+- Every statement you write directly in the trigger body other than the call to `run()`. That includes variable
+  declarations, SOQL, DML, loops, conditionals, and calls to any other method.
+- A loop or an `if` that wraps the `run()` call: the wrapper itself is extra logic in the trigger.
+- A trigger that never calls `run()` at all, reported once, at the trigger itself. The usual case is a freshly
+  generated trigger whose body is still empty: it runs none of the trigger actions configured for its object, and the
+  deploy succeeds without a word.
 
 ```apex
 // VIOLATION -- logic in trigger body
@@ -277,10 +225,17 @@ trigger TRG_Account on Account (before insert)
 
 #### KernNoInlineSOQL
 
-**The goal:** every query runs through one consistent layer so it enforces security, can be cached, and can be reused. This rule requires that: all queries go through a `SEL_*` selector class or [QRY_Builder](reference/apex/QRY_Builder.md). A query written inline (`[SELECT ...]`) or with `Database.query()` skips field-level security (FLS, which is permission checks on individual fields), skips caching, skips sharing control, and cannot be reused elsewhere.
+**The rule:** every read goes through a `SEL_*` selector class, which runs on [QRY_Builder](reference/apex/QRY_Builder.md),
+so every query runs through one consistent layer that enforces security, can be cached, and can be reused.
+
+**Why:** a query written inline (`[SELECT ...]`) or with `Database.query()` is invisible to the framework: it skips the
+query cache, the data masking layer and the record of bypasses, follows only the class's sharing keyword instead of the
+builder's sharing controls, and on an API version below 67 also skips object and field permissions (FLS, which is
+permission checks on individual fields). It cannot be reused elsewhere.
 
 **What the rule detects:** `SoqlExpression` nodes (inline `[SELECT ...]`) and calls to `Database.query()`, `Database.queryWithBinds()`, `Database.countQuery()`,
 `Database.countQueryWithBinds()`, `Database.getQueryLocator()`, `Database.getQueryLocatorWithBinds()`, `Database.getCursor()`, and `Database.getCursorWithBinds()`.
+It checks every Apex class and trigger in the scan, test classes and selector classes included. A call to a selector or to `QRY_Builder` is never flagged.
 
 ```apex
 // VIOLATION -- inline SOQL
@@ -291,13 +246,13 @@ Integer total = Database.countQuery('SELECT COUNT() FROM Account');
 // CORRECT -- selector
 List<Account> accounts = new SEL_Accounts().findByIndustry('Tech');
 
-// CORRECT -- QRY_Builder for one-off queries
-List<Account> accounts = QRY_Builder.selectFrom(Account.SObjectType)
+// CORRECT -- the selector's query property, when no selector method fits
+List<Account> accounts = new SEL_Accounts().query
    .fields(new List<SObjectField>{Account.Name, Account.Industry})
    .condition(Account.Industry).equals('Tech').toList();
 ```
 
-> **Note:** Framework infrastructure classes (selectors, query builders) that legitimately need raw SOQL use `@SuppressWarnings('PMD.KernNoInlineSOQL')` to opt out.
+> **Note:** Plain SOQL is only for two cases: a query the framework cannot express (raise it with the KernDX team so the gap can be closed), or code the framework does not reach. Keep that query in one place, mark it with `@SuppressWarnings('PMD.KernNoInlineSOQL')`, and say in a comment why it cannot use a selector.
 
 #### KernNoCoverageTheatre
 
@@ -358,7 +313,14 @@ private static void shouldSetDefaultIndustry()
 
 #### KernCoverageExemptRequiresReason
 
-Sometimes a test genuinely cannot check its result in a way `KernNoCoverageTheatre` recognises (for example, a platform restriction means the result cannot be read back), and you switch that rule off for the method with `@SuppressWarnings('PMD.KernNoCoverageTheatre')`. Because that silences a Priority 1 quality rule, this rule flags every such suppression so a reviewer looks at it. The scanner cannot read `//` comments, so it cannot judge your reason for you. The reviewer confirms two things. First, a comment just above the annotation explains why the exemption is legitimate, citing a specific platform limitation (not `tricky`, `hard to test`, `TODO`, `FIXME` or `hack`). Second, the suppression covers only the one method that needs it, not the whole class.
+**The rule:** every `@SuppressWarnings('PMD.KernNoCoverageTheatre')` is flagged, so a reviewer looks at it. You add
+that annotation when a test genuinely cannot check its result in a way `KernNoCoverageTheatre` recognises (for
+example, a platform restriction means the result cannot be read back).
+The scanner cannot read `//` comments, so it cannot judge your reason for you. The reviewer confirms two things:
+
+- A comment just above the annotation explains why the exemption is legitimate, citing a specific platform limitation
+  (not `tricky`, `hard to test`, `TODO`, `FIXME` or `hack`).
+- The suppression covers only the one method that needs it, not the whole class.
 
 ```apex
 // FLAGGED -- no explanation, so the reviewer rejects it
@@ -372,7 +334,8 @@ private static void shouldEmitEvent() { ... }
 private static void shouldEmitPlatformEvent() { ... }
 ```
 
-The matching ESLint rule `kerndx/no-coverage-exempt-without-reason` covers LWC code, where comments can be read. In LWC you mark a line that genuinely cannot be tested with a `// kern-coverage-exempt:` comment, which removes it from the coverage count. The ESLint rule blocks that comment when its reason is empty, shorter than 15 characters, or a hand-wavy phrase (`tricky`, `hard to test`, `TODO`, `FIXME`, `later`, `hack`, `XXX`), so it cannot be used to quietly dodge a test you simply didn't write.
+In LWC code, where comments can be read, the matching ESLint rule checks the reason itself: see
+[kerndx/no-coverage-exempt-without-reason](#kerndxno-coverage-exempt-without-reason).
 
 ### Priority 3 Should Fix
 
@@ -380,7 +343,7 @@ Each of these rules catches a place where you used a raw Salesforce API directly
 
 #### KernNoDirectDML
 
-**You want to:** save records safely. Writing records with a bare `insert`, `update`, `delete`, `upsert`, `undelete`, or `merge` statement (or the matching `Database.*` method) gives up the protections the framework adds. Route the change through [DML_Builder](reference/apex/DML_Builder.md) instead, and you get an all-or-nothing transaction, consistent error handling, and the running user's permissions enforced.
+**You want to:** save records safely. Writing records with a bare `insert`, `update`, `delete`, `upsert`, `undelete`, or `merge` statement (or the matching `Database.*` method) gives up the protections the framework adds. Route the change through [DML_Builder](reference/apex/DML_Builder.md) instead, and you get an all-or-nothing transaction, consistent error handling, and the running user's permissions and record sharing enforced.
 
 **Detected patterns:** `insert record`, `update records`, `delete record`, `upsert record`, `undelete record`, `merge master duplicate`, `Database.insert()`,
 `Database.update()`, `Database.delete()`, `Database.upsert()`, `Database.undelete()`, `Database.merge()`, `Database.convertLead()`, `Database.emptyRecycleBin()`,
@@ -400,7 +363,12 @@ DML_Builder.newTransaction()
 
 #### KernNoSystemDebug
 
-**You want to:** log something and still be able to find it later. `System.debug()` writes to a debug log that expires, so the moment you need it most (after a production failure) it is gone, and you cannot search or chart it. Use [LOG_Builder](reference/apex/LOG_Builder.md) instead: it saves each log as a real, queryable record (`LogEntry__c`, published through a platform event), so the evidence is still there next week.
+**You want to:** log something and still be able to find it later. Use [LOG_Builder](reference/apex/LOG_Builder.md):
+it saves each log as a real, queryable record (`LogEntry__c`, published through a platform event), so the evidence is
+still there next week.
+
+**Why:** `System.debug()` writes to a debug log that expires, so the moment you need it most (after a production
+failure) it is gone, and you cannot search or chart it.
 
 ```apex
 // VIOLATION
@@ -414,7 +382,15 @@ LOG_Builder.build().error('Failed to process').emitAt('MyClass.myMethod');
 
 #### KernNoRawHttp
 
-**You want to:** call an external system and have it cope with flaky networks. Building an `HttpRequest` or `Http` by hand gives you none of that. The framework wrapper adds retries, a circuit breaker (after repeated failures it stops calling a failing system for a cool-off, then resumes), logging, named-credential integration, and easy mocking for tests. Use the [UTIL_HttpClient](reference/apex/UTIL_HttpClient.md) static factory methods instead.
+**You want to:** call an external system and have it cope with flaky networks. Use the
+[UTIL_HttpClient](reference/apex/UTIL_HttpClient.md) static factory methods. Building an `HttpRequest` or `Http` by
+hand gives you none of what the wrapper adds:
+
+- retries;
+- a circuit breaker (after repeated failures it stops calling a failing system for a cool-off, then resumes);
+- logging;
+- named-credential integration;
+- easy mocking for tests.
 
 **Detected patterns:** `new HttpRequest()`, `new Http()`, `WebServiceCallout.invoke()`.
 
@@ -511,7 +487,13 @@ API_MockFactory.registerErrorMock(API_SendEmail.class.getName());
 
 #### KernNoRawRestContext
 
-**You want to:** handle an inbound API call with logging, error handling, and safe retries built in. Reading `RestContext.request` and `RestContext.response` directly skips all of that. Keep your `REST_*` class thin: it should only hand off to `API_Dispatcher.processInboundService()`. Your `API_Inbound` subclass then reads the request and writes the response through inherited properties, which automatically add logging, error handling, and idempotency (if the exact same request arrives twice, the first result is returned again rather than running the work a second time).
+**You want to:** handle an inbound API call with logging, error handling, and safe retries built in. Reading
+`RestContext.request` and `RestContext.response` directly skips all of that. Instead:
+
+- Keep your `REST_*` class thin: it should only hand off to `API_Dispatcher.processInboundService()`.
+- Your `API_Inbound` subclass then reads the request and writes the response through inherited properties. They
+  automatically add logging, error handling, and idempotency (if the exact same request arrives twice, the first
+  result is returned again rather than running the work a second time).
 
 ```apex
 // VIOLATION
@@ -586,7 +568,13 @@ global inherited sharing class REST_Accounts
 
 #### KernNoInlineDmlInTests
 
-**You want to:** create test records the framework way, so they pick up the right defaults and trigger settings. A raw `insert`, `update`, `delete`, `upsert`, `undelete`, or `merge` inside an `@IsTest` class skips the framework's test fixtures. Get your test records from `TST_Builder.of(SObjectType).build()`, which respects trigger-bypass configuration and default field providers. When the test is specifically about DML behaviour, use `DML_Builder` rather than a raw `insert`. This is the test-only version of `KernNoDirectDML`, and it fires only inside classes annotated `@IsTest`.
+**You want to:** create test records the framework way, so they pick up the right defaults and trigger settings. Get
+your test records from `TST_Builder.of(SObjectType).build()`, which respects trigger-bypass configuration and default
+field providers. When the test is specifically about DML behaviour, use `DML_Builder` rather than a raw `insert`.
+
+**Why:** a raw `insert`, `update`, `delete`, `upsert`, `undelete`, or `merge` statement, or the matching `Database.*`
+method, inside an `@IsTest` class skips the framework's test fixtures. This is the test-only version of `KernNoDirectDML`, and it fires only inside classes
+annotated `@IsTest`.
 
 ```apex
 // VIOLATION (inside @IsTest class)
@@ -603,7 +591,16 @@ DML_Builder.newTransaction().doInsert(record).execute();
 
 #### KernInvocableClassNeedsNoArgConstructor
 
-**You want to:** Flow actions that keep working at run time. When a class exposes `@InvocableVariable` fields (Flow or Process Builder inputs and outputs), the platform creates an instance of it through its no-arg constructor. Declaring only argument-bearing constructors removes the implicit no-arg constructor, and a private no-arg constructor is not visible to Flow, so either way the action fails the moment a Flow runs it. The compiler will not warn you; this rule does. A class that declares no constructor at all keeps the implicit no-arg constructor and is fine.
+**You want to:** Flow actions that keep working at run time. Give a class that exposes `@InvocableVariable` fields
+(Flow or Process Builder inputs and outputs) a public no-arg constructor, because the platform creates an instance of
+it through that constructor. The compiler will not warn you; this rule does.
+
+The action fails the moment a Flow runs it in either of these cases:
+
+- The class declares only argument-bearing constructors, which removes the implicit no-arg constructor.
+- Its no-arg constructor is private, so Flow cannot see it.
+
+A class that declares no constructor at all keeps the implicit no-arg constructor and is fine.
 
 ```apex
 // VIOLATION -- the only constructor takes arguments
@@ -635,7 +632,15 @@ public class Request
 
 #### KernJsonReadClassNeedsJsonAccess
 
-**You want to:** see your own data in the framework's messages and formulas, not blanks. The framework can read your DTOs (data transfer objects: small classes that carry fields and convert to and from JSON) and your formula evaluation contexts by turning them into JSON from inside its own namespace. Salesforce allows that only when your class says so with `@JsonAccess`. Without it, the conversion fails quietly: merge fields that read the class can come back blank, and nothing reports an error. This rule catches the missing annotation before it ships.
+**You want to:** see your own data in the framework's messages and formulas, not blanks. Mark the class with
+`@JsonAccess`; this rule catches the missing annotation before it ships.
+
+**Why:** the framework can read your DTOs (data transfer objects: small classes that carry fields and convert to and from
+JSON) and your formula evaluation contexts by turning them into JSON from inside its own namespace. Salesforce allows
+that only when your class says so with `@JsonAccess`.
+
+Without it, the conversion fails quietly: merge fields that read the class can come back blank, and nothing reports an
+error.
 
 It flags a class, inner classes included, that:
 
@@ -722,7 +727,14 @@ Map<String, SObjectField> fieldMap = describe.getFieldsMap();
 
 #### KernNoRawTypeForName
 
-**You want to:** look up an Apex class by name and have it work whether the framework runs as a managed package or in your own namespace. The built-in `Type.forName()` does not handle that namespace resolution, so it can fail to find the class. `UTIL_System.getTypeForClassName()` does the work for you: it tries your own namespace first, applies the package namespace prefix when needed, and lets you point it at custom resolvers via `ClassTypeResolver__mdt`.
+**You want to:** look up an Apex class by name and have it work whether the framework runs as a managed package or in
+your own namespace. Use `UTIL_System.getTypeForClassName()`. It:
+
+- tries your own namespace first;
+- applies the package namespace prefix when needed;
+- lets you point it at custom resolvers via `ClassTypeResolver__mdt`.
+
+The built-in `Type.forName()` does not handle that namespace resolution, so it can fail to find the class.
 
 ```apex
 // VIOLATION
@@ -764,11 +776,24 @@ String hash = UTIL_Crypto.generateSHA256Hash(input);
 Blob key = UTIL_Crypto.generateEncryptionKey();
 ```
 
-**Who this swap is for.** `UTIL_Crypto` is an in-namespace helper, so the rewrite above applies to code that compiles alongside the framework source: contributions to the framework itself, and orgs running the renamed source from [Path 2](Installation.md#path-2-repackage-under-your-own-namespace). If you installed the managed package instead, `UTIL_Crypto` belongs to the package, so the move for your own code is to funnel every `Crypto.*` call through a single reviewed crypto utility of your own rather than scattering them. Either way the rule is pointing at the same thing: one audited place where cryptography happens.
+**Who this swap is for.**
+
+- **Code that compiles alongside the framework source** (contributions to the framework itself, and orgs running the
+  renamed source from [Path 2](Installation.md#path-2-repackage-under-your-own-namespace)): use the rewrite above.
+  `UTIL_Crypto` is an in-namespace helper.
+- **If you installed the managed package:** `UTIL_Crypto` belongs to the package, so funnel every `Crypto.*` call in your own code
+  through a single reviewed crypto utility of your own rather than scattering them.
+
+Either way, the rule points at the same thing: one audited place where cryptography happens.
 
 #### KernLimitsThroughWrapper
 
-**You want to:** check how much of a governor limit your code has used, or how much is left, before doing more work. The built-in `Limits` class hands you raw numbers that you then have to compare yourself. `UTIL_Limits` gives you one object per limit with `used()`, `maximum()`, `remaining()`, `percentUsed()`, `isExhausted()` and `isNearLimit(threshold)`, and because every reading goes through that one class, it gives you one place to read and review every limit check.
+**You want to:** check how much of a governor limit your code has used, or how much is left, before doing more work.
+Use `UTIL_Limits`: it gives you one object per limit with `used()`, `maximum()`, `remaining()`, `percentUsed()`,
+`isExhausted()` and `isNearLimit(threshold)`.
+
+**Why:** the built-in `Limits` class hands you raw numbers that you then have to compare yourself. And because every
+reading goes through `UTIL_Limits`, you have one place to read and review every limit check.
 
 ```apex
 // VIOLATION
@@ -797,7 +822,13 @@ Boolean isEnabled = UTIL_FeatureFlag.isEnabled('MyFeature');
 
 #### KernNoBooleanExceptionThrown
 
-**You want to:** prove a test threw the *right* kind of exception, with less code. The old `Boolean exceptionThrown = false; try { ... } catch(...) { exceptionThrown = true; }` pattern is wordy and only checks that *some* exception was thrown, not which one. Instead, call `Assert.fail(...)` right after the line that should throw (so the test fails if it doesn't), then check the type with `Assert.isInstanceOfType(error, ExceptionClass.class, ...)` in the `catch` block.
+**You want to:** prove a test threw the *right* kind of exception, with less code:
+
+1. Call `Assert.fail(...)` right after the line that should throw, so the test fails if it doesn't.
+2. Check the type with `Assert.isInstanceOfType(error, ExceptionClass.class, ...)` in the `catch` block.
+
+**Why:** the old `Boolean exceptionThrown = false; try { ... } catch(...) { exceptionThrown = true; }` pattern is
+wordy and only checks that *some* exception was thrown, not which one.
 
 ```apex
 // VIOLATION
@@ -826,7 +857,16 @@ catch(Exception error)
 
 #### KernSecurityBypassCallSite
 
-Sometimes you have a legitimate reason to turn a safety check off on purpose. KernDX supports that with a small set of deliberate opt-outs: on `QRY_Builder` and `DML_Builder`, `withSystemMode()` (run with object and field permission checks skipped, instead of with the current user's permissions enforced; record sharing is unaffected and keeps following the calling class) and `bypassSharing()`; on `QRY_Builder` only, `withoutSecurity()`; on `UTIL_ValidationRule`, `bypassObject()`, `bypassGroup()`, and `bypassRule()`; and on `TRG_Base`, `bypassAction()`. Each is a valid, supported call. Each is also a spot where the framework's default protections are deliberately switched off, so a reviewer should be able to see every one of them.
+Sometimes you have a legitimate reason to turn a safety check off on purpose. KernDX supports that with a small set of deliberate opt-outs:
+
+- On `QRY_Builder` and `DML_Builder`: `withSystemMode()` (run with object and field permission checks skipped, instead
+  of with the current user's permissions enforced; record sharing is unaffected and keeps following the calling class)
+  and `bypassSharing()`.
+- On `QRY_Builder` only: `withoutSecurity()`.
+- On `UTIL_ValidationRule`: `bypassObject()`, `bypassGroup()`, and `bypassRule()`.
+- On `TRG_Base`: `bypassAction()`.
+
+Each is a valid, supported call. Each is also a spot where the framework's default protections are deliberately switched off, so a reviewer should be able to see every one of them.
 
 This rule is an **inventory, not a violation**. It flags each opt-out call site so that a pull request adding a *new* one shows up in review. To acknowledge an expected one, add `@SuppressWarnings('PMD.KernSecurityBypassCallSite')` or an inline `// NOPMD` comment with the reason. That suppression comment becomes the permanent, reviewable record that the opt-out was intended.
 
@@ -843,7 +883,7 @@ This rule is an **inventory, not a violation**. It flags each opt-out call site 
 | Rule                               | Detects                                                                                         | Use Instead                                                     | Priority |
 |------------------------------------|-------------------------------------------------------------------------------------------------|-----------------------------------------------------------------|----------|
 | `KernTriggerMustDelegate`          | Logic in trigger body, or no dispatcher call at all                                             | `new TRG_Dispatcher().run()`                                    | 1        |
-| `KernNoInlineSOQL`                 | `[SELECT ...]`, `Database.query()`                                                              | Selector or [QRY_Builder](reference/apex/QRY_Builder.md)        | 1        |
+| `KernNoInlineSOQL`                 | `[SELECT ...]`, `Database.query()`                                                              | A selector (`SEL_*`), or its `query` property                   | 1        |
 | `KernNoCoverageTheatre`            | Assertion-less tests, empty catches, `Boolean exceptionThrown`, tautological `Assert.isNotNull` | Assert on observable behaviour                                  | 1        |
 | `KernCoverageExemptRequiresReason` | Every `@SuppressWarnings('PMD.KernNoCoverageTheatre')`, flagged for review                      | A comment above it citing a specific platform limitation        | 1        |
 | `KernNoDirectDML`                  | `insert`/`update`/`delete`, `Database.*` DML                                                    | [DML_Builder](reference/apex/DML_Builder.md)                    | 3        |
@@ -1001,7 +1041,14 @@ Worth knowing before you turn the rule on: with no options at all it reports not
 
 ### kerndx/no-coverage-exempt-without-reason
 
-This is the JavaScript companion of the PMD `KernCoverageExemptRequiresReason` rule. Unlike PMD, ESLint can read comments, so it checks the reason itself. A `// kern-coverage-exempt:` comment removes a line from the coverage count, so the comment must say exactly why, citing a specific platform limitation. Empty, very short (under 15 characters), or hand-wavy reasons are blocked.
+**The rule:** in LWC you mark a line that genuinely cannot be tested with a `// kern-coverage-exempt:` comment, which
+removes it from the coverage count. So the comment must say exactly why, citing a specific platform limitation.
+
+Empty, very short (under 15 characters), or hand-wavy reasons are blocked, so the comment cannot be used to quietly
+dodge a test you simply didn't write.
+
+This is the JavaScript companion of the PMD `KernCoverageExemptRequiresReason` rule. Unlike PMD, ESLint can read
+comments, so it checks the reason itself.
 
 **What the rule detects:**
 
@@ -1025,7 +1072,12 @@ throw new Error('unreachable');
 
 ### kerndx/no-hardcoded-user-text
 
-**You want to:** keep every message a user sees translatable. Text that appears in the UI (toast titles and messages, error text, display strings bound into a template) must come from a Custom Label (`import myLabel from '@salesforce/label/c.MyLabel'`), never a hardcoded string literal: a hardcoded string cannot be translated or overridden in the org that installs your package. This rule ships at the `warn` level, so it flags violations without failing the lint run.
+**You want to:** keep every message a user sees translatable. Text that appears in the UI (toast titles and messages,
+error text, display strings bound into a template) must come from a Custom Label
+(`import myLabel from '@salesforce/label/c.MyLabel'`), never a hardcoded string literal.
+
+**Why:** a hardcoded string cannot be translated or overridden in the org that installs your package. This rule ships
+at the `warn` level, so it flags violations without failing the lint run.
 
 **What the rule detects:**
 
@@ -1090,9 +1142,14 @@ it('shows success toast on save', async () =>
 
 ### kerndx/no-mutating-shared-fixture
 
-**The problem this prevents:** a `describe(...)` block builds one shared DOM fixture in `beforeAll(...)` with `createElement(...)`, and then several `it(...)` tests change that same element (via `dispatchEvent`, `.click()`, a public-API setter, or `querySelector(...).click()`). Because they share one fixture, each test inherits whatever the previous test did to it, so the tests now depend on the order they run in. That hides regressions and makes a failure hard to reproduce.
-
 **The fix:** change `beforeAll` to `beforeEach` so every test gets a fresh fixture, or move the `createElement(...)` call inside the `it(...)` block that mutates it.
+
+**The problem this prevents:** a `describe(...)` block builds one shared DOM fixture in `beforeAll(...)` with
+`createElement(...)`, and then several `it(...)` tests change that same element (via `dispatchEvent`, `.click()`, a
+public-API setter, or `querySelector(...).click()`).
+
+Each test then inherits whatever the previous test did to it, so the tests depend on the order they run in. That hides
+regressions and makes a failure hard to reproduce.
 
 It applies only to files ending in `.test.js` or under `__tests__/`.
 
@@ -1136,15 +1193,28 @@ describe('c-my-component', () =>
 
 ### kerndx/no-jest-mock-component-module
 
-**The problem this prevents:** a test calls `jest.mock('c/<name>')` or `jest.mock('lightning/<name>')` to replace a component or a base module with a fake one. Only the sfdx-lwc-jest resolver (the part of the Salesforce Jest setup that finds `c/` and `lightning/` modules) knows where these modules live, and that makes the fake fragile. Jest runs several test files one after another in the same worker. Once an earlier file loads the real module, Jest finds it under a different name, and your mock no longer replaces it. Often nothing fails: the test keeps passing, but it now checks a fake that your component never calls. Sometimes it fails only when the test files run in a certain order. Adding `{virtual: true}` does not fix this.
-
 **The fix:** use one of these patterns, which keep working whatever order the test files run in:
 
 - Call `jest.spyOn(...)` on the real object your test imports.
 - Assert what the sfdx-lwc-jest stub received, for example the event it dispatched.
 - Add a `moduleNameMapper` entry to your Jest configuration that points the module at a mock file.
 
-**What the rule detects:** a `jest.mock(...)` call whose first argument starts with `c/` or `lightning/`, written as a string or as a template literal with no `${...}` parts. It reports the call with or without a factory function and with or without options. Relative paths (such as `'../spinner.html'`), npm packages and `@salesforce/...` modules mock normally, so the rule does not report them.
+**The problem this prevents:** a test calls `jest.mock('c/<name>')` or `jest.mock('lightning/<name>')` to replace a
+component or a base module with a fake one. Only the sfdx-lwc-jest resolver (the part of the Salesforce Jest setup
+that finds `c/` and `lightning/` modules) knows where these modules live, and that makes the fake fragile:
+
+- Jest runs several test files one after another in the same worker. Once an earlier file loads the real module, Jest
+  finds it under a different name, and your mock no longer replaces it.
+- Often nothing fails: the test keeps passing, but it now checks a fake that your component never calls. Sometimes it
+  fails only when the test files run in a certain order.
+- Adding `{virtual: true}` does not fix this.
+
+**What the rule detects:** a `jest.mock(...)` call whose first argument starts with `c/` or `lightning/`, written as a
+string or as a template literal with no `${...}` parts. It reports the call with or without a factory function and with
+or without options.
+
+Relative paths (such as `'../spinner.html'`), npm packages and `@salesforce/...` modules mock normally, so the rule
+does not report them.
 
 It applies only to files ending in `.test.js` or under `__tests__/`.
 
@@ -1175,7 +1245,8 @@ The ESLint configuration ships ready to go in `force-app/main/default/lwc/eslint
 npm run lint
 ```
 
-ESLint violations appear inline in VS Code when the ESLint extension is installed. No additional IDE configuration is required beyond having the extension active.
+ESLint violations appear inline in VS Code when the ESLint extension is installed. No additional IDE configuration is
+required beyond having the extension active; which rules the shipped config turns on is under [VS Code](#vs-code).
 
 ---
 
@@ -1234,7 +1305,13 @@ naming:
     custom_object: 40
 ```
 
-Two things to know about how the merge works. Each list you supply **replaces** the matching default outright rather than adding to it, so spell out every value you want, not just the new ones (an empty `brands: []` switches the brand segment off). Keys you leave out keep their defaults, and `length_limits` is the exception to the replace rule: it merges limit by limit, so you can override `flow` alone and leave the rest.
+How your settings combine with the defaults:
+
+- Each list you supply **replaces** the matching default outright rather than adding to it, so spell out every value
+  you want, not just the new ones. An empty `brands: []` switches the brand segment off.
+- Keys you leave out keep their defaults.
+- `length_limits` is the exception to the replace rule: it merges limit by limit, so you can override `flow` alone and
+  leave the rest.
 
 ---
 
@@ -1270,7 +1347,12 @@ PMD, ESLint, and the naming validator each look at source files on their own. Th
 
 ### Access-Mode Scanner
 
-**What it guards:** that every query and DML call states, out loud, whose permissions it runs under, so nothing silently runs with all security checks skipped by accident. `scripts/scan-access-modes.js` enforces this. Builders chained off `QRY_Builder.selectFrom()`, `DML_Builder.newTransaction()`, and `new DML_Transaction()` must call `.withUserMode()`, `.withSystemMode()`, or `.setAccessLevel()`. Raw `Database.query()`, `Database.queryWithBinds()`, `Database.getQueryLocator()`, `Database.countQuery()`, `Search.query()`, and `Search.find()` must pass an explicit `AccessLevel` argument.
+**What it guards:** that every query and DML call states, out loud, whose permissions it runs under, so nothing silently runs with all security checks skipped by accident. `scripts/scan-access-modes.js` enforces this:
+
+- Builders chained off `QRY_Builder.selectFrom()`, `DML_Builder.newTransaction()`, and `new DML_Transaction()` must call `.withUserMode()`, `.withSystemMode()`, or `.setAccessLevel()`.
+- Raw `Database.query()`, `Database.queryWithBinds()`, `Database.getQueryLocator()`, `Database.countQuery()`, `Search.query()`, and `Search.find()` must pass an explicit `AccessLevel` argument.
+
+This check does not make a raw query acceptable: `KernNoInlineSOQL` still flags it, so a read goes through a selector.
 
 ```shell
 npm run scan:access-modes
@@ -1358,7 +1440,7 @@ public inherited sharing class MyService
    @SuppressWarnings('PMD.KernNoInlineSOQL')
    private List<Account> legacyQuery()
    {
-      // Temporary: migrating to selector in JIRA-1234
+      // Why: the query the framework cannot express yet, raised with the KernDX team
       return [SELECT Id, Name FROM Account WHERE Legacy__c = true];
    }
 }
@@ -1438,7 +1520,14 @@ If you also use org-specific naming rules:
 
 Violations now appear inline as squiggly underlines while you type. Hover over one to see the rule name and message. The Apex PMD extension supports more than one ruleset out of the box.
 
-**ESLint (LWC):** Install the **ESLint** extension. Because the configuration already lives in `eslint.config.mjs`, violations from the five rules the shipped config activates (`kerndx/no-coverage-exempt-without-reason`, `kerndx/no-hardcoded-user-text`, `kerndx/no-jest-theatre`, `kerndx/no-mutating-shared-fixture`, and `kerndx/no-jest-mock-component-module`) appear inline automatically, with nothing else to set up. The three `ComponentBuilder`-model rules (`kerndx/use-component-builder`, `kerndx/no-console-log`, `kerndx/enforce-component-naming`) join them once you uncomment their block in that config, with one caveat: `kerndx/enforce-component-naming` reports nothing until you also give it a `domains` option.
+**ESLint (LWC):** Install the **ESLint** extension. The configuration already lives in `eslint.config.mjs`, so:
+
+- Violations from the five rules the shipped config activates appear inline automatically, with nothing else to set
+  up: `kerndx/no-coverage-exempt-without-reason`, `kerndx/no-hardcoded-user-text`, `kerndx/no-jest-theatre`,
+  `kerndx/no-mutating-shared-fixture`, and `kerndx/no-jest-mock-component-module`.
+- The three `ComponentBuilder`-model rules (`kerndx/use-component-builder`, `kerndx/no-console-log`,
+  `kerndx/enforce-component-naming`) join them once you uncomment their block in that config, with one caveat:
+  `kerndx/enforce-component-naming` reports nothing until you also give it a `domains` option.
 
 ### IntelliJ / Illuminated Cloud
 
@@ -1456,7 +1545,7 @@ The combined file uses PMD `<rule ref="..."/>` elements to pull in both `kerndx-
 
 ## CI/CD Integration
 
-Your editor catches violations as you type, but the build pipeline is the safety net that catches what slips through, before code reaches an org. The rulesets are standard PMD XML, so most Salesforce CI tools accept them. The sections below give the exact setup for the common ones, starting with the recommended Salesforce-native option.
+Your editor catches violations as you type, but the build pipeline is the safety net that catches what slips through, before code reaches an org. The rulesets are standard PMD XML, so most Salesforce CI tools accept them. Here is the exact setup for the common ones, starting with the recommended Salesforce-native option.
 
 ### Salesforce Code Analyzer v5 (Recommended)
 
@@ -1471,7 +1560,14 @@ engines:
       - scanner/kerndx-pmd-ruleset.xml
 ```
 
-**Run commands:** the first runs a full scan with every configured rule, the second runs only the KernDX framework rules (chosen by ruleset name), and the third scans one file or folder. Each names the configuration file with `--config-file`, because Code Analyzer otherwise looks for it only in the folder you run it from, and without it the KernDX rules do not load.
+The three commands below, line by line:
+
+1. A full scan with every configured rule.
+2. Only the KernDX framework rules (chosen by ruleset name).
+3. One file or folder.
+
+Each names the configuration file with `--config-file`, because Code Analyzer otherwise looks for it only in the folder
+you run it from, and without it the KernDX rules do not load.
 
 ```shell
 sf code-analyzer run --config-file code-analyzer.yml --target force-app/ --view detail
@@ -1560,7 +1656,7 @@ sf code-analyzer run --config-file code-analyzer.yml --rule-selector pmd:KernDXF
 
 ## Building Org-Specific Rules
 
-The framework rules are fixed, but your org's naming convention is your own, so the scanner lets you add naming rules of your own. The shipped `subscriber-naming-pmd-ruleset.xml` is a worked example you copy and adapt. Here is the process.
+The framework rules are fixed, but your org's naming convention is your own, so the scanner lets you add naming rules of your own. The shipped `subscriber-naming-pmd-ruleset.xml` is a worked example you copy and adapt, in five steps.
 
 **1. Copy the template**
 
@@ -1637,7 +1733,7 @@ Turn on the Priority 1 rules first: `KernTriggerMustDelegate`, `KernNoInlineSOQL
 - Configure your IDE and CI with `kerndx-pmd-ruleset.xml`.
 - Suppress the P3 and P5 rules for now, or accept them as warnings rather than blockers.
 - Refactor existing triggers to use `TRG_Dispatcher`.
-- Move inline SOQL into selectors or `QRY_Builder`.
+- Move inline SOQL into selectors.
 - Add real assertions to any test flagged as coverage-theatre. Replace empty catches and `Boolean exceptionThrown` patterns with `Assert.fail` plus `Assert.isInstanceOfType`.
 - Review every `@SuppressWarnings('PMD.KernNoCoverageTheatre')` (Apex) and every `// kern-coverage-exempt:` comment (LWC), and rewrite any hand-wavy reason to cite a specific platform limitation.
 
@@ -1645,7 +1741,7 @@ Turn on the Priority 1 rules first: `KernTriggerMustDelegate`, `KernNoInlineSOQL
 
 ### Phase 2: Framework Compliance
 
-Once the blockers are clear, add the Priority 3 rules and start moving raw platform API calls over to their framework wrappers. The table below maps each common raw call to its replacement and the guide that explains it.
+Once the blockers are clear, add the Priority 3 rules and start moving raw platform API calls over to their framework wrappers. Each common raw call, its replacement, and the guide that explains it:
 
 **Migration checklist:**
 
@@ -1683,7 +1779,12 @@ Record the violation count per priority tier in a spreadsheet or dashboard. A re
 
 ## PMD Version Compatibility
 
-The KernDX PMD rulesets run on the **PMD Apex module 7.19.0 or newer**. Every rule is a KernDX-authored XPath rule and the rulesets reference no standard PMD categories, so they load on the PMD that Salesforce Code Analyzer bundles, with no version juggling on your side. The pipeline still checks for you: `kerndx doctor` and `kerndx scan` read the installed PMD Apex module and warn when it sits below the floor.
+The KernDX PMD rulesets run on the **PMD Apex module 7.19.0 or newer**. Every rule is a KernDX-authored XPath rule
+and the rulesets reference no standard PMD categories, so they load on the PMD that Salesforce Code Analyzer bundles,
+with no version juggling on your side.
+
+The pipeline still checks for you: `kerndx doctor` and `kerndx scan` read the installed PMD Apex module and warn when
+it sits below the floor.
 
 The KernDX-authored rules use PMD 7's XPath rule class:
 
@@ -1691,7 +1792,12 @@ The KernDX-authored rules use PMD 7's XPath rule class:
 net.sourceforge.pmd.lang.rule.xpath.XPathRule
 ```
 
-**PMD 6 is not supported.** The rules are written for the PMD 7 XPath rule class, and swapping each `<rule>` element's `class` attribute to the PMD 6 form (`net.sourceforge.pmd.lang.apex.rule.ApexXPathRule`) is not enough on its own, because the XPath the rules use targets the PMD 7 Apex node model. If your CI/CD tool pins PMD 6, or a PMD 7 whose Apex module is older than 7.19.0 (for example, legacy `sfdx-scanner` v4), upgrade to a tool that ships a current PMD 7, such as Salesforce Code Analyzer v5.
+**PMD 6 is not supported.** If your CI/CD tool pins PMD 6, or a PMD 7 whose Apex module is older than 7.19.0 (for
+example, legacy `sfdx-scanner` v4), upgrade to a tool that ships a current PMD 7, such as Salesforce Code Analyzer v5.
+
+The rules are written for the PMD 7 XPath rule class. Swapping each `<rule>` element's `class` attribute to the PMD 6
+form (`net.sourceforge.pmd.lang.apex.rule.ApexXPathRule`) is not enough on its own, because the XPath the rules use
+targets the PMD 7 Apex node model.
 
 <details>
 <summary>PMD version per CI/CD tool, and whether the ruleset works as-is</summary>
