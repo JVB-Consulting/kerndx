@@ -5,8 +5,10 @@
  * validation-rule bypass lasts until it is cleared. A query or DML bypass (sharing or a security mode) applies only
  * to the one builder that sets it. The parts of the framework that offer a bypass are called surfaces: trigger, query, DML and
  * validation. Every audit entry is a `LogEntryEvent__e` with the same shape, so an admin can answer "who bypassed
- * which framework check, when, and why?" by querying `SEL_LogEntry` for entries whose context has
- * `category = 'BypassEvent'`.
+ * which framework check, when, and why?". Each entry is saved as a `LogEntry__c` row. To find the rows, filter on
+ * `Fingerprint__c`: a row whose fingerprint starts with `detail:bypass:` is the first entry for one bypass, and a row
+ * whose fingerprint starts with `rollup:bypass:` counts how often that bypass happened on one day. The context of each
+ * entry also holds `category = 'BypassEvent'`, but the context is a long text field, and a query cannot filter on it.
  *
  * Audit entries record:
  * - `category`: always `BypassEvent`
@@ -31,7 +33,7 @@
  *
  * @group Security
  *
- * @date May 2026, October 2026
+ * @date May 2026, November 2026
  *
  * @since 1.0
  *
@@ -97,10 +99,10 @@ public inherited sharing class UTIL_BypassAudit
 	/**
 	 * @description Context key recording the operation verbs (`query`, `insert`, `update`,
 	 * `upsert`, `delete`, `undelete`; joined with commas when one builder ran several) performed
-	 * under the bypass for the entry's object.
+	 * under the bypass for the entry's object. Public because `PROC_ExecuteDML`, in another class, records the
+	 * operation of a processor built in system mode.
 	 */
-	@TestVisible
-	private static final String CONTEXT_OPERATION = 'operation';
+	public static final String CONTEXT_OPERATION = 'operation';
 
 	/**
 	 * @description Context key recording how many rows were submitted for the entry's object under the bypass. The
@@ -193,10 +195,11 @@ public inherited sharing class UTIL_BypassAudit
 	/**
 	 * @description Mode part of the audit target recorded when a builder opts out of
 	 * `USER_MODE` enforcement. When the builder runs, the touched object is added to it
-	 * (`system-mode:Account`). It stands alone only in the older fallback shape, used when the
-	 * builder recorded no operation.
+	 * (`system-mode:Account`). It stands alone in the older fallback shape, used when the
+	 * builder recorded no operation, and in the entry `PROC_ExecuteDML` writes when it is built in
+	 * system mode, before it has any records. Public because `PROC_ExecuteDML` is another class.
 	 */
-	private static final String TARGET_SYSTEM_MODE = 'system-mode';
+	public static final String TARGET_SYSTEM_MODE = 'system-mode';
 
 	/**
 	 * @description Mode part of the audit target recorded when a builder resets every
@@ -237,8 +240,14 @@ public inherited sharing class UTIL_BypassAudit
 
 	/**
 	 * @description Caller recorded when no stack frame outside the framework can be found for an
-	 * audit entry. It names this class's own emit method, which is what `ClassMethod__c` held
-	 * before the real caller was looked up, and stays as the fallback.
+	 * audit entry. That happens when every frame on the stack is skipped.
+	 *
+	 * Without a namespace, only `UTIL_System` itself and the classes in the skip list below are skipped, so the fallback is rare there.
+	 * In an org where the package has its namespace, every frame that carries the namespace is also skipped, both in its plain form
+	 * and in its masked `(namespace)` form. So in that org a bypass that package code turns on with no other code on the stack
+	 * records this fallback, and so do the package's own tests.
+	 *
+	 * It names this class's own emit method, which is what `ClassMethod__c` held before the real caller was looked up.
 	 */
 	private static final String DEFAULT_CALLER = UTIL_BypassAudit.class.getName() + '.emit';
 
@@ -248,10 +257,12 @@ public inherited sharing class UTIL_BypassAudit
 	 * subscriber code that used a surface, not the framework surface itself. This matters in an
 	 * unmanaged org, where frames do not carry a namespace. In a managed install the namespace check
 	 * already skips these frames. Built from `class.getName()`, so a renamed class stays correct.
-	 * Direct-`emit` callers (`UTIL_ValidationRule`, `TRG_Base`) and the builders whose `AuditQueue`
-	 * flush emits (`DML_Builder`, `QRY_Builder`) are listed; framework code that itself calls those
-	 * builders (e.g. `UTIL_Sharing`) resolves to that intermediary in an unmanaged org, and to the
-	 * true subscriber in a managed/namespaced install.
+	 * Direct-`emit` callers (`UTIL_ValidationRule`, `TRG_Base`, `PROC_ExecuteDML`) and the classes whose
+	 * `AuditQueue` flush emits (`DML_Builder`, `QRY_Builder`, `DML_Transaction`) are listed. `API_Base`
+	 * is listed too: its `commitWork` override calls the one in `DML_Transaction`, so the caller is the
+	 * service class that extends it. Framework code that itself calls those builders (e.g. `UTIL_Sharing`)
+	 * resolves to that intermediary in an unmanaged org, and to the true subscriber in a
+	 * managed/namespaced install.
 	 */
 	private static final Set<String> BYPASS_AUDIT_FRAMEWORK_CLASSES = new Set<String>
 	{
@@ -259,7 +270,10 @@ public inherited sharing class UTIL_BypassAudit
 			UTIL_ValidationRule.class.getName(),
 			TRG_Base.class.getName(),
 			DML_Builder.class.getName(),
-			QRY_Builder.class.getName()
+			QRY_Builder.class.getName(),
+			DML_Transaction.class.getName(),
+			API_Base.class.getName(),
+			PROC_ExecuteDML.class.getName()
 	};
 
 	/**
@@ -310,7 +324,8 @@ public inherited sharing class UTIL_BypassAudit
 	/**
 	 * @description Emits a structured `LogEntryEvent__e` for a bypass state change. Every
 	 * bypass call that changes state, anywhere in the framework, should call this helper, so admins
-	 * can filter `SEL_LogEntry` by context `category = 'BypassEvent'` to review what happened.
+	 * can review what happened. To find the saved entries, filter `LogEntry__c` on a `Fingerprint__c`
+	 * that starts with `detail:bypass:` (see the class description).
 	 *
 	 * Returns without writing anything when the `BypassAudit_Enabled` `FeatureFlag__mdt` record
 	 * is off. A subscriber can switch it off in a noisy environment with a `FeatureFlagStrategy__mdt`

@@ -12,7 +12,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -739,7 +739,7 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	@SuppressWarnings('ApexUnusedDeclaration,RedundantSuppression')
 	public API_Base()
 	{
-		setAccessLevel(System.AccessLevel.SYSTEM_MODE);
+		setAccessLevelInternal(System.AccessLevel.SYSTEM_MODE);
 		setRetryOnLock(COMMIT_RETRIES_ON_LOCK);
 		configure();
 	}
@@ -1230,6 +1230,10 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	 * saved, when the call failed and its setting has Log Issues on. The HTTP client also runs it when a handler it
 	 * passed a call to throws.
 	 *
+	 * This save is the framework's own, so it writes no entry to the bypass audit (the log of who switched off a
+	 * framework check). When an override saves records in system mode with withSystemMode(), the bypass audit records
+	 * that save, as it records any other save your code makes in system mode.
+	 *
 	 * @example
 	 * ```apex
 	 * protected override void logApiIssues()
@@ -1239,13 +1243,12 @@ global abstract inherited sharing class API_Base extends DML_Transaction
 	 * }
 	 * ```
 	 */
-	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
 	protected virtual void logApiIssues()
 	{
 		ApiIssue__c apiIssue = createFailureRecord();
 		if(apiIssue != null)
 		{
-			DML_Builder.newTransaction().withSystemMode().doInsert(apiIssue).allowPartial().execute();
+			DML_Builder.newTransaction().systemModeInternal().doInsert(apiIssue).allowPartial().execute();
 		}
 	}
 

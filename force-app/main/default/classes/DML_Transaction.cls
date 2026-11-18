@@ -41,7 +41,7 @@
  *
  * @group DML
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -205,6 +205,20 @@ global virtual inherited sharing class DML_Transaction
 	private AccessLevel accessLevel;
 
 	/**
+	 * @description True when the caller chose system mode through the `global` `setAccessLevel`. A commit then writes a
+	 * bypass audit entry, as long as the level is still system mode. `setAccessLevelInternal` sets it to false, because
+	 * the framework's own saves in system mode are not bypasses a person chose.
+	 */
+	private Boolean isSystemModeChosenByCaller = false;
+
+	/**
+	 * @description True while the current call of `commitWork` still has its bypass audit entries to write. The call
+	 * sets it, and the first attempt that reaches the save sets it back to false when it writes them. So an attempt
+	 * that runs again after a row lock writes no second entry.
+	 */
+	private Boolean isBypassAuditPending = false;
+
+	/**
 	 * @description How many times a save refused for a row lock is tried again. Zero, the default, means the
 	 * save runs once.
 	 */
@@ -230,6 +244,12 @@ global virtual inherited sharing class DML_Transaction
 	 * @description What stopped the retries when they stopped: RETRY_STOPPED_BY_COUNT or RETRY_STOPPED_BY_HEADROOM.
 	 */
 	private String retryStoppedBy;
+
+	/**
+	 * @description The exception a partial save caught instead of throwing it, or null when it caught none; reset at the
+	 * start of every commit.
+	 */
+	private Exception partialCommitFailure;
 
 	/**
 	 * @description The DML statements the save still has to run. A partial-mode retry round keeps this many
@@ -762,6 +782,13 @@ global virtual inherited sharing class DML_Transaction
 	 * that take an access level. When it is null, the proxy uses the default that the `UserModeDml_Enabled`
 	 * flag sets.
 	 *
+	 * System mode skips the running user's object and field permission checks, so it is recorded in the bypass audit.
+	 * When you set `AccessLevel.SYSTEM_MODE` here and the level is still system mode when you call `commitWork`, each
+	 * commit that saves records writes one audit entry for each object it saves. The entry's target is `system-mode:`
+	 * followed by the object's API name, such as `system-mode:Account`. It also names the object, the operations
+	 * (`insert`, `update` and so on), the number of rows and the class and method that called `commitWork`. If you set
+	 * another level before the commit, or the commit saves nothing, no entry is written.
+	 *
 	 * @param accessLevel The `AccessLevel` to apply; null to use the default that the flag sets.
 	 *
 	 * @since 1.0
@@ -777,6 +804,20 @@ global virtual inherited sharing class DML_Transaction
 	global void setAccessLevel(AccessLevel accessLevel)
 	{
 		this.accessLevel = accessLevel;
+		isSystemModeChosenByCaller = DML_SharingProxy.matchesAccessLevel(accessLevel, System.AccessLevel.SYSTEM_MODE);
+	}
+
+	/**
+	 * @description Sets the access level as `setAccessLevel` does, but a later commit writes no `system-mode` entry in the
+	 * bypass audit. Only the framework calls this, for its own saves, which are not bypasses a person chose. Code
+	 * outside the framework uses `setAccessLevel`, so its choice of system mode is recorded.
+	 *
+	 * @param accessLevel The `AccessLevel` to apply; null to use the default that the flag sets.
+	 */
+	public void setAccessLevelInternal(AccessLevel accessLevel)
+	{
+		this.accessLevel = accessLevel;
+		isSystemModeChosenByCaller = false;
 	}
 
 	/**
@@ -813,12 +854,21 @@ global virtual inherited sharing class DML_Transaction
 	 * user cannot read or edit, and a save that would leave out the field that links a record to its parent are
 	 * refused as user mode refuses them. A record that names its parent only by an external Id the user cannot read is
 	 * refused by Salesforce, with a message that does not name the field. These checks use only the running user's own
-	 * permissions. When user mode is set with a permission set, through
-	 * `setAccessLevel(AccessLevel.USER_MODE.withPermissionSetId(permissionSetId))`, a field that only the permission
-	 * set lets the user edit is still left out. A refused save is sent with that access level, so the platform takes
-	 * the permission set into account when it decides. That save runs in user mode, so it also applies record
-	 * sharing. In system mode, set through `setAccessLevel(AccessLevel.SYSTEM_MODE)` or by turning the flag off, false
-	 * waives those permission checks too.
+	 * permissions. When you set user mode with a permission set, through
+	 * `setAccessLevel(AccessLevel.USER_MODE.withPermissionSetId(permissionSetId))`, these checks do not run. The save
+	 * goes to Salesforce as it is, in user mode with that permission set. Salesforce applies the running user's object
+	 * and field permissions plus those of the permission set. It also applies record sharing. So false does not ignore
+	 * record sharing for such a save. A save that must ignore record sharing cannot use a permission set. Set
+	 * `AccessLevel.USER_MODE` and give the user the permissions, or set system mode. In system mode, set through
+	 * `setAccessLevel(AccessLevel.SYSTEM_MODE)` or by turning the flag off, false waives those permission checks too.
+	 *
+	 * A commit that ignores record sharing or that runs in the system mode you chose is recorded in the bypass audit.
+	 * When enforceSharing is false, each commit that saves records writes one entry for each object it saves, with the
+	 * target `sharing:` followed by the object's API name, such as `sharing:Account`. When you set
+	 * `AccessLevel.SYSTEM_MODE` through `setAccessLevel` and the level is still system mode, each such commit also writes
+	 * a `system-mode:` entry for each object. Each entry names the object, the operations, the number of rows and the
+	 * class and method that called `commitWork`. The entries are written once for each call, before the first statement,
+	 * even when the save is retried after a row lock. A commit that saves nothing writes none.
 	 *
 	 * @param enforceSharing True enforces the running user's record sharing, null uses the calling class's sharing, and
 	 * false ignores record sharing.
@@ -841,10 +891,72 @@ global virtual inherited sharing class DML_Transaction
 	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
 	global virtual void commitWork(Boolean enforceSharing)
 	{
+		commitWithRetries(enforceSharing, true);
+	}
+
+	/**
+	 * @description Saves all registered DML operations as `commitWork` does, but writes no entry in the bypass audit.
+	 * Only the framework calls this, for its own saves, which are not bypasses a person chose. Code outside the framework
+	 * uses `commitWork`, so a save that ignores record sharing is recorded.
+	 *
+	 * @param enforceSharing True enforces the running user's record sharing, null uses the calling class's sharing, and
+	 * false ignores record sharing.
+	 */
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+	public void commitWorkInternal(Boolean enforceSharing)
+	{
+		commitWithRetries(enforceSharing, false);
+	}
+
+	/**
+	 * @description Builds the bypass audit queue for one call of `commitWork`. It is built when the save starts, after
+	 * onCommitWorkStarting has run, so an access level that hook sets is the one recorded. A new queue is built for
+	 * each call, so nothing is carried from one commit to the next. The queue holds a `sharing` target when this call
+	 * ignores record sharing, and a `system-mode` target when the caller chose system mode through `setAccessLevel` and
+	 * the level is still system mode.
+	 *
+	 * @param enforceSharing The record sharing value this call of `commitWork` received.
+	 *
+	 * @return The queue, or null when this commit has nothing to record.
+	 */
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+	private UTIL_BypassAudit.AuditQueue newBypassAuditQueue(Boolean enforceSharing)
+	{
+		Boolean isSystemModeRecorded = isSystemModeChosenByCaller == true && DML_SharingProxy.matchesAccessLevel(accessLevel, System.AccessLevel.SYSTEM_MODE);
+		Boolean isSharingRecorded = enforceSharing == false;
+		if(!isSystemModeRecorded && !isSharingRecorded)
+		{
+			return null;
+		}
+		UTIL_BypassAudit.AuditQueue bypassAuditQueue = new UTIL_BypassAudit.AuditQueue(UTIL_BypassAudit.SURFACE_DML);
+		if(isSystemModeRecorded)
+		{
+			bypassAuditQueue.queueSystemMode();
+		}
+		if(isSharingRecorded)
+		{
+			bypassAuditQueue.queueSharing();
+		}
+		return bypassAuditQueue;
+	}
+
+	/**
+	 * @description Runs the attempts of one commit. A refusal for a row lock is retried as many times as the retry count
+	 * allows, with the registered records put back as they were before the first attempt.
+	 *
+	 * @param enforceSharing If true, enforces sharing; if false, bypasses sharing; if null, inherits sharing.
+	 * @param isBypassRecorded True when this call writes its bypass audit entries, false for the framework's own saves.
+	 * The first attempt that reaches the save writes them, so a retried attempt does not write them again.
+	 */
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+	private void commitWithRetries(Boolean enforceSharing, Boolean isBypassRecorded)
+	{
+		isBypassAuditPending = isBypassRecorded;
 		retriesUsed = 0;
 		rowsRecovered = 0;
 		rowsStillRefused = 0;
 		retryStoppedBy = null;
+		partialCommitFailure = null;
 		RegistrationSnapshot snapshot = retriesOnLock > 0 && !allowPartial ? new RegistrationSnapshot(this) : null;
 		Boolean keepsUserPermissions = enforceSharing == false
 				&& DML_SharingProxy.matchesAccessLevel(accessLevel ?? DML_SharingProxy.defaultAccessLevel(), System.AccessLevel.USER_MODE);
@@ -875,11 +987,14 @@ global virtual inherited sharing class DML_Transaction
 	 * savepoint. A failure on that path then skips the rollback, and the exception is logged and thrown again
 	 * unchanged. After the rollback, a lock refusal that may be retried is passed to commitWork as a
 	 * RetryAttemptException. Every other failure is logged, unless logging is turned off, and thrown again. When a
-	 * partial save is allowed, there is no rollback and the failure is logged, not thrown. Every attempt empties the
-	 * transaction's in-memory query cache before its first statement and again when it ends, whatever the outcome.
+	 * partial save is allowed, there is no rollback, and the failure is logged and kept for getPartialCommitFailure,
+	 * not thrown. Every attempt empties the transaction's in-memory query cache before its first statement and again
+	 * when it ends, whatever the outcome.
 	 * So a read after a save never gets rows from before the save, or from a save that was rolled back. Rows cached
 	 * during the save are not kept, because they may be older than the save: a read in a before trigger has the
-	 * values before the save, and a read of a parent has its roll-up totals before they were updated.
+	 * values before the save, and a read of a parent has its roll-up totals before they were updated. The bypass audit
+	 * entries of the call are written after onCommitWorkStarting and before onDMLStarting, so the records and the
+	 * access level that hook sets are the ones recorded.
 	 *
 	 * @param enforceSharing If true, enforces sharing; if false, bypasses sharing; if null, inherits sharing.
 	 * @param keepsUserPermissions True when the save ignores record sharing but would otherwise run in user mode. The
@@ -904,6 +1019,7 @@ global virtual inherited sharing class DML_Transaction
 			if(!allObjectsToCommit.isEmpty())
 			{
 				savePoint = savePoint ?? Database.setSavepoint();
+				writeBypassAuditEntries(enforceSharing);
 				onDMLStarting();
 
 				DML_SharingProxy.SharingType shareType = enforceSharing == null
@@ -950,6 +1066,8 @@ global virtual inherited sharing class DML_Transaction
 				throw error;
 			}
 
+			partialCommitFailure = error;
+
 			if(!suppressLogging)
 			{
 				LOG_Builder.build().error(error).withContext(CONTEXT_KEY_PARTIAL_COMMIT_OUTCOME, MESSAGE_STATEMENT_FAILURE_SWALLOWED).at(CLASS_METHOD_COMMIT).emit();
@@ -960,6 +1078,50 @@ global virtual inherited sharing class DML_Transaction
 			// Rows cached during the save may be older than it (before-trigger reads, roll-ups) or show a save that was rolled back, so empty them.
 			QRY_Engine.clearQueryResultMemoryCache();
 			onCommitWorkFinished(wasSuccessful);
+		}
+	}
+
+	/**
+	 * @description Writes the bypass audit entries of one call of commitWork: one entry for each queued target and each
+	 * object about to be saved. Each entry counts the operations and rows registered for its object at this point, the
+	 * records onCommitWorkStarting registered included. Only the first attempt of the call writes them, so a retried
+	 * attempt adds no second entry. An object with no rows left to save is skipped. When no object has rows, nothing
+	 * is written: the save saves nothing, so there is nothing to record. The operation name comes from the operation
+	 * kind (`DML_INSERT` becomes `insert`).
+	 *
+	 * @param enforceSharing The record sharing value this call of `commitWork` received.
+	 */
+	@SuppressWarnings('PMD.AvoidBooleanMethodParameters')
+	private void writeBypassAuditEntries(Boolean enforceSharing)
+	{
+		if(!isBypassAuditPending)
+		{
+			return;
+		}
+		isBypassAuditPending = false;
+		UTIL_BypassAudit.AuditQueue bypassAuditQueue = newBypassAuditQueue(enforceSharing);
+		if(bypassAuditQueue == null)
+		{
+			return;
+		}
+		Boolean hasRecordedOperation = false;
+		for(OperationType kind : allObjectsToCommit.keySet())
+		{
+			String operation = kind.name().substringAfter('_').toLowerCase();
+			Map<SObjectType, List<SObject>> recordsByType = allObjectsToCommit.get(kind);
+			for(SObjectType objectType : recordsByType.keySet())
+			{
+				List<SObject> records = recordsByType.get(objectType);
+				if(records?.isEmpty() == false)
+				{
+					bypassAuditQueue.recordOperation(String.valueOf(objectType), operation, records.size());
+					hasRecordedOperation = true;
+				}
+			}
+		}
+		if(hasRecordedOperation)
+		{
+			bypassAuditQueue.flush();
 		}
 	}
 
@@ -1987,6 +2149,17 @@ global virtual inherited sharing class DML_Transaction
 		}
 
 		return true;
+	}
+
+	/**
+	 * @description Returns the exception a partial save caught during its last commit. DML_Builder carries it into the
+	 * result it gives its caller, because the save itself does not throw it.
+	 *
+	 * @return The caught exception, or null when the last commit caught none.
+	 */
+	public Exception getPartialCommitFailure()
+	{
+		return partialCommitFailure;
 	}
 
 	/**

@@ -14,7 +14,7 @@
  *
  * @group Email
  *
- * @date November 2025, October 2026
+ * @date November 2025, November 2026
  */
 @SuppressWarnings('PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 public inherited sharing class FLOW_SendEmailInternal
@@ -282,7 +282,7 @@ public inherited sharing class FLOW_SendEmailInternal
 			Set<Id> objectIds = objectNameToIdMap.get(objectName);
 
 			for(SObject foundObject : QRY_Builder.selectFrom(UTIL_SObjectDescribe.getSObjectTypeByName(objectName))
-					.withSystemMode()
+					.systemModeInternal()
 					.fields(new List<String> {emailField})
 					.condition('Id').isIn(new List<Id>(objectIds))
 					.toList())

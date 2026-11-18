@@ -34,7 +34,7 @@
  *
  * @group DML
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.NcssCount,PMD.NcssTypeCount,PMD.AvoidBooleanMethodParameters')
 @IsTest(seeAllData=false isParallel=false)
@@ -191,6 +191,43 @@ private class DML_Transaction_TEST
 	 * @description The length of the random key stored in the query result memory cache.
 	 */
 	private static final Integer MEMORY_CACHE_KEY_LENGTH = 20;
+
+	/**
+	 * @description The start of every bypass entry target for a save in system mode. The object's name follows the
+	 * colon.
+	 */
+	private static final String SYSTEM_MODE_TARGET_PREFIX = 'system-mode:';
+
+	/**
+	 * @description The start of every bypass entry target for a save that ignores record sharing. The object's name
+	 * follows the colon.
+	 */
+	private static final String SHARING_TARGET_PREFIX = 'sharing:';
+
+	/**
+	 * @description The number of rows the bypass audit tests save in one commit.
+	 */
+	private static final Integer SAVED_ROW_COUNT = 2;
+
+	/**
+	 * @description The number of rows the test that inserts one object beside an update saves for that object.
+	 */
+	private static final Integer SINGLE_INSERTED_ROW_COUNT = 1;
+
+	/**
+	 * @description The operation name a bypass entry gives an insert.
+	 */
+	private static final String INSERT_OPERATION = 'insert';
+
+	/**
+	 * @description The operation name a bypass entry gives an update.
+	 */
+	private static final String UPDATE_OPERATION = 'update';
+
+	/**
+	 * @description The number of rows a test transaction registers in its onCommitWorkStarting hook.
+	 */
+	private static final Integer HOOK_ROW_COUNT = 1;
 
 	/**
 	 * @description Stands in for the platform in partial mode: rows whose Name still has refusals left come back as
@@ -1337,6 +1374,52 @@ private class DML_Transaction_TEST
 		Assert.isNotNull(record.Id, 'The statement committed before the failure should stand');
 		Assert.areEqual(1, new SEL_Foobar().getAll().size(), 'The committed row should stand');
 		Assert.isNotNull(new SEL_LogEntry().findByMethod(DML_Transaction.CLASS_METHOD_COMMIT), 'The swallow entry should be written');
+		Assert.areEqual(HOOK_FAILURE_MESSAGE, dmlTransaction.getPartialCommitFailure()?.getMessage(), 'The transaction should keep the exception it caught');
+	}
+
+	/**
+	 * @description A partial save whose hook throws tells onCommitWorkFinished that the save failed, and does so once.
+	 */
+	@IsTest
+	private static void shouldRunTheFinishedHookOnceWhenPartialSaveThrows()
+	{
+		ThrowOnceTransaction dmlTransaction = new ThrowOnceTransaction();
+		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setAllowPartial(true);
+		dmlTransaction.doInsert(TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build());
+
+		Test.startTest();
+
+		dmlTransaction.commitWork();
+
+		Test.stopTest();
+
+		Assert.areEqual(new List<Boolean> {false}, dmlTransaction.finishedOutcomes, 'The finished hook should run once and report a failed save');
+		Assert.areEqual(HOOK_FAILURE_MESSAGE, dmlTransaction.getPartialCommitFailure()?.getMessage(), 'The transaction should keep the exception it caught');
+	}
+
+	/**
+	 * @description A failure kept from one partial commit does not carry into the next commit of the same transaction.
+	 */
+	@IsTest
+	private static void shouldForgetThePartialFailureWhenTheNextCommitSucceeds()
+	{
+		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().build();
+		ThrowOnceTransaction dmlTransaction = new ThrowOnceTransaction();
+		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setAllowPartial(true);
+		dmlTransaction.doInsert(record);
+
+		Test.startTest();
+
+		dmlTransaction.commitWork();
+		Assert.isNotNull(dmlTransaction.getPartialCommitFailure(), 'The first commit should keep the exception it caught');
+		dmlTransaction.commitWork();
+
+		Test.stopTest();
+
+		Assert.isNotNull(record.Id, 'The second commit should save the record');
+		Assert.isNull(dmlTransaction.getPartialCommitFailure(), 'The second commit should clear the kept exception');
 	}
 
 	/**
@@ -1427,7 +1510,7 @@ private class DML_Transaction_TEST
 		Foobar__c refusedRecord = TST_Factory.newFoobarWithEmail(INVALID_EMAIL);
 
 		DML_Transaction dmlTransaction = new DML_Transaction();
-		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 		dmlTransaction.setAllowPartial(true);
 		dmlTransaction.setExpectedRefusalStatusCodes(new Set<StatusCode> {StatusCode.INVALID_EMAIL_ADDRESS});
 		dmlTransaction.doInsert(new List<SObject> {savedRecord, refusedRecord});
@@ -1455,7 +1538,7 @@ private class DML_Transaction_TEST
 		Foobar__c refusedRecord = TST_Factory.newFoobarWithEmail(INVALID_EMAIL);
 
 		DML_Transaction dmlTransaction = new DML_Transaction();
-		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 		dmlTransaction.setAllowPartial(true);
 		dmlTransaction.setExpectedRefusalStatusCodes(new Set<StatusCode> {StatusCode.DUPLICATE_VALUE});
 		dmlTransaction.doInsert(refusedRecord);
@@ -1497,7 +1580,7 @@ private class DML_Transaction_TEST
 	{
 		captureLogEntries();
 		DML_Transaction dmlTransaction = new DML_Transaction();
-		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 		dmlTransaction.setAllowPartial(true);
 		dmlTransaction.setExpectedRefusalStatusCodes(null);
 		dmlTransaction.doInsert(TST_Factory.newFoobarWithEmail(INVALID_EMAIL));
@@ -1543,7 +1626,7 @@ private class DML_Transaction_TEST
 		refusedByLength.ExternalId__c = OVERLONG_EXTERNAL_ID;
 
 		DML_Transaction dmlTransaction = new DML_Transaction();
-		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 		dmlTransaction.setAllowPartial(true);
 		dmlTransaction.setExpectedRefusalStatusCodes(new Set<StatusCode> {StatusCode.INVALID_EMAIL_ADDRESS});
 		dmlTransaction.doInsert(new List<SObject> {refusedByEmail, refusedByLength});
@@ -1942,6 +2025,45 @@ private class DML_Transaction_TEST
 		public override void onDMLFinished()
 		{
 			throw new UTIL_Exceptions.IllegalStateException(HOOK_FAILURE_MESSAGE);
+		}
+	}
+
+	/**
+	 * @description Test subclass whose onDMLStarting hook throws on its first commit only, and which records every
+	 * outcome it is told by onCommitWorkFinished.
+	 */
+	private class ThrowOnceTransaction extends DML_Transaction
+	{
+		/**
+		 * @description The value onCommitWorkFinished received each time it ran.
+		 */
+		public final List<Boolean> finishedOutcomes = new List<Boolean>();
+
+		/**
+		 * @description Whether the hook has already thrown.
+		 */
+		private Boolean hasThrown = false;
+
+		/**
+		 * @description Throws the first time a commit is about to run its first statement.
+		 */
+		public override void onDMLStarting()
+		{
+			if(!hasThrown)
+			{
+				hasThrown = true;
+				throw new UTIL_Exceptions.IllegalStateException(HOOK_FAILURE_MESSAGE);
+			}
+		}
+
+		/**
+		 * @description Records what the commit reported.
+		 *
+		 * @param wasSuccessful True when the commit reported a successful save.
+		 */
+		public override void onCommitWorkFinished(Boolean wasSuccessful)
+		{
+			finishedOutcomes.add(wasSuccessful);
 		}
 	}
 
@@ -2541,7 +2663,7 @@ private class DML_Transaction_TEST
 		Foobar__c saved = TST_Factory.newFoobarWithName('saved-first');
 		Foobar__c refusedOnce = TST_Factory.newFoobarWithName('refused-once');
 		DML_Transaction dmlTransaction = new DML_Transaction();
-		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 		dmlTransaction.setAllowPartial(true);
 		dmlTransaction.setRetryOnLock(1);
 		dmlTransaction.doInsert(new List<SObject> {saved, refusedOnce});
@@ -2584,7 +2706,7 @@ private class DML_Transaction_TEST
 		Foobar__c recoversInRoundTwo = TST_Factory.newFoobarWithName('round-two');
 		Foobar__c neverRecovers = TST_Factory.newFoobarWithName('never');
 		DML_Transaction dmlTransaction = new DML_Transaction();
-		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 		dmlTransaction.setAllowPartial(true);
 		dmlTransaction.setRetryOnLock(2);
 		dmlTransaction.doInsert(new List<SObject> {recoversInRoundOne, saved, recoversInRoundTwo, neverRecovers});
@@ -2631,7 +2753,7 @@ private class DML_Transaction_TEST
 		captureLogEntries();
 		Foobar__c neverRecovers = TST_Factory.newFoobarWithName('never');
 		DML_Transaction dmlTransaction = new DML_Transaction();
-		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 		dmlTransaction.setAllowPartial(true);
 		dmlTransaction.setRetryOnLock(1);
 		dmlTransaction.setExpectedRefusalStatusCodes(new Set<StatusCode> {StatusCode.UNABLE_TO_LOCK_ROW});
@@ -2876,7 +2998,7 @@ private class DML_Transaction_TEST
 		captureLogEntries();
 		Foobar__c refused = TST_Factory.newFoobarWithName('refused');
 		DML_Transaction dmlTransaction = new DML_Transaction();
-		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 		dmlTransaction.setAllowPartial(true);
 		dmlTransaction.setRetryOnLock(2);
 		dmlTransaction.doInsert(refused);
@@ -3102,5 +3224,493 @@ private class DML_Transaction_TEST
 
 		Assert.areEqual(new List<Integer> {1, 1}, dmlTransaction.queriesPerAttempt, 'The read in each attempt should run its query');
 		Assert.isNotNull(records[0].Id, 'The rows should be saved on the second attempt');
+	}
+
+	/**
+	 * @description A caller that chooses system mode through setAccessLevel skips the user's permission checks, so the
+	 * commit writes one bypass entry for the object it saves. The entry counts the rows and names this test as the
+	 * caller.
+	 *
+	 * @see DML_Transaction.setAccessLevel
+	 */
+	@IsTest
+	private static void shouldRecordASaveWhoseAccessLevelWasSetToSystemMode()
+	{
+		holdAuditEntriesInMemory();
+		DML_Transaction dmlTransaction = new DML_Transaction();
+		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.doInsert(new List<SObject> {TST_Factory.newFoobar(), TST_Factory.newFoobar()});
+
+		Test.startTest();
+		dmlTransaction.commitWork();
+		Test.stopTest();
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.areEqual(1, entries.size(), 'Expected one bypass entry, got ' + entries);
+		Map<String, Object> entry = entries[0];
+		String objectName = String.valueOf(Foobar__c.SObjectType);
+		Assert.areEqual(SYSTEM_MODE_TARGET_PREFIX + objectName, entry.get(UTIL_BypassAudit.CONTEXT_TARGET), 'Expected the system mode target of the saved object');
+		Assert.areEqual(objectName, entry.get(UTIL_BypassAudit.CONTEXT_OBJECT), 'Expected the entry to name the saved object');
+		Assert.areEqual(String.valueOf(SAVED_ROW_COUNT), String.valueOf(entry.get(UTIL_BypassAudit.CONTEXT_ROW_COUNT)), 'Expected the entry to count both rows');
+		Assert.areEqual(INSERT_OPERATION, entry.get(UTIL_BypassAudit.CONTEXT_OPERATION), 'Expected the entry to name the insert operation');
+		assertResolvedCaller(entry, 'shouldRecordASaveWhoseAccessLevelWasSetToSystemMode');
+	}
+
+	/**
+	 * @description One commit that inserts one object and updates another writes one bypass entry for each object. Each
+	 * entry names its object, the operation done on it and the number of rows it saved.
+	 *
+	 * @see DML_Transaction.setAccessLevel
+	 */
+	@IsTest
+	private static void shouldRecordEachObjectWithItsOperationInOneCommit()
+	{
+		List<SObject> savedFoobars = TST_Builder.of(Foobar__c.SObjectType).withCount(SAVED_ROW_COUNT).buildList();
+		holdAuditEntriesInMemory();
+		DML_Transaction dmlTransaction = new DML_Transaction();
+		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.doUpdate(savedFoobars);
+		dmlTransaction.doInsert(TST_Factory.newInboundApiCall(UTIL_Random.randomName()));
+
+		Test.startTest();
+		dmlTransaction.commitWork();
+		Test.stopTest();
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.areEqual(2, entries.size(), 'Expected one bypass entry for each object, got ' + entries);
+		Map<String, Map<String, Object>> entryByObject = new Map<String, Map<String, Object>>();
+		for(Map<String, Object> entry : entries)
+		{
+			entryByObject.put((String)entry.get(UTIL_BypassAudit.CONTEXT_OBJECT), entry);
+		}
+		Map<String, Object> foobarEntry = entryByObject.get(String.valueOf(Foobar__c.SObjectType));
+		Map<String, Object> apiCallEntry = entryByObject.get(String.valueOf(ApiCall__c.SObjectType));
+		Assert.isNotNull(foobarEntry, 'Expected an entry for the updated object, got ' + entries);
+		Assert.isNotNull(apiCallEntry, 'Expected an entry for the inserted object, got ' + entries);
+		Assert.areEqual(UPDATE_OPERATION, foobarEntry.get(UTIL_BypassAudit.CONTEXT_OPERATION), 'Expected the updated object to name the update operation');
+		Assert.areEqual(INSERT_OPERATION, apiCallEntry.get(UTIL_BypassAudit.CONTEXT_OPERATION), 'Expected the inserted object to name the insert operation');
+		Assert.areEqual(String.valueOf(SAVED_ROW_COUNT), String.valueOf(foobarEntry.get(UTIL_BypassAudit.CONTEXT_ROW_COUNT)), 'Expected the updated object to count both rows');
+		Assert.areEqual
+				(
+						String.valueOf(SINGLE_INSERTED_ROW_COUNT),
+						String.valueOf(apiCallEntry.get(UTIL_BypassAudit.CONTEXT_ROW_COUNT)),
+						'Expected the inserted object to count one row'
+				);
+	}
+
+	/**
+	 * @description A commit told to ignore record sharing writes one sharing bypass entry for the object it saves, in
+	 * user mode too, and names this test as the caller.
+	 *
+	 * @see DML_Transaction.commitWork
+	 */
+	@IsTest
+	private static void shouldRecordASaveThatIgnoresSharing()
+	{
+		holdAuditEntriesInMemory();
+		DML_Transaction dmlTransaction = new DML_Transaction();
+		dmlTransaction.setAccessLevel(AccessLevel.USER_MODE);
+		dmlTransaction.doInsert(TST_Factory.newFoobar());
+
+		Test.startTest();
+		dmlTransaction.commitWork(false);
+		Test.stopTest();
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.areEqual(1, entries.size(), 'Expected one bypass entry, got ' + entries);
+		Assert.areEqual(SHARING_TARGET_PREFIX + String.valueOf(Foobar__c.SObjectType), entries[0].get(UTIL_BypassAudit.CONTEXT_TARGET),
+				'Expected the sharing target of the saved object');
+		assertResolvedCaller(entries[0], 'shouldRecordASaveThatIgnoresSharing');
+	}
+
+	/**
+	 * @description A commit in the system mode the caller chose that also ignores record sharing writes two entries for
+	 * the object: one for system mode and one for sharing.
+	 *
+	 * @see DML_Transaction.commitWork
+	 */
+	@IsTest
+	private static void shouldRecordBothWhenSystemModeAndSharingAreTurnedOff()
+	{
+		holdAuditEntriesInMemory();
+		DML_Transaction dmlTransaction = new DML_Transaction();
+		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.doInsert(TST_Factory.newFoobar());
+
+		Test.startTest();
+		dmlTransaction.commitWork(false);
+		Test.stopTest();
+
+		Integer systemModeEntries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SYSTEM_MODE_TARGET_PREFIX).size();
+		Integer sharingEntries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SHARING_TARGET_PREFIX).size();
+		Assert.areEqual(1, systemModeEntries, 'Expected one system mode entry, got ' + systemModeEntries);
+		Assert.areEqual(1, sharingEntries, 'Expected one sharing entry, got ' + sharingEntries);
+	}
+
+	/**
+	 * @description A caller that sets system mode and then sets user mode again before the commit saves in user mode, so
+	 * the commit writes no bypass entry. The save runs as an administrator, because a save in user mode that enforces
+	 * sharing needs the running user to be able to write the record's fields.
+	 *
+	 * @see DML_Transaction.setAccessLevel
+	 */
+	@IsTest
+	private static void shouldRecordNothingWhenTheLevelIsSetBackToUserModeBeforeTheSave()
+	{
+		holdAuditEntriesInMemory();
+
+		System.runAs(insertAdministrator())
+		{
+			DML_Transaction dmlTransaction = new DML_Transaction();
+			dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+			dmlTransaction.setAccessLevel(AccessLevel.USER_MODE);
+			dmlTransaction.doInsert(TST_Factory.newFoobar());
+
+			Test.startTest();
+			dmlTransaction.commitWork();
+			Test.stopTest();
+		}
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.isTrue(entries.isEmpty(), 'Expected no bypass entry for a save in user mode, got ' + entries);
+	}
+
+	/**
+	 * @description A commit refused once for a row lock runs a second attempt. The bypass entry is written once for the
+	 * call, not once for each attempt, and still counts both rows.
+	 *
+	 * @see DML_Transaction.setRetryOnLock
+	 */
+	@IsTest
+	private static void shouldRecordOnceWhenTheSaveIsRetriedAfterARowLock()
+	{
+		List<SObject> records = new List<SObject> {TST_Factory.newFoobar(), TST_Factory.newFoobar()};
+		holdAuditEntriesInMemory();
+		DML_Transaction dmlTransaction = new DML_Transaction();
+		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.setRetryOnLock(1);
+		dmlTransaction.doInsert(records);
+		DML_SharingProxy.sharingProxyForTest = new DML_ThrowingLockProxy_TEST(1);
+
+		try
+		{
+			Test.startTest();
+			dmlTransaction.commitWork();
+			Test.stopTest();
+		}
+		finally
+		{
+			DML_SharingProxy.sharingProxyForTest = null;
+		}
+
+		Assert.isNotNull(records[0].Id, 'Expected the rows to be saved on the second attempt');
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SYSTEM_MODE_TARGET_PREFIX);
+		Assert.areEqual(1, entries.size(), 'Expected one system mode entry for the retried commit, got ' + entries);
+		Assert.areEqual(String.valueOf(SAVED_ROW_COUNT), String.valueOf(entries[0].get(UTIL_BypassAudit.CONTEXT_ROW_COUNT)), 'Expected the entry to count both rows');
+	}
+
+	/**
+	 * @description The framework's own setter and commit write no bypass entry. A later commitWork on the same
+	 * transaction writes none either, because the system mode came from the framework's setter, not from a caller. A new
+	 * record is registered before that later commit, so it has a record of its own to save. A commit that saves nothing
+	 * writes no entry at all, so without that record the test would pass for the wrong reason.
+	 *
+	 * @see DML_Transaction.setAccessLevelInternal
+	 * @see DML_Transaction.commitWorkInternal
+	 */
+	@IsTest
+	private static void shouldRecordNothingForTheFrameworkSetterAndCommit()
+	{
+		List<SObject> records = TST_Builder.of(Foobar__c.SObjectType).withCount(SAVED_ROW_COUNT).buildList();
+		holdAuditEntriesInMemory();
+		DML_Transaction dmlTransaction = new DML_Transaction();
+		dmlTransaction.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.doUpdate(records);
+
+		Test.startTest();
+		dmlTransaction.commitWorkInternal(false);
+		Integer entriesAfterTheFrameworkCommit = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY).size();
+		Foobar__c newRecord = TST_Factory.newFoobar();
+		dmlTransaction.doInsert(newRecord);
+		dmlTransaction.commitWork();
+		Test.stopTest();
+
+		Assert.areEqual(0, entriesAfterTheFrameworkCommit, 'Expected no bypass entry from the framework commit, got ' + entriesAfterTheFrameworkCommit);
+		Assert.isNotNull(newRecord.Id, 'Expected the later commit to save the new record');
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.isTrue(entries.isEmpty(), 'Expected no bypass entry when the system mode came from the framework setter, got ' + entries);
+	}
+
+	/**
+	 * @description A transaction committed twice in the system mode the caller chose writes one entry for each commit,
+	 * because each commit is a save of its own. The records are saved once first, so both commits can update them.
+	 *
+	 * @see DML_Transaction.commitWork
+	 */
+	@IsTest
+	private static void shouldRecordEachCommitOfAReusedTransaction()
+	{
+		List<SObject> records = TST_Builder.of(Foobar__c.SObjectType).withCount(SAVED_ROW_COUNT).buildList();
+		holdAuditEntriesInMemory();
+		DML_Transaction dmlTransaction = new DML_Transaction();
+		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+
+		Test.startTest();
+		dmlTransaction.doUpdate(records[0]);
+		dmlTransaction.commitWork();
+		dmlTransaction.doUpdate(records[1]);
+		dmlTransaction.commitWork();
+		Test.stopTest();
+
+		Integer systemModeEntries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SYSTEM_MODE_TARGET_PREFIX).size();
+		Assert.areEqual(2, systemModeEntries, 'Expected one system mode entry for each commit, got ' + systemModeEntries);
+	}
+
+	/**
+	 * @description A transaction whose first commit ignores record sharing and whose second commit enforces it writes
+	 * the sharing entry for the first commit only. Nothing is carried from one commit to the next.
+	 *
+	 * @see DML_Transaction.commitWork
+	 */
+	@IsTest
+	private static void shouldNotCarryASharingBypassIntoTheNextCommit()
+	{
+		List<SObject> records = TST_Builder.of(Foobar__c.SObjectType).withCount(SAVED_ROW_COUNT).buildList();
+		holdAuditEntriesInMemory();
+		DML_Transaction dmlTransaction = new DML_Transaction();
+
+		Test.startTest();
+		dmlTransaction.doUpdate(records[0]);
+		dmlTransaction.commitWork(false);
+		dmlTransaction.doUpdate(records[1]);
+		dmlTransaction.commitWork(true);
+		Test.stopTest();
+
+		Integer sharingEntries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SHARING_TARGET_PREFIX).size();
+		Assert.areEqual(1, sharingEntries, 'Expected the sharing entry of the first commit only, got ' + sharingEntries);
+	}
+
+	/**
+	 * @description The records that onCommitWorkStarting registers are saved by the same commit, so the bypass entry
+	 * counts them, even when nothing else was registered.
+	 *
+	 * @see DML_Transaction.onCommitWorkStarting
+	 */
+	@IsTest
+	private static void shouldRecordRowsTheStartingHookRegisters()
+	{
+		holdAuditEntriesInMemory();
+		RegisteringOneFoobarTransaction dmlTransaction = new RegisteringOneFoobarTransaction();
+		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+
+		Test.startTest();
+		dmlTransaction.commitWork();
+		Test.stopTest();
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.areEqual(1, entries.size(), 'Expected one bypass entry, got ' + entries);
+		Assert.areEqual(SYSTEM_MODE_TARGET_PREFIX + String.valueOf(Foobar__c.SObjectType), entries[0].get(UTIL_BypassAudit.CONTEXT_TARGET),
+				'Expected the system mode target of the object the hook registered');
+		Assert.areEqual(String.valueOf(HOOK_ROW_COUNT), String.valueOf(entries[0].get(UTIL_BypassAudit.CONTEXT_ROW_COUNT)),
+				'Expected the entry to count the row the hook registered');
+	}
+
+	/**
+	 * @description A commit in the system mode the caller chose that has nothing to save writes no bypass entry, not
+	 * even one without an object name.
+	 *
+	 * @see DML_Transaction.commitWork
+	 */
+	@IsTest
+	private static void shouldRecordNothingWhenTheCommitSavesNothing()
+	{
+		holdAuditEntriesInMemory();
+		DML_Transaction dmlTransaction = new DML_Transaction();
+		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+
+		Test.startTest();
+		dmlTransaction.commitWork();
+		Test.stopTest();
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.isTrue(entries.isEmpty(), 'Expected no bypass entry for a commit that saves nothing, got ' + entries);
+	}
+
+	/**
+	 * @description A transaction in the system mode the caller chose is committed twice. The first commit saves the
+	 * records and the second has nothing left to save. Only the first commit writes an entry, the one for the saved
+	 * object. The second writes no entry, not even one without an object name.
+	 *
+	 * @see DML_Transaction.commitWork
+	 */
+	@IsTest
+	private static void shouldRecordNothingForASecondSystemModeCommitThatSavesNothing()
+	{
+		holdAuditEntriesInMemory();
+		DML_Transaction dmlTransaction = new DML_Transaction();
+		dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		dmlTransaction.doInsert(new List<SObject> {TST_Factory.newFoobar(), TST_Factory.newFoobar()});
+
+		Test.startTest();
+		dmlTransaction.commitWork();
+		dmlTransaction.commitWork();
+		Test.stopTest();
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.areEqual(1, entries.size(), 'Expected one bypass entry for the two commits, got ' + entries);
+		Assert.areEqual(SYSTEM_MODE_TARGET_PREFIX + String.valueOf(Foobar__c.SObjectType), entries[0].get(UTIL_BypassAudit.CONTEXT_TARGET),
+				'Expected the system mode target of the saved object');
+	}
+
+	/**
+	 * @description A transaction that ignores record sharing is committed twice. The first commit saves the record and
+	 * the second has nothing left to save. Only the first commit writes an entry, the one for the saved object. The
+	 * second writes no entry, not even one without an object name.
+	 *
+	 * @see DML_Transaction.commitWork
+	 */
+	@IsTest
+	private static void shouldRecordNothingForASecondSharingCommitThatSavesNothing()
+	{
+		holdAuditEntriesInMemory();
+		DML_Transaction dmlTransaction = new DML_Transaction();
+		dmlTransaction.doInsert(TST_Factory.newFoobar());
+
+		Test.startTest();
+		dmlTransaction.commitWork(false);
+		dmlTransaction.commitWork(false);
+		Test.stopTest();
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.areEqual(1, entries.size(), 'Expected one bypass entry for the two commits, got ' + entries);
+		Assert.areEqual(SHARING_TARGET_PREFIX + String.valueOf(Foobar__c.SObjectType), entries[0].get(UTIL_BypassAudit.CONTEXT_TARGET),
+				'Expected the sharing target of the saved object');
+	}
+
+	/**
+	 * @description A subclass whose onCommitWorkStarting hook sets system mode through setAccessLevel saves in system
+	 * mode, so the commit writes one system mode entry for the record the hook registers.
+	 *
+	 * @see DML_Transaction.onCommitWorkStarting
+	 */
+	@IsTest
+	private static void shouldRecordSystemModeTheStartingHookChooses()
+	{
+		holdAuditEntriesInMemory();
+		AccessLevelChangingTransaction dmlTransaction = new AccessLevelChangingTransaction(AccessLevel.SYSTEM_MODE);
+
+		Test.startTest();
+		dmlTransaction.commitWork();
+		Test.stopTest();
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.areEqual(1, entries.size(), 'Expected one bypass entry, got ' + entries);
+		Assert.areEqual(SYSTEM_MODE_TARGET_PREFIX + String.valueOf(Foobar__c.SObjectType), entries[0].get(UTIL_BypassAudit.CONTEXT_TARGET),
+				'Expected the system mode target of the object the hook registered');
+	}
+
+	/**
+	 * @description A transaction set to system mode whose onCommitWorkStarting hook sets user mode again saves in user
+	 * mode, so the commit writes no bypass entry. The save runs as an administrator, because a save in user mode that
+	 * enforces sharing needs the running user to be able to write the record's fields.
+	 *
+	 * @see DML_Transaction.onCommitWorkStarting
+	 */
+	@IsTest
+	private static void shouldRecordNothingWhenTheStartingHookSetsUserMode()
+	{
+		holdAuditEntriesInMemory();
+
+		System.runAs(insertAdministrator())
+		{
+			AccessLevelChangingTransaction dmlTransaction = new AccessLevelChangingTransaction(AccessLevel.USER_MODE);
+			dmlTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+
+			Test.startTest();
+			dmlTransaction.commitWork();
+			Test.stopTest();
+		}
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.isTrue(entries.isEmpty(), 'Expected no bypass entry for a save the hook set to user mode, got ' + entries);
+	}
+
+	/**
+	 * @description Turns logging on for the bypass audit tests and keeps the entries in memory instead of saving them,
+	 * so a test can read them from the audit buffer.
+	 */
+	private static void holdAuditEntriesInMemory()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LOG_Builder.suspendSaving();
+	}
+
+	/**
+	 * @description Checks the caller a bypass entry names. With no namespace, the caller is the given method of this
+	 * test class. With any namespace, every frame carries it, test frames included, so the entry names the fallback
+	 * caller, the emit method of UTIL_BypassAudit.
+	 *
+	 * @param entry The context of the bypass entry.
+	 * @param methodName The test method that made the save.
+	 */
+	private static void assertResolvedCaller(Map<String, Object> entry, String methodName)
+	{
+		String caller = (String)entry.get(UTIL_BypassAudit.CONTEXT_CALLER);
+		if(String.isBlank(UTIL_System.getManagedPackageNamespace()))
+		{
+			String expectedStart = DML_Transaction_TEST.class.getName() + '.' + methodName;
+			Assert.isTrue(caller?.startsWith(expectedStart) == true, 'Expected the caller to start with ' + expectedStart + ', got ' + caller);
+		}
+		else
+		{
+			Assert.areEqual(UTIL_BypassAudit.class.getName() + '.emit', caller, 'Expected the fallback caller in a namespaced org, got ' + caller);
+		}
+	}
+
+	/**
+	 * @description Test subclass whose onCommitWorkStarting hook registers one new Foobar__c row, on a transaction that
+	 * had nothing registered when commitWork was called.
+	 */
+	private class RegisteringOneFoobarTransaction extends DML_Transaction
+	{
+		/**
+		 * @description Registers one new Foobar__c row at the very start of the commit.
+		 */
+		public override void onCommitWorkStarting()
+		{
+			doInsert(TST_Factory.newFoobar());
+		}
+	}
+
+	/**
+	 * @description Test subclass whose onCommitWorkStarting hook sets an access level through setAccessLevel and then
+	 * registers one new Foobar__c row, as a subscriber's own hook might.
+	 */
+	private class AccessLevelChangingTransaction extends DML_Transaction
+	{
+		/**
+		 * @description The access level the hook sets.
+		 */
+		private final AccessLevel levelSetByHook;
+
+		/**
+		 * @description Keeps the access level the hook will set.
+		 *
+		 * @param levelSetByHook The access level the hook sets at the start of the commit.
+		 */
+		public AccessLevelChangingTransaction(AccessLevel levelSetByHook)
+		{
+			this.levelSetByHook = levelSetByHook;
+		}
+
+		/**
+		 * @description Sets the chosen access level and registers one new Foobar__c row at the very start of the commit.
+		 */
+		public override void onCommitWorkStarting()
+		{
+			setAccessLevel(levelSetByHook);
+			doInsert(TST_Factory.newFoobar());
+		}
 	}
 }

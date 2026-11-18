@@ -8,7 +8,7 @@
  *
  * @group Testing
  *
- * @date September 2025, October 2026
+ * @date September 2025, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.KernNoStandardObjectInPackageTests')
 @IsTest(seeAllData=false isParallel=false)
@@ -45,6 +45,11 @@ private class TST_Factory_TEST
 	private static final Integer MEMORY_CACHE_KEY_LENGTH = 20;
 
 	/**
+	 * @description The start of the target of a bypass entry for a system-mode read. The object's name follows it.
+	 */
+	private static final String SYSTEM_MODE_TARGET_PREFIX = 'system-mode:';
+
+	/**
 	 * @description The query threshold for the logger settings tests; each log gets a distinct value so a swapped field shows.
 	 */
 	private static final Integer QUERY_THRESHOLD_MILLISECONDS = 10;
@@ -68,6 +73,30 @@ private class TST_Factory_TEST
 	 * @description The masking threshold for the logger settings tests.
 	 */
 	private static final Integer MASKER_THRESHOLD_MILLISECONDS = 50;
+
+	/**
+	 * @description Reading the class name of the trigger action that guards chain run changes uses a system-mode read of
+	 * the trigger action records. That read is the framework's own, so it writes no bypass entry. The test turns logging
+	 * on and holds the entries in memory instead of saving them, so it can count them.
+	 *
+	 * @see TST_Factory.getRunTransitionActionClassName
+	 */
+	@IsTest
+	private static void shouldWriteNoBypassEntryWhenTheRunTransitionActionClassNameIsRead()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LOG_Builder.suspendSaving();
+
+		Test.startTest();
+		String actionClassName = TST_Factory.getRunTransitionActionClassName();
+		Test.stopTest();
+
+		Assert.isFalse(String.isBlank(actionClassName), 'Expected the class name of the trigger action, got none');
+		Integer bypassEntries = UTIL_BypassAudit_TEST.countBufferedBypassEntries(UTIL_BypassAudit.SURFACE_QUERY,
+				SYSTEM_MODE_TARGET_PREFIX + String.valueOf(TriggerAction__mdt.SObjectType));
+		Assert.areEqual(0, bypassEntries, 'Expected no bypass entry for the framework\'s own read of the trigger action, got ' + bypassEntries);
+	}
 
 	/**
 	 * @description Checks that permissionset assignments work as expected, to test the scenario where the permissionset name provided
@@ -446,7 +475,7 @@ private class TST_Factory_TEST
 
 			if(fieldDescribe?.isPermissionable() == true && fieldDescribe.getCompoundFieldName() == null)
 			{
-				fields.add(fieldDescribe.getSObjectField());
+				fields.add(fieldDescribe.getSobjectField());
 			}
 		}
 

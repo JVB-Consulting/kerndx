@@ -8,7 +8,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=false)
@@ -56,6 +56,17 @@ private class PROC_ExecuteDML_TEST
 	private static final String MSG_INCORRECT_COUNT = 'Expected {0} records, found {1}';
 
 	/**
+	 * @description The target of the bypass entry a processor built with system mode writes. It names no object,
+	 * because the processor gets its records later.
+	 */
+	private static final String SYSTEM_MODE_TARGET = 'system-mode';
+
+	/**
+	 * @description The operation name the bypass entry records for an insert.
+	 */
+	private static final String INSERT_OPERATION_NAME = 'insert';
+
+	/**
 	 * @description Error message when records were not deleted.
 	 */
 	private static final String MSG_NOT_DELETED = 'Expected records to be deleted';
@@ -69,6 +80,12 @@ private class PROC_ExecuteDML_TEST
 	 * @description Error message when field was not updated.
 	 */
 	private static final String MSG_NOT_UPDATED = 'Expected field to be updated';
+
+	/**
+	 * @description The access level of each insert of test records that reached the database layer, in the order the
+	 * inserts ran. AccessLevelRecordingProxy adds to it.
+	 */
+	private static final List<AccessLevel> RECORDED_ACCESS_LEVELS = new List<AccessLevel>();
 
 	/**
 	 * @description Creates a dedicated test admin user so System.runAs in each test starts a fresh
@@ -264,7 +281,7 @@ private class PROC_ExecuteDML_TEST
 		System.runAs(getTestAdmin())
 		{
 			captureLogEntries();
-			PROC_ExecuteDML processor = new PROC_ExecuteDML(OPERATION_INSERT, false, AccessLevel.SYSTEM_MODE);
+			PROC_ExecuteDML processor = new PROC_ExecuteDML(OPERATION_INSERT, false).withAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 			processor.expectRefusals(new Set<StatusCode> {StatusCode.INVALID_EMAIL_ADDRESS});
 
 			Test.startTest();
@@ -461,6 +478,67 @@ private class PROC_ExecuteDML_TEST
 	}
 
 	/**
+	 * @description Proves that a queued job saves with the access level its caller gave, as it is. The platform saves
+	 * the job when it is queued and rebuilds it when it runs, so the level inside the job is a new object that still
+	 * means system mode. The save must receive that same rebuilt object. A processor that picked a mode again from the
+	 * level would hand the save the shared AccessLevel.SYSTEM_MODE value instead. A level that names a permission set
+	 * matches neither mode, so only this path keeps it. An org without the ApexUserModeWithPermset
+	 * scratch-org feature cannot build such a level, so the test uses the rebuilt system mode level to prove the path.
+	 */
+	@IsTest
+	private static void queuedJobShouldSaveWithTheAccessLevelItCarried()
+	{
+		System.runAs(getTestAdmin())
+		{
+			List<SObject> records = TST_Builder.of(Foobar__c.SObjectType).withoutInsertion().withCount(2).buildList();
+			DML_SharingProxy.sharingProxyForTest = new AccessLevelRecordingProxy();
+
+			try
+			{
+				Test.startTest();
+				UTIL_AsynchronousJobLauncher.process(records, new PROC_ExecuteDML(OPERATION_INSERT, true, AccessLevel.SYSTEM_MODE));
+				Test.stopTest();
+
+				Assert.areEqual(1, RECORDED_ACCESS_LEVELS.size(), 'Expected one insert of the test records');
+				AccessLevel savedWith = RECORDED_ACCESS_LEVELS[0];
+				Assert.isFalse(savedWith === AccessLevel.SYSTEM_MODE, 'Expected the rebuilt level the job carried, not the shared system mode value');
+				Assert.isTrue(DML_SharingProxy.matchesAccessLevel(savedWith, AccessLevel.SYSTEM_MODE), 'Expected the carried level to still mean system mode');
+				Assert.areEqual(2, new SEL_Foobar().getAll().size(), MSG_NOT_INSERTED);
+			}
+			finally
+			{
+				DML_SharingProxy.sharingProxyForTest = null;
+			}
+		}
+	}
+
+	/**
+	 * @description A database layer for tests that writes down the access level of every insert of test records, then
+	 * saves the records for real. Statements on any other object, such as the framework's own log rows, are not
+	 * written down.
+	 */
+	private inherited sharing class AccessLevelRecordingProxy extends DML_SharingProxy.DatabaseProxy
+	{
+		/**
+		 * @description Writes down the access level of an insert of test records, then saves the records.
+		 *
+		 * @param records The records to insert.
+		 * @param allOrNothing Whether the statement is all-or-nothing.
+		 * @param accessLevel The access level the save received.
+		 *
+		 * @return The results of the real insert.
+		 */
+		public override List<Database.SaveResult> doInsert(List<SObject> records, Boolean allOrNothing, AccessLevel accessLevel)
+		{
+			if(DML_ThrowingLockProxy_TEST.isTestObjectStatement(records))
+			{
+				RECORDED_ACCESS_LEVELS.add(accessLevel);
+			}
+			return super.doInsert(records, allOrNothing, accessLevel);
+		}
+	}
+
+	/**
 	 * @description Retrieves the committed test admin user set up in @TestSetup for use with
 	 * System.runAs, so each test body runs with a fresh permission-evaluation context.
 	 *
@@ -469,6 +547,68 @@ private class PROC_ExecuteDML_TEST
 	private static User getTestAdmin()
 	{
 		return new SEL_User().findByCompanyName(TEST_ADMIN_COMPANY);
+	}
+
+	/**
+	 * @description A processor built with system mode writes one bypass entry when it is built, while the code that
+	 * built it can still be named as the caller. The records are not known yet, so the target names no object; the
+	 * entry names the operation instead.
+	 *
+	 * @see PROC_ExecuteDML
+	 */
+	@IsTest
+	private static void shouldRecordAProcessorBuiltWithSystemMode()
+	{
+		holdAuditEntriesInMemory();
+
+		Test.startTest();
+		new PROC_ExecuteDML(OPERATION_INSERT, true, AccessLevel.SYSTEM_MODE);
+		Test.stopTest();
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.areEqual(1, entries.size(), 'Expected one bypass entry, got ' + entries);
+		Map<String, Object> entry = entries[0];
+		Assert.areEqual(SYSTEM_MODE_TARGET, entry.get(UTIL_BypassAudit.CONTEXT_TARGET), 'Expected the system mode target with no object name');
+		Assert.areEqual(INSERT_OPERATION_NAME, entry.get(UTIL_BypassAudit.CONTEXT_OPERATION), 'Expected the entry to name the insert operation');
+		String caller = (String)entry.get(UTIL_BypassAudit.CONTEXT_CALLER);
+		if(String.isBlank(UTIL_System.getManagedPackageNamespace()))
+		{
+			String expectedStart = PROC_ExecuteDML_TEST.class.getName() + '.shouldRecordAProcessorBuiltWithSystemMode';
+			Assert.isTrue(caller?.startsWith(expectedStart) == true, 'Expected the caller to start with ' + expectedStart + ', got ' + caller);
+		}
+		else
+		{
+			Assert.areEqual(UTIL_BypassAudit.class.getName() + '.emit', caller, 'Expected the fallback caller in a namespaced org, got ' + caller);
+		}
+	}
+
+	/**
+	 * @description A processor built with user mode keeps the user's permission checks, so it writes no bypass entry.
+	 *
+	 * @see PROC_ExecuteDML
+	 */
+	@IsTest
+	private static void shouldRecordNothingForAProcessorBuiltWithUserMode()
+	{
+		holdAuditEntriesInMemory();
+
+		Test.startTest();
+		new PROC_ExecuteDML(OPERATION_INSERT, true, AccessLevel.USER_MODE);
+		Test.stopTest();
+
+		List<Map<String, Object>> entries = UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY);
+		Assert.isTrue(entries.isEmpty(), 'Expected no bypass entry for a processor built with user mode, got ' + entries);
+	}
+
+	/**
+	 * @description Turns logging on for the bypass audit tests and keeps the entries in memory instead of saving them,
+	 * so a test can read them from the audit buffer.
+	 */
+	private static void holdAuditEntriesInMemory()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LOG_Builder.suspendSaving();
 	}
 
 	/**

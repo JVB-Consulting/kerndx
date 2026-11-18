@@ -12,7 +12,7 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -40,11 +40,12 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 	/**
 	 * @description The `AccessLevel` the caller chose for saving the records. Null means the default from
 	 * `DML_SharingProxy.defaultAccessLevel()`: USER_MODE when the `UserModeDml_Enabled` flag is on, which is the
-	 * safer choice. An explicit `SYSTEM_MODE` keeps the full access that framework utilities such as
-	 * `UTIL_PurgeRecords` and `UTIL_BulkUpdates` need. An explicit `USER_MODE` keeps a subscriber's choice of the
-	 * safer mode made through `DML_Builder.async().execute()`.
+	 * safer choice. An explicit `SYSTEM_MODE` skips the running user's object and field permission checks. An explicit
+	 * `USER_MODE` keeps a subscriber's choice of the safer mode made through `DML_Builder.async().execute()`. Any other
+	 * value, such as a user mode level that names a permission set, is not changed by the job and is not turned into the
+	 * flag's default. It is not final, because `withAccessLevelInternal` sets it after the processor is built.
 	 */
-	private final AccessLevel accessLevel;
+	private AccessLevel accessLevel;
 
 	/**
 	 * @description Whether the caller asked to ignore record sharing for the save. The value is saved with the job
@@ -107,13 +108,20 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 
 	/**
 	 * @description Constructs a DML processor with an explicit `AccessLevel`. Use this constructor when the
-	 * async save must use one access mode, whatever the `UserModeDml_Enabled` flag says. Framework utilities that
-	 * manage their own records pass `AccessLevel.SYSTEM_MODE`. `DML_Builder.async()` passes the access level the
-	 * caller chose, so your `.withUserMode()` still applies when the job runs later.
+	 * async save must use one access mode, whatever the `UserModeDml_Enabled` flag says. `DML_Builder.async()` keeps
+	 * the access level the caller chose, so your `.withUserMode()` still applies when the job runs later.
+	 *
+	 * System mode skips the running user's object and field permission checks, so it is recorded in the bypass audit.
+	 * When you pass `AccessLevel.SYSTEM_MODE`, the constructor writes one audit entry at once, while your code is still
+	 * running and can be named as the caller. The records are not known yet, because they reach the processor later,
+	 * often in a background job. So the entry's target is `system-mode` with no object name. The entry names the
+	 * operation (`insert`, `update`, `delete`, `upsert` or `undelete`) and the class and method that built the processor.
 	 *
 	 * @param operation The DML operation to perform (DML_INSERT, DML_UPDATE, DML_DELETE, DML_UPSERT, DML_UNDELETE).
 	 * @param allOrNothing If true, the entire transaction rolls back on any failure; if false, allows partial success.
-	 * @param accessLevel Explicit `AccessLevel` for the DML commit, or `null` to inherit the flag-driven default.
+	 * @param accessLevel Explicit `AccessLevel` for the DML commit, or `null` to inherit the flag-driven default. The
+	 * job does not change the level you pass. A level that names a permission set is not turned into the default
+	 * that the flag sets.
 	 *
 	 * @since 1.0
 	 *
@@ -127,6 +135,29 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 		this.operation = operation;
 		this.allOrNothing = allOrNothing != null ? allOrNothing : true;
 		this.accessLevel = accessLevel;
+		if(DML_SharingProxy.matchesAccessLevel(accessLevel, System.AccessLevel.SYSTEM_MODE))
+		{
+			UTIL_BypassAudit.emit(UTIL_BypassAudit.SURFACE_DML, UTIL_BypassAudit.ACTION_BYPASS, UTIL_BypassAudit.TARGET_SYSTEM_MODE, new Map<String, Object>
+			{
+					UTIL_BypassAudit.CONTEXT_OPERATION => operation?.name().substringAfter('_').toLowerCase()
+			});
+		}
+	}
+
+	/**
+	 * @description Sets the access level the save uses, as the three-argument constructor does, but writes no entry in
+	 * the bypass audit. Only the framework calls this. `DML_Builder.DML_AsyncBuilder` calls it because the builder has
+	 * already recorded its own entry when `async()` ran, so the save is recorded once.
+	 *
+	 * @param accessLevel The `AccessLevel` for the save, or null to use the default that the `UserModeDml_Enabled`
+	 * flag sets.
+	 *
+	 * @return This processor, so the calls can be chained.
+	 */
+	public PROC_ExecuteDML withAccessLevelInternal(AccessLevel accessLevel)
+	{
+		this.accessLevel = accessLevel;
+		return this;
 	}
 
 	/**
@@ -190,19 +221,10 @@ global inherited sharing class PROC_ExecuteDML implements IF_Async.Processable
 			records.add((SObject)item);
 		}
 
-		DML_Builder builder = DML_Builder.newTransaction();
-		// Three cases: SYSTEM_MODE and USER_MODE are set explicitly; null keeps the flag's default.
-		// matchesAccessLevel, not ==, because an AccessLevel rebuilt for an async job is a new object.
-		// systemModeInternal: this applies again a choice that was audited before the job was queued
-		// (or made by a framework utility), so it must not add a second entry to the bypass audit.
-		if(DML_SharingProxy.matchesAccessLevel(accessLevel, System.AccessLevel.SYSTEM_MODE))
-		{
-			builder.systemModeInternal();
-		}
-		else if(DML_SharingProxy.matchesAccessLevel(accessLevel, System.AccessLevel.USER_MODE))
-		{
-			builder.withUserMode();
-		}
+		// The save gets the caller's access level as it is, so a level that names a permission set keeps it. Null keeps
+		// the flag's default. No second bypass audit entry: a system mode choice was audited before the job was queued,
+		// or was made by a framework utility.
+		DML_Builder builder = DML_Builder.newTransaction().withAccessLevelInternal(accessLevel);
 
 		// The job itself runs `without sharing`, so inherited sharing must never be used here. The
 		// builder sets sharing explicitly: enforced unless the caller asked to ignore sharing.

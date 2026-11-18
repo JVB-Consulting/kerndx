@@ -11,7 +11,7 @@
  *
  * @group Testing
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -52,6 +52,11 @@ global without sharing class TST_Factory
 	 * status. Tests that must save such a record read the class name from this record, see getRunTransitionActionClassName.
 	 */
 	private static final String RUN_TRANSITION_ACTION_RECORD = 'AsyncChainRunTransition_BeforeInsert';
+
+	/**
+	 * @description The job type the platform writes on the job row of a batch. mockBatchJob gives its job row this type.
+	 */
+	private static final String BATCH_JOB_TYPE = 'BatchApex';
 
 	/**
 	 * @description The start of the name of each permission set that insertUserWithOneHiddenField saves. A random
@@ -2475,9 +2480,98 @@ global without sharing class TST_Factory
 				.fields(new List<SObjectField> {TriggerAction__mdt.ApexClassName__c})
 				.condition(TriggerAction__mdt.DeveloperName).equals(RUN_TRANSITION_ACTION_RECORD)
 				.andCondition(TriggerAction__mdt.NamespacePrefix).equals(String.isBlank(packageNamespace) ? null : packageNamespace)
-				.withSystemMode()
+				.systemModeInternal()
 				.getFirst();
 		return action.ApexClassName__c;
+	}
+
+	/**
+	 * @description Builds a batch job row with TST_Mock, so a read of AsyncApexJob in the test returns it. Use it with
+	 * newBatchableContext to call a batch's finish method in a test, with a job that has the failed chunks you choose.
+	 *
+	 * @param failedChunkCount How many chunks the job row says failed.
+	 * @param totalChunkCount How many chunks the job row says the job has in all.
+	 *
+	 * @return The Id of the job row.
+	 *
+	 * @since 1.12
+	 *
+	 * @example
+	 * ```apex
+	 * Id jobId = TST_Factory.mockBatchJob(1, 3);
+	 * ```
+	 */
+	public static Id mockBatchJob(Integer failedChunkCount, Integer totalChunkCount)
+	{
+		return TST_Mock.of(AsyncApexJob.SObjectType)
+				.withOverride(AsyncApexJob.JobType, BATCH_JOB_TYPE)
+				.withOverride(AsyncApexJob.NumberOfErrors, failedChunkCount)
+				.withOverride(AsyncApexJob.TotalJobItems, totalChunkCount)
+				.build()
+				.Id;
+	}
+
+	/**
+	 * @description Builds a batch context for a test that calls a batch's finish method itself. The context names the job
+	 * Id it is given and has no child job.
+	 *
+	 * @param jobId The job Id the context names.
+	 *
+	 * @return A batch context that returns the given job Id.
+	 *
+	 * @since 1.12
+	 *
+	 * @example
+	 * ```apex
+	 * Database.BatchableContext context = TST_Factory.newBatchableContext(TST_Factory.mockBatchJob(0, 1));
+	 * ```
+	 */
+	public static Database.BatchableContext newBatchableContext(Id jobId)
+	{
+		return new FixedBatchableContext(jobId);
+	}
+
+	/**
+	 * @description A batch context that names one job Id and has no child job. newBatchableContext builds it.
+	 *
+	 * @date November 2026
+	 */
+	private class FixedBatchableContext implements Database.BatchableContext
+	{
+		/**
+		 * @description The job Id this context names.
+		 */
+		private final Id jobId;
+
+		/**
+		 * @description Keeps the job Id this context names.
+		 *
+		 * @param jobId The job Id to name.
+		 */
+		private FixedBatchableContext(Id jobId)
+		{
+			this.jobId = jobId;
+		}
+
+		/**
+		 * @description Returns the job Id this context was given.
+		 *
+		 * @return The job Id.
+		 */
+		public Id getJobId()
+		{
+			return jobId;
+		}
+
+		/**
+		 * @description Returns no child job, because a test context has none.
+		 *
+		 * @return Always null.
+		 */
+		public Id getChildJobId()
+		{
+			return null;
+		}
 	}
 
 	/**

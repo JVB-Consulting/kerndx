@@ -23,7 +23,7 @@
  *
  * @group Testing
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @IsTest(seeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
@@ -40,6 +40,11 @@ private class TST_BuilderInternal_TEST
 	 * tests also pass it as a field name or relationship name, because no field or relationship has that name.
 	 */
 	private static final String TEST_STRING = 'test';
+
+	/**
+	 * @description The start of the target of a bypass entry for a save in system mode. The object's name follows it.
+	 */
+	private static final String SYSTEM_MODE_TARGET_PREFIX = 'system-mode:';
 
 	/**
 	 * @description Creates an admin user just for these tests. Each test runs as this user with System.runAs, so the
@@ -1763,6 +1768,39 @@ private class TST_BuilderInternal_TEST
 		foobar.Id = recordId;
 		foobar.Name = name;
 		return foobar;
+	}
+
+	/**
+	 * @description The test-data builder saves its records in system mode, but that save is the framework's own, so it
+	 * writes no bypass entry. The test turns logging on and keeps the entries in memory, so it can read them. The test
+	 * also makes one save of its own in system mode, which must be recorded. That proves the audit was on, so the only
+	 * entry found must be the test's own.
+	 *
+	 * @see TST_BuilderInternal.SObjectManager
+	 */
+	@IsTest
+	private static void shouldWriteNoBypassEntryWhenTestDataIsInserted()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LOG_Builder.suspendSaving();
+
+		Test.startTest();
+		Foobar__c record = (Foobar__c)TST_Builder.of(Foobar__c.SObjectType).build();
+		DML_Transaction recordedTransaction = new DML_Transaction();
+		recordedTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		recordedTransaction.doInsert(TST_Factory.newFoobar());
+		recordedTransaction.commitWork();
+		Test.stopTest();
+
+		Assert.isNotNull(record.Id, 'Expected the builder to save the record');
+		List<Object> bypassTargets = new List<Object>();
+		for(Map<String, Object> context : UTIL_BypassAudit_TEST.findBufferedBypassEntries(UTIL_BypassAudit.SURFACE_DML, UTIL_String.EMPTY))
+		{
+			bypassTargets.add(context.get(UTIL_BypassAudit.CONTEXT_TARGET));
+		}
+		List<Object> expectedTargets = new List<Object> {SYSTEM_MODE_TARGET_PREFIX + String.valueOf(Foobar__c.SObjectType)};
+		Assert.areEqual(expectedTargets, bypassTargets, 'Expected only the entry of the test\'s own save, not one for the builder\'s save');
 	}
 
 	/**

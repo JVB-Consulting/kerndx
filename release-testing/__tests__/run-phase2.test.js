@@ -53,6 +53,7 @@ const {
 	runSection63,
 	runSection76,
 	runSection67,
+	runSection90,
 	runSection68,
 	runSection69,
 	runSection70,
@@ -577,6 +578,82 @@ describe('post-trigger action sections (67-70)', () =>
 	});
 });
 
+describe('trigger action rows on a framework object (90)', () =>
+{
+	// Section 90 turns its feature flag on through a fixture, runs one script, and puts the off state back.
+	beforeEach(() =>
+	{
+		jest.clearAllMocks();
+	});
+
+	it('section 90 turns the flag on, puts it off again, and counts 6 passes', async() =>
+	{
+		mockPassCounts([6], 'f');
+
+		const results = await runSection90();
+
+		expect(results['section-90'].result).toBe('PASS');
+		expect(results['section-90'].score).toBe('6/6');
+		expect(deployCmdtState).toHaveBeenCalledTimes(2);
+		expect(deployCmdtState).toHaveBeenNthCalledWith(1, 'framework-object-events-enabled');
+		expect(deployCmdtState).toHaveBeenNthCalledWith(2, 'framework-object-events-disabled');
+		expect(exec.mock.calls[0][0]).toContain('section-90-framework-object-trigger-events.apex');
+	});
+
+	it('section 90 fails when a check prints a failure, even with all 6 passes', async() =>
+	{
+		mockSequentialOutputs([
+			[
+				passLines(6, 'f'),
+				'USER_DEBUG [9]|DEBUG|90f FAIL: the framework\'s own action'
+			].join('\n')
+		]);
+
+		const results = await runSection90();
+
+		expect(results['section-90'].result).toBe('FAIL');
+		expect(results['section-90'].score).toBe('6/6');
+		expect(deployCmdtState).toHaveBeenNthCalledWith(2, 'framework-object-events-disabled');
+	});
+
+	it('section 90 fails when fewer than 6 checks pass', async() =>
+	{
+		mockPassCounts([5], 'f');
+
+		const results = await runSection90();
+
+		expect(results['section-90'].result).toBe('FAIL');
+		expect(results['section-90'].score).toBe('5/6');
+	});
+
+	it('ships its flag off in the subscriber metadata and in the fixture that puts it back, and on only in the fixture that turns it on', () =>
+	{
+		const flagFile = 'kern__FeatureFlag.EnableFrameworkObjectEventsReleaseTest.md-meta.xml';
+		const releaseTestingRoot = path.join(__dirname, '..');
+		const readFlag = (folder) => fs.readFileSync(path.join(releaseTestingRoot, folder, flagFile), 'utf8');
+		const enabledByDefault = /<field>kern__IsEnabledByDefault__c<\/field>\s*<value xsi:type="xsd:boolean">(true|false)<\/value>/;
+
+		expect(readFlag('subscriber/customMetadata').match(enabledByDefault)[1]).toBe('false');
+		expect(readFlag('e2e/fixtures/cmdt-states/framework-object-events-disabled').match(enabledByDefault)[1]).toBe('false');
+		expect(readFlag('e2e/fixtures/cmdt-states/framework-object-events-enabled').match(enabledByDefault)[1]).toBe('true');
+	});
+
+	it('hangs its rows on the subscriber\'s own public API Issue setting, with masking left on, because the framework\'s settings are protected', () =>
+	{
+		const metadataFolder = path.join(__dirname, '..', 'subscriber', 'customMetadata');
+		const readRecord = (fileName) => fs.readFileSync(path.join(metadataFolder, fileName), 'utf8');
+		const fieldValue = (record, field) => record.match(new RegExp(`<field>${field}</field>\\s*<value[^>]*>([^<]*)</value>`))[1];
+		const setting = readRecord('kern__TriggerSetting.ReleaseTestApiIssue.md-meta.xml');
+
+		expect(setting).toContain('<protected>false</protected>');
+		expect(fieldValue(setting, 'kern__SObjectType__c')).toBe('kern__ApiIssue__c');
+		expect(fieldValue(setting, 'kern__ApplyMasking__c')).toBe('true');
+		expect(fieldValue(setting, 'kern__BypassExecution__c')).toBe('false');
+		expect(fieldValue(readRecord('kern__TriggerAction.RecordApiIssueAfterInsert.md-meta.xml'), 'kern__TriggerSetting__c')).toBe('ReleaseTestApiIssue');
+		expect(fieldValue(readRecord('kern__PostTriggerAction.TST_PostActionRecorderApiIssue.md-meta.xml'), 'kern__TriggerSetting__c')).toBe('ReleaseTestApiIssue');
+	});
+});
+
 describe('MockAllAPIs-window sections (31, 55, 60, 63)', () =>
 {
 	// Each section deploys mock-all-apis-enabled, runs its script, restores mock-all-apis-disabled, waits for the log
@@ -1000,45 +1077,48 @@ describe('log-fingerprint flood-control section (66)', () =>
 
 describe('framework-wide bypass audit section (65)', () =>
 {
-	// Launch + verify split: the launch half exercises the four bypass surfaces and
-	// persists a Foobar__c handoff (2 PASS incl. the 65f flag check); the verify half
-	// polls for the object-qualified audit targets + flood-control shape (6 PASS).
-	// The 30s persistence wait is stubbed to fire immediately.
+	// Launch + verify split: the launch half exercises the four bypass surfaces and a
+	// bypass at log level ERROR, and persists a Foobar__c handoff (3 PASS incl. the 65f
+	// flag check); the verify half polls for the object-qualified audit targets, the
+	// flood-control shape, the ERROR-level entry and the 65i entries of the three lower-level saves (8 PASS).
+	// The 30s persistence wait
+	// is stubbed to fire immediately.
 	fireEveryWaitImmediately();
 
-	it('section 65 aggregates 8 passes from launch + verify and deploys no fixture', async() =>
+	it('section 65 aggregates 11 passes from launch + verify and deploys no fixture', async() =>
 	{
 		mockPassCounts([
-			2,
-			6
+			3,
+			8
 		], 'q');
 
 		const results = await runSection65();
 
 		expect(results['section-65'].result).toBe('PASS');
-		expect(results['section-65'].score).toBe('8/8');
+		expect(results['section-65'].score).toBe('11/11');
 		expect(deployCmdtState).not.toHaveBeenCalled();
 	});
 
 	it('section 65 marks FAIL when the verify under-passes', async() =>
 	{
 		mockPassCounts([
-			2,
-			5
+			3,
+			7
 		], 'q');
 
 		const results = await runSection65();
 
 		expect(results['section-65'].result).toBe('FAIL');
-		expect(results['section-65'].score).toBe('7/8');
+		expect(results['section-65'].score).toBe('10/11');
 	});
 
 	it('section 65 marks FAIL when a script reports a failure even at full pass count', async() =>
 	{
-		const verifyLines = Array.from({length: 6}, (_, i) => `USER_DEBUG [5]|DEBUG|65b-${i} PASS: scenario`);
+		const verifyLines = Array.from({length: 8}, (_, i) => `USER_DEBUG [5]|DEBUG|65b-${i} PASS: scenario`);
 		verifyLines.push('USER_DEBUG [9]|DEBUG|65b-x FAIL: broken');
 		const outputs = [
 			[
+				'USER_DEBUG [5]|DEBUG|65h-launch PASS: scenario',
 				'USER_DEBUG [5]|DEBUG|65-launch PASS: scenario',
 				'USER_DEBUG [5]|DEBUG|65f PASS: scenario'
 			].join('\n'),
@@ -1445,6 +1525,7 @@ describe('ORCHESTRATED_SECTIONS', () =>
 			68,
 			69,
 			70,
+			90,
 			71,
 			72,
 			75,

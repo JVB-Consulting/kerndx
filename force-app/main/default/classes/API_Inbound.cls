@@ -12,7 +12,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -983,7 +983,6 @@ global virtual inherited sharing class API_Inbound extends API_Base
 	 * no save is left, it logs a warning and resolves nothing. An error in the read or the save is logged, and it never
 	 * reaches the caller.
 	 */
-	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
 	protected override void resolveApiIssues()
 	{
 		if(result.isMocked == true || isIdempotencyHit || !hasSuccessStatus() || !hasEarlierAttempts)
@@ -1006,7 +1005,7 @@ global virtual inherited sharing class API_Inbound extends API_Base
 				openIssue.Status__c = SEL_ApiIssue.STATUS_RESOLVED;
 				openIssue.ResolvedDate__c = resolvedDate;
 			}
-			DML_Builder.newTransaction().withSystemMode().bypassSharingInternal().doUpdate(openIssues).allowPartial().execute();
+			DML_Builder.newTransaction().systemModeInternal().bypassSharingInternal().doUpdate(openIssues).allowPartial().execute();
 		}
 		catch(Exception error)
 		{

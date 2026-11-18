@@ -16,7 +16,7 @@
  *
  * @group Web Services
  *
- * @date October 2026
+ * @date October 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=true)
@@ -88,6 +88,11 @@ private class API_InboundRetryLink_TEST
 	private static final Integer MORE_CALLS_THAN_THE_KEY_READ_RETURNS = SEL_ApiCall.MAXIMUM_CALLS_PER_IDEMPOTENCY_KEY + 1;
 
 	/**
+	 * @description The start of the target of a bypass entry for a system-mode save. The object's name follows it.
+	 */
+	private static final String SYSTEM_MODE_TARGET_PREFIX = 'system-mode:';
+
+	/**
 	 * @description The status code the test handler answers with on purpose, or null to let the framework answer 200.
 	 */
 	private static Integer answeredStatusCode;
@@ -116,6 +121,35 @@ private class API_InboundRetryLink_TEST
 		ApiIssue__c resolvedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(openIssue.Id);
 		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, resolvedIssue.Status__c, 'Expected the issue of the failed call to be resolved');
 		Assert.isTrue(resolvedIssue.ResolvedDate__c >= resolvedAfter, 'Expected the issue to record when it was resolved, got ' + resolvedIssue.ResolvedDate__c);
+	}
+
+	/**
+	 * @description A retry with the same key succeeds and resolves the issue of the failed call with a save in system
+	 * mode. That save is the framework's own, so it writes no bypass entry while logging is on. The dispatcher saves the
+	 * log entries of its calls when it ends, so the test reads the saved entries. Logging is turned on after the failed
+	 * call, so only the retry's save is checked.
+	 *
+	 * @see API_Inbound.resolveApiIssues
+	 */
+	@IsTest
+	private static void shouldWriteNoBypassEntryWhenARetryResolvesAnIssue()
+	{
+		registerSetting(SERVICE_NAME, null);
+		String body = buildBody();
+		String idempotencyKey = UTIL_Random.randomUUID();
+		runFailingRequest(SERVICE_NAME, body, idempotencyKey);
+		ApiIssue__c openIssue = findOneIssue();
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		Test.startTest();
+		runRequest(SERVICE_NAME, body, idempotencyKey);
+		Test.stopTest();
+
+		ApiIssue__c resolvedIssue = (ApiIssue__c)new SEL_ApiIssue().findById(openIssue.Id);
+		Assert.areEqual(SEL_ApiIssue.STATUS_RESOLVED, resolvedIssue.Status__c, 'Expected the issue of the failed call to be resolved, got ' + resolvedIssue.Status__c);
+		Integer bypassEntries = UTIL_BypassAudit_TEST.countSavedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SYSTEM_MODE_TARGET_PREFIX + String.valueOf(ApiIssue__c.SObjectType));
+		Assert.areEqual(0, bypassEntries, 'Expected no bypass entry for the framework\'s own save of the resolved issue, got ' + bypassEntries);
 	}
 
 	/**

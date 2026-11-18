@@ -5,7 +5,7 @@ pageClass: reference
 description: "Base class for all inbound REST API web service calls. Provides foundational functionality for handling incoming HTTP requests, processing them, parsing request/response DTOs, and sending appropriate "
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, October 2026"
+date: "February 2026, November 2026"
 since: "1.0"
 category: apex
 ---

@@ -3,8 +3,13 @@
  * @description Processor that aggregates LoginHistory into per-user, per-month LoginFrequency__c records
  * tracking total login count and unique login day count. Designed for use with the adaptive async framework
  * via UTIL_AsynchronousJobLauncher, which automatically selects between Queueable and Batch Apex based on
- * data volume. Cross-chunk user splits are handled safely — each chunk either creates or increments the same
- * LoginFrequency__c record via the CompositeKey__c external ID.
+ * data volume.
+ *
+ * One user's logins can fall in more than one chunk. That is safe: each chunk either creates or increments the same
+ * LoginFrequency__c record through the CompositeKey__c external ID.
+ *
+ * A chunk that fails is logged and skipped, and the logins in it are not counted. The job still finishes and saves the
+ * time it started as the time of the last good run, so the next run reads only later logins.
  *
  * @see SCHED_ProcessLoginHistory
  * @see PROC_LoginFrequencyAggregator_TEST
@@ -13,12 +18,12 @@
  *
  * @group Bulk DML
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 public inherited sharing class PROC_LoginFrequencyAggregator implements IF_Async.Processable, IF_Async.Finishable
 {
 	/**
-	 * @description The ScheduleSetting__c record name used for watermark tracking.
+	 * @description The ScheduleSetting__c record name that holds the saved time of the last good run.
 	 */
 	public static final String SETTING_NAME = PROC_LoginFrequencyAggregator.class.getName();
 
@@ -34,15 +39,15 @@ public inherited sharing class PROC_LoginFrequencyAggregator implements IF_Async
 	private static final String UNDERSCORE = '_';
 
 	/**
-	 * @description The timestamp captured at job start, used to advance the watermark only after
-	 * all chunks complete successfully.
+	 * @description The time the job started. The finish step saves it, so the next run reads only later logins. A chunk
+	 * that failed and was logged does not stop that.
 	 */
 	private final Datetime targetTimestamp;
 
 	/**
-	 * @description Constructs a processor with the given target timestamp for watermark advancement.
+	 * @description Constructs a processor with the time the job started.
 	 *
-	 * @param targetTimestamp The timestamp to set as the new watermark after successful completion
+	 * @param targetTimestamp The time the job started. The finish step saves it as the time of the last good run.
 	 */
 	public PROC_LoginFrequencyAggregator(Datetime targetTimestamp)
 	{
@@ -50,7 +55,9 @@ public inherited sharing class PROC_LoginFrequencyAggregator implements IF_Async
 	}
 
 	/**
-	 * @description Converts LoginHistory records to DTOs and aggregates them into LoginFrequency__c records.
+	 * @description Converts LoginHistory records to DTOs and aggregates them into LoginFrequency__c records. A chunk
+	 * that fails is logged and its logins are not counted. This method does not throw: a thrown error would stop finish
+	 * from moving the saved time, and the next run would count the other chunks' logins a second time.
 	 *
 	 * @param items The list of LoginHistory records to process
 	 */
@@ -63,12 +70,12 @@ public inherited sharing class PROC_LoginFrequencyAggregator implements IF_Async
 		catch(Exception error)
 		{
 			LOG_Builder.build().error(error).at(CLASS_NAME + '.execute').emit();
-			throw error;
 		}
 	}
 
 	/**
-	 * @description Advances the LastSuccessfulRunTime__c watermark after all chunks complete successfully.
+	 * @description Saves the time the job started as LastSuccessfulRunTime__c, so the next run reads only later logins.
+	 * The batch calls it when no chunk threw. That includes a run where execute logged a failed chunk and went on.
 	 *
 	 * @param context The BatchableContext providing job details
 	 */
@@ -78,7 +85,7 @@ public inherited sharing class PROC_LoginFrequencyAggregator implements IF_Async
 		setting.LastSuccessfulRunTime__c = targetTimestamp;
 
 		DML_Transaction unitOfWork = new DML_Transaction();
-		unitOfWork.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		unitOfWork.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 		unitOfWork.doSave(setting);
 		unitOfWork.commitWork();
 	}
@@ -174,7 +181,7 @@ public inherited sharing class PROC_LoginFrequencyAggregator implements IF_Async
 		}
 
 		DML_Transaction unitOfWork = new DML_Transaction();
-		unitOfWork.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		unitOfWork.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 
 		unitOfWork.doInsert(recordsToCreate);
 		unitOfWork.doUpdate(recordsToUpdate);

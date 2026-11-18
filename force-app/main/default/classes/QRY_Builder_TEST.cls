@@ -4,12 +4,13 @@
  * Verifies the QRY_Builder API correctly delegates to the underlying UTIL_Query infrastructure.
  *
  * @see QRY_Builder
+ * @see QRY_BuilderBypassSharing_TEST
  *
  * @author Jason van Beukering
  *
  * @group Query Infrastructure
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount,PMD.CognitiveComplexity')
@@ -356,74 +357,40 @@ private class QRY_Builder_TEST
 	 */
 	private static final List<SObjectField> READ_PERMISSIONS = new List<SObjectField> {ObjectPermissions.PermissionsRead};
 	/**
-	 * @description A TYPEOF field written as plain text that reads the Name and the Phone of an Account parent, and
-	 * the Name of any other parent. Every user can read the Name of a record, so the sharing bypass test can show that
-	 * the parent came back while its Phone was removed.
-	 */
-	private static final String TYPEOF_ACCOUNT_NAME_AND_PHONE = 'TYPEOF What WHEN Account THEN Name, Phone ELSE Name END';
-	/**
-	 * @description The start of the name of the permission set that gives a test user read access to the Related To
-	 * field of an Event. A random ending keeps each name unique.
-	 */
-	private static final String EVENT_RELATED_TO_PERMISSION_SET_PREFIX = 'EventRelatedToRead';
-	/**
-	 * @description How many random letters and digits end the name of a permission set a test saves.
-	 */
-	private static final Integer PERMISSION_SET_NAME_RANDOM_LENGTH = 12;
-	/**
 	 * @description Alias given to the count of rows in each group that the sharing bypass tests read as totals.
 	 */
 	private static final String ROW_COUNT_ALIAS = 'rowCount';
-	/**
-	 * @description The name of the Foobar__c child relationship of the Lookup__c field, without the package namespace.
-	 * A test adds the namespace of the running code to it before it reads the child rows.
-	 */
-	private static final String CHILD_FOOBARS_RELATIONSHIP = 'Foobars__r';
-	/**
-	 * @description The name of the LoginFrequency__c child relationship of a User, through the User__c field, without the
-	 * package namespace. A test adds the namespace of the running code to it before it reads the child rows.
-	 */
-	private static final String CHILD_LOGIN_FREQUENCIES_RELATIONSHIP = 'AW_LoginFrequencies__r';
 	/**
 	 * @description The most rows the paged read of the sharing bypass tests asks for. One page holds the one seeded row.
 	 */
 	private static final Integer BYPASS_PAGE_SIZE = 10;
 	/**
-	 * @description The read terminal that returns the rows as a list. The refusal messages name it.
+	 * @description A time zone west of GMT, for the date-and-time condition tests.
 	 */
-	private static final String TERMINAL_TO_LIST = 'toList';
+	private static final String WESTERN_TIME_ZONE = 'America/Los_Angeles';
 	/**
-	 * @description The read terminal that returns the number of rows.
+	 * @description A time zone east of GMT, for the date-and-time condition tests.
 	 */
-	private static final String TERMINAL_COUNT = 'count';
+	private static final String EASTERN_TIME_ZONE = 'Asia/Tokyo';
 	/**
-	 * @description The read terminal that says whether any row matches.
+	 * @description How many hours the retry time of the date-and-time condition tests lies before or after now. It is
+	 * shorter than the gap between GMT and either test time zone, so a value read in the wrong time zone would move a
+	 * call to the wrong side of now.
 	 */
-	private static final String TERMINAL_EXISTS = 'exists';
+	private static final Integer RETRY_HOURS_FROM_NOW = 1;
 	/**
-	 * @description The read terminal that returns a query locator, which a batch job reads later. The refusal message names it.
+	 * @description How many milliseconds make one second.
 	 */
-	private static final String TERMINAL_TO_QUERY_LOCATOR = 'toQueryLocator';
+	private static final Long MILLISECONDS_PER_SECOND = 1000;
 	/**
-	 * @description The read terminal that returns a cursor, which a later transaction can read. The refusal message names it.
+	 * @description How many milliseconds past a whole second the retry time of the milliseconds test lies.
 	 */
-	private static final String TERMINAL_TO_CURSOR = 'toCursor';
+	private static final Long MILLISECONDS_PAST_THE_SECOND = 250;
 	/**
-	 * @description The read terminal that returns the totals of a grouped query. The refusal message names it.
+	 * @description How many milliseconds after the retry time, in the same second, the condition time of the whole-second
+	 * comparison test lies.
 	 */
-	private static final String TERMINAL_TO_AGGREGATE_LIST = 'toAggregateList';
-	/**
-	 * @description The read terminal that returns the first total of a grouped query. The refusal message names it.
-	 */
-	private static final String TERMINAL_GET_FIRST_AGGREGATE = 'getFirstAggregate';
-	/**
-	 * @description The read terminal that returns one page of rows. The refusal message names it.
-	 */
-	private static final String TERMINAL_GET_PAGE = 'getPage';
-	/**
-	 * @description The read terminal that returns rows picked at random. The refusal message names it.
-	 */
-	private static final String TERMINAL_GET_RANDOM_ITEMS = 'getRandomItems';
+	private static final Long MILLISECONDS_LATER_IN_THE_SECOND = 10;
 	/**
 	 * @description The builder method that receives each crafted text, so a test can say which method had to refuse it.
 	 */
@@ -532,6 +499,310 @@ private class QRY_Builder_TEST
 				'With sharing enforced the other user sees none of the admin-owned private rows — system mode waives CRUD and FLS, never record sharing');
 		Assert.areEqual(3, bypassedCount,
 				'A bypassed count must reach every row, exactly as a bypassed row query does; 0 here would mean count() drops the sharing dial and undersizes what it measures');
+	}
+
+	/**
+	 * @description Tests that a mocked read with a date-and-time condition returns only the matching record, for a user
+	 * west of GMT.
+	 */
+	@IsTest
+	private static void shouldReadOnlyTheCallDueForRetryForAUserWestOfGmt()
+	{
+		assertOnlyTheCallDueForRetryIsRead(WESTERN_TIME_ZONE);
+	}
+
+	/**
+	 * @description Tests that a mocked read with a date-and-time condition returns only the matching record, for a user
+	 * east of GMT.
+	 */
+	@IsTest
+	private static void shouldReadOnlyTheCallDueForRetryForAUserEastOfGmt()
+	{
+		assertOnlyTheCallDueForRetryIsRead(EASTERN_TIME_ZONE);
+	}
+
+	/**
+	 * @description Registers three mock calls: one waiting for a retry whose time has passed, one waiting for a retry
+	 * whose time is still to come, and one that is completed. Then, as a new user in the given time zone, it reads the
+	 * calls that wait for a retry with a retry time at or before now, and checks that only the first call comes back.
+	 *
+	 * @param timeZone The time zone of the user who runs the read.
+	 */
+	private static void assertOnlyTheCallDueForRetryIsRead(String timeZone)
+	{
+		Datetime now = Datetime.now();
+		ApiCall__c dueCall = newMockCall(SEL_ApiCall.STATUS_RETRY, now.addHours(-RETRY_HOURS_FROM_NOW));
+		ApiCall__c laterCall = newMockCall(SEL_ApiCall.STATUS_RETRY, now.addHours(RETRY_HOURS_FROM_NOW));
+		ApiCall__c completedCall = newMockCall(SEL_ApiCall.STATUS_COMPLETED, now.addHours(-RETRY_HOURS_FROM_NOW));
+		TST_Mock.register(ApiCall__c.SObjectType, new List<SObject> {dueCall, laterCall, completedCall});
+
+		User reader = TST_Factory.newUser(SEL_Profile.PROFILE_SYSTEM_ADMIN);
+		reader.TimeZoneSidKey = timeZone;
+		TST_Factory.insertUsers(new List<User> {reader});
+
+		List<SObject> dueCalls;
+		Test.startTest();
+		System.runAs(reader)
+		{
+			Assert.areEqual(timeZone, UserInfo.getTimeZone().getID(), 'Expected the read to run in the given time zone');
+			dueCalls = QRY_Builder.selectFrom(ApiCall__c.SObjectType)
+					.withSystemMode()
+					.condition(ApiCall__c.Status__c).equals(SEL_ApiCall.STATUS_RETRY)
+					.andCondition(ApiCall__c.NextRetry__c).lessThanOrEquals(now)
+					.toList();
+		}
+		Test.stopTest();
+
+		Assert.areEqual(1, dueCalls.size(), 'Expected only the call whose retry time has passed');
+		Assert.areEqual(dueCall.Id, dueCalls[0].Id, 'Expected the call whose retry time has passed');
+	}
+
+	/**
+	 * @description Tests that a mocked read with an equals condition on a date and time with milliseconds matches every
+	 * record in that whole second, as the database does: the database keeps whole seconds only, so it would hold both
+	 * mock calls at the same time. One mock call has exactly the condition value, milliseconds included. The other has
+	 * the same time on the whole second. The calls that come back keep their own values.
+	 */
+	@IsTest
+	private static void shouldMatchTheWholeSecondWhenAnEqualsValueHasMilliseconds()
+	{
+		Datetime wholeSecond = findCurrentWholeSecond();
+		Datetime withMilliseconds = Datetime.newInstance(wholeSecond.getTime() + MILLISECONDS_PAST_THE_SECOND);
+		ApiCall__c callWithMilliseconds = newMockCall(SEL_ApiCall.STATUS_RETRY, withMilliseconds);
+		ApiCall__c callOnTheWholeSecond = newMockCall(SEL_ApiCall.STATUS_RETRY, wholeSecond);
+		TST_Mock.register(ApiCall__c.SObjectType, new List<SObject> {callWithMilliseconds, callOnTheWholeSecond});
+
+		Test.startTest();
+		List<SObject> matchingCalls = QRY_Builder.selectFrom(ApiCall__c.SObjectType)
+				.withSystemMode()
+				.condition(ApiCall__c.NextRetry__c).equals(withMilliseconds)
+				.toList();
+		Test.stopTest();
+
+		Assert.areEqual(2, matchingCalls.size(), 'Expected both calls to match, because both are in the same whole second');
+		Assert.areEqual(callWithMilliseconds.Id, matchingCalls[0].Id, 'Expected the call with milliseconds to come back first');
+		Assert.areEqual(callOnTheWholeSecond.Id, matchingCalls[1].Id, 'Expected the call on the whole second to come back second');
+		Assert.areEqual(withMilliseconds, ((ApiCall__c)matchingCalls[0]).NextRetry__c,
+				'Expected the returned call to keep the milliseconds of its retry time');
+		Assert.areEqual(withMilliseconds, callWithMilliseconds.NextRetry__c,
+				'Expected the registered mock call to keep the milliseconds of its retry time');
+	}
+
+	/**
+	 * @description Tests that a mocked read compares a date and time with milliseconds at whole seconds, as the database
+	 * does. The mock call and the condition value are in the same second, with the condition value a little later. So the
+	 * call counts as at or before the condition value, and not as after it.
+	 */
+	@IsTest
+	private static void shouldCompareAtWholeSecondsWhenBothTimesAreInTheSameSecond()
+	{
+		Datetime wholeSecond = findCurrentWholeSecond();
+		Datetime retryTime = Datetime.newInstance(wholeSecond.getTime() + MILLISECONDS_PAST_THE_SECOND);
+		Datetime conditionTime = Datetime.newInstance(wholeSecond.getTime() + MILLISECONDS_PAST_THE_SECOND + MILLISECONDS_LATER_IN_THE_SECOND);
+		ApiCall__c call = newMockCall(SEL_ApiCall.STATUS_RETRY, retryTime);
+		TST_Mock.register(ApiCall__c.SObjectType, new List<SObject> {call});
+
+		Test.startTest();
+		List<SObject> callsAtOrBefore = QRY_Builder.selectFrom(ApiCall__c.SObjectType)
+				.withSystemMode()
+				.condition(ApiCall__c.NextRetry__c).lessThanOrEquals(conditionTime)
+				.toList();
+		List<SObject> callsAfter = QRY_Builder.selectFrom(ApiCall__c.SObjectType)
+				.withSystemMode()
+				.condition(ApiCall__c.NextRetry__c).greaterThan(conditionTime)
+				.toList();
+		Test.stopTest();
+
+		Assert.areEqual(1, callsAtOrBefore.size(), 'Expected the call to count as at or before the condition time');
+		Assert.areEqual(call.Id, callsAtOrBefore[0].Id, 'Expected the mock call to come back');
+		Assert.isTrue(callsAfter.isEmpty(), 'Expected the call not to count as after the condition time');
+	}
+
+	/**
+	 * @description Tests the common shape of a test: a mock call stamped with the current time, then read with a
+	 * condition at or before the current time taken just after. The call always comes back, because both times are
+	 * compared at whole seconds.
+	 */
+	@IsTest
+	private static void shouldReadACallStampedNowWithAConditionAtOrBeforeNow()
+	{
+		ApiCall__c call = newMockCall(SEL_ApiCall.STATUS_RETRY, Datetime.now());
+		TST_Mock.register(ApiCall__c.SObjectType, new List<SObject> {call});
+
+		Test.startTest();
+		List<SObject> dueCalls = QRY_Builder.selectFrom(ApiCall__c.SObjectType)
+				.withSystemMode()
+				.condition(ApiCall__c.NextRetry__c).lessThanOrEquals(Datetime.now())
+				.toList();
+		Test.stopTest();
+
+		Assert.areEqual(1, dueCalls.size(), 'Expected the call stamped with the current time to be due');
+		Assert.areEqual(call.Id, dueCalls[0].Id, 'Expected the mock call to come back');
+	}
+
+	/**
+	 * @description Tests that a mocked read with a not equals condition on a date and time counts a call as equal when it
+	 * is in the same whole second. So only the call with no retry time comes back.
+	 */
+	@IsTest
+	private static void shouldReadOnlyTheCallWithoutRetryTimeWhenNotEqualsATimeInTheSameSecond()
+	{
+		Datetime wholeSecond = findCurrentWholeSecond();
+		List<ApiCall__c> calls = registerCallInTheSecondAndCallWithoutRetryTime(wholeSecond);
+
+		Test.startTest();
+		List<SObject> otherCalls = QRY_Builder.selectFrom(ApiCall__c.SObjectType)
+				.withSystemMode()
+				.condition(ApiCall__c.NextRetry__c).notEquals(findLaterTimeInTheSecond(wholeSecond))
+				.toList();
+		Test.stopTest();
+
+		Assert.areEqual(1, otherCalls.size(), 'Expected only the call with no retry time');
+		Assert.areEqual(calls[1].Id, otherCalls[0].Id, 'Expected the call with no retry time to come back');
+	}
+
+	/**
+	 * @description Tests that a mocked read with a NOT IN condition on a date and time counts a call as in the list when
+	 * it is in the same whole second as a value of the list. So only the call with no retry time comes back.
+	 */
+	@IsTest
+	private static void shouldReadOnlyTheCallWithoutRetryTimeWhenNotInAListWithATimeInTheSameSecond()
+	{
+		Datetime wholeSecond = findCurrentWholeSecond();
+		List<ApiCall__c> calls = registerCallInTheSecondAndCallWithoutRetryTime(wholeSecond);
+
+		Test.startTest();
+		List<SObject> otherCalls = QRY_Builder.selectFrom(ApiCall__c.SObjectType)
+				.withSystemMode()
+				.condition(ApiCall__c.NextRetry__c).notInSet(new List<Object> {findLaterTimeInTheSecond(wholeSecond)})
+				.toList();
+		Test.stopTest();
+
+		Assert.areEqual(1, otherCalls.size(), 'Expected only the call with no retry time');
+		Assert.areEqual(calls[1].Id, otherCalls[0].Id, 'Expected the call with no retry time to come back');
+	}
+
+	/**
+	 * @description Tests that a mocked read with an IN condition on a date and time counts a call as in the list when it
+	 * is in the same whole second as a value of the list. So only the call with a retry time comes back.
+	 */
+	@IsTest
+	private static void shouldReadOnlyTheCallWithRetryTimeWhenInAListWithATimeInTheSameSecond()
+	{
+		Datetime wholeSecond = findCurrentWholeSecond();
+		List<ApiCall__c> calls = registerCallInTheSecondAndCallWithoutRetryTime(wholeSecond);
+
+		Test.startTest();
+		List<SObject> listedCalls = QRY_Builder.selectFrom(ApiCall__c.SObjectType)
+				.withSystemMode()
+				.condition(ApiCall__c.NextRetry__c).isIn(new List<Object> {findLaterTimeInTheSecond(wholeSecond)})
+				.toList();
+		Test.stopTest();
+
+		Assert.areEqual(1, listedCalls.size(), 'Expected only the call with a retry time');
+		Assert.areEqual(calls[0].Id, listedCalls[0].Id, 'Expected the call with a retry time to come back');
+	}
+
+	/**
+	 * @description Tests that a mocked read with a before condition on a date and time compares at the start of the
+	 * condition's whole second. The call is in that second, so it is not before it. The call with no retry time is left out
+	 * by the retry time condition, as the database does.
+	 */
+	@IsTest
+	private static void shouldReadNoCallBeforeATimeInTheSameSecond()
+	{
+		Datetime wholeSecond = findCurrentWholeSecond();
+		registerCallInTheSecondAndCallWithoutRetryTime(wholeSecond);
+
+		Test.startTest();
+		List<SObject> earlierCalls = QRY_Builder.selectFrom(ApiCall__c.SObjectType)
+				.withSystemMode()
+				.condition(ApiCall__c.Status__c).equals(SEL_ApiCall.STATUS_RETRY)
+				.andCondition(ApiCall__c.NextRetry__c).lessThan(findLaterTimeInTheSecond(wholeSecond))
+				.toList();
+		Test.stopTest();
+
+		Assert.isTrue(earlierCalls.isEmpty(), 'Expected no call before the start of the second the call is in');
+	}
+
+	/**
+	 * @description Tests that a mocked read with an at or after condition on a date and time compares at the start of the
+	 * condition's whole second. The call is in that second, so it counts as at or after it. The call with no retry time is
+	 * left out by the retry time condition, as the database does.
+	 */
+	@IsTest
+	private static void shouldReadTheCallAtOrAfterATimeInTheSameSecond()
+	{
+		Datetime wholeSecond = findCurrentWholeSecond();
+		List<ApiCall__c> calls = registerCallInTheSecondAndCallWithoutRetryTime(wholeSecond);
+
+		Test.startTest();
+		List<SObject> laterCalls = QRY_Builder.selectFrom(ApiCall__c.SObjectType)
+				.withSystemMode()
+				.condition(ApiCall__c.Status__c).equals(SEL_ApiCall.STATUS_RETRY)
+				.andCondition(ApiCall__c.NextRetry__c).greaterThanOrEquals(findLaterTimeInTheSecond(wholeSecond))
+				.toList();
+		Test.stopTest();
+
+		Assert.areEqual(1, laterCalls.size(), 'Expected only the call with a retry time');
+		Assert.areEqual(calls[0].Id, laterCalls[0].Id, 'Expected the call with a retry time to come back');
+	}
+
+	/**
+	 * @description Registers two mock calls that both wait for a retry: the first has a retry time 250 milliseconds past
+	 * the given whole second, and the second has no retry time.
+	 *
+	 * @param wholeSecond The whole second the first call lies in.
+	 *
+	 * @return The two calls: the one with a retry time first, then the one without.
+	 */
+	private static List<ApiCall__c> registerCallInTheSecondAndCallWithoutRetryTime(Datetime wholeSecond)
+	{
+		ApiCall__c callWithRetryTime = newMockCall(SEL_ApiCall.STATUS_RETRY, Datetime.newInstance(wholeSecond.getTime() + MILLISECONDS_PAST_THE_SECOND));
+		ApiCall__c callWithoutRetryTime = newMockCall(SEL_ApiCall.STATUS_RETRY, null);
+		TST_Mock.register(ApiCall__c.SObjectType, new List<SObject> {callWithRetryTime, callWithoutRetryTime});
+		return new List<ApiCall__c> {callWithRetryTime, callWithoutRetryTime};
+	}
+
+	/**
+	 * @description Finds a time in the given whole second that is a little later than the retry time of the first mock call
+	 * of registerCallInTheSecondAndCallWithoutRetryTime.
+	 *
+	 * @param wholeSecond The whole second.
+	 *
+	 * @return The time, 260 milliseconds past the whole second.
+	 */
+	private static Datetime findLaterTimeInTheSecond(Datetime wholeSecond)
+	{
+		return Datetime.newInstance(wholeSecond.getTime() + MILLISECONDS_PAST_THE_SECOND + MILLISECONDS_LATER_IN_THE_SECOND);
+	}
+
+	/**
+	 * @description Finds the start of the current second: the current time with its milliseconds removed.
+	 *
+	 * @return The current time on the whole second.
+	 */
+	private static Datetime findCurrentWholeSecond()
+	{
+		Long nowInMilliseconds = Datetime.now().getTime();
+		return Datetime.newInstance(nowInMilliseconds - Math.mod(nowInMilliseconds, MILLISECONDS_PER_SECOND));
+	}
+
+	/**
+	 * @description Builds a call record that is never saved, with a fake Id, the given status and the given retry time.
+	 *
+	 * @param status The value for Status__c.
+	 * @param nextRetry The value for NextRetry__c.
+	 *
+	 * @return The call record.
+	 */
+	private static ApiCall__c newMockCall(String status, Datetime nextRetry)
+	{
+		return (ApiCall__c)TST_Builder.of(ApiCall__c.SObjectType)
+				.withOverride(ApiCall__c.Status__c, status)
+				.withOverride(ApiCall__c.NextRetry__c, nextRetry)
+				.withoutInsertion(true)
+				.build();
 	}
 
 	/**
@@ -4288,6 +4559,122 @@ private class QRY_Builder_TEST
 	}
 
 	/**
+	 * @description withAccessLevelInternal(AccessLevel.USER_MODE) reads in user mode, even when the
+	 * UserModeQueries_Enabled flag is off. User mode means the running user's object and field permissions apply, so a
+	 * query that selects a field the user cannot read is refused by Salesforce.
+	 */
+	@IsTest
+	private static void withAccessLevelInternalUserModeChecksTheRunningUsersFields()
+	{
+		User restricted = insertRestrictedReader();
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true, false);
+
+		System.runAs(restricted)
+		{
+			try
+			{
+				newFoobarNameQuery().addField(Foobar__c.Email__c).withAccessLevelInternal(AccessLevel.USER_MODE).toList();
+				Assert.fail('Expected user mode to refuse the email field the user cannot read');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, QueryException.class, 'Expected Salesforce to refuse the field. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
+			}
+		}
+	}
+
+	/**
+	 * @description withAccessLevelInternal(AccessLevel.SYSTEM_MODE) reads in system mode, even when the
+	 * UserModeQueries_Enabled flag is on, so the email field the user cannot read is not refused. Only the framework
+	 * calls this method, so it writes no entry in the bypass audit, the log of each time code skips the user's checks.
+	 */
+	@IsTest
+	private static void withAccessLevelInternalSystemModeReadsWithoutAnAuditEntry()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		User restricted = insertRestrictedReader();
+		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
+		System.runAs(getTestAdmin())
+		{
+			TST_Builder.of(Foobar__c.SObjectType).withOverride(Foobar__c.OwnerId, restricted.Id).build();
+		}
+
+		QRY_Builder.Builder builder;
+		List<SObject> rows;
+		Test.startTest();
+		System.runAs(restricted)
+		{
+			builder = newFoobarNameQuery().addField(Foobar__c.Email__c).withAccessLevelInternal(AccessLevel.SYSTEM_MODE);
+			rows = builder.toList();
+		}
+		Test.stopTest();
+
+		Assert.isFalse(builder.userModeEnabled, 'Expected the builder to read in system mode');
+		Assert.areEqual(1, rows.size(), 'Expected the read of the email field to run in system mode and find the row the user owns');
+		Assert.isNull(findBypassAuditContext(SYSTEM_MODE_AUDIT_PREFIX + String.valueOf(Foobar__c.SObjectType)),
+				'Expected no bypass audit entry, because only the framework calls this method');
+	}
+
+	/**
+	 * @description withAccessLevelInternal hands the query engine the very level it was given, so a user mode level
+	 * that names a permission set reaches the database with its permission set. A missing level changes nothing, and a
+	 * later call of withUserMode(), systemModeInternal() or withoutSecurity() replaces the level, because the last
+	 * access mode call wins.
+	 */
+	@IsTest
+	@SuppressWarnings('PMD.KernSecurityBypassCallSite')
+	private static void withAccessLevelInternalHandsTheEngineTheLevelItWasGiven()
+	{
+		System.runAs(getTestAdmin())
+		{
+			AccessLevel givenLevel = AccessLevel.USER_MODE;
+			QRY_Builder.Builder builder = QRY_Builder.selectFrom(Foobar__c.SObjectType).systemModeInternal().withAccessLevelInternal(givenLevel);
+			QRY_Engine.QueryParameters withGivenLevel = builder.buildParameters(new QRY_BindRegistry());
+			QRY_Engine.QueryParameters afterMissingLevel = builder.withAccessLevelInternal(null).buildParameters(new QRY_BindRegistry());
+			QRY_Engine.QueryParameters afterUserMode = builder.withUserMode().buildParameters(new QRY_BindRegistry());
+			QRY_Engine.QueryParameters afterSystemMode = builder.withAccessLevelInternal(givenLevel).systemModeInternal().buildParameters(new QRY_BindRegistry());
+			QRY_Engine.QueryParameters afterWithoutSecurity = builder.withAccessLevelInternal(givenLevel).withoutSecurity().buildParameters(new QRY_BindRegistry());
+			Boolean isUserModeAfterMissingLevel = QRY_Builder.selectFrom(Foobar__c.SObjectType).systemModeInternal().withAccessLevelInternal(null).userModeEnabled;
+
+			Assert.isTrue(withGivenLevel.userMode, 'Expected the given level to turn user mode on');
+			Assert.isTrue(givenLevel === withGivenLevel.exactAccessLevel, 'Expected the engine to get the very level that was given');
+			Assert.isTrue(givenLevel === afterMissingLevel.exactAccessLevel, 'Expected a missing level to keep the level given before');
+			Assert.isFalse(isUserModeAfterMissingLevel, 'Expected a missing level to leave system mode as it was');
+			Assert.isNull(afterUserMode.exactAccessLevel, 'Expected withUserMode() to replace the given level');
+			Assert.isTrue(afterUserMode.userMode, 'Expected withUserMode() to keep user mode');
+			Assert.isNull(afterSystemMode.exactAccessLevel, 'Expected systemModeInternal() to replace the given level');
+			Assert.isFalse(afterSystemMode.userMode, 'Expected systemModeInternal() to turn user mode off');
+			Assert.isNull(afterWithoutSecurity.exactAccessLevel, 'Expected withoutSecurity() to replace the given level');
+		}
+	}
+
+	/**
+	 * @description A read with a level from withAccessLevelInternal is never cached. A user mode level that names a
+	 * permission set can read more than plain user mode, and the cache cannot tell the two apart, so a cached result
+	 * could reach a later plain user mode read. The same read with withUserMode() comes from the cache the second time.
+	 */
+	@IsTest
+	private static void withAccessLevelInternalReadIsNeverCached()
+	{
+		System.runAs(getTestAdmin())
+		{
+			Foobar__c record = TST_Factory.insertFoobar();
+			QRY_Builder.Builder givenLevelQuery = newRowQuery(record.Id).withAccessLevelInternal(AccessLevel.USER_MODE).withCache(CACHE_PROBE_TTL_SECONDS);
+			QRY_Builder.Builder userModeQuery = newRowQuery(record.Id).withUserMode().withCache(CACHE_PROBE_TTL_SECONDS);
+
+			givenLevelQuery.toList();
+			List<SObject> secondRows = givenLevelQuery.toList();
+			userModeQuery.toList();
+			userModeQuery.toList();
+
+			Assert.areEqual(1, secondRows.size(), 'Expected the second read to find the row');
+			Assert.isFalse(givenLevelQuery.isCached(), 'Expected the read with the given level to go to the database again');
+			Assert.isTrue(userModeQuery.isCached(), 'Expected the plain user mode read to come from the cache the second time');
+		}
+	}
+
+	/**
 	 * @description Tests stripInaccessible method.
 	 */
 	@IsTest
@@ -4345,39 +4732,6 @@ private class QRY_Builder_TEST
 	}
 
 	/**
-	 * @description With the UserModeQueries_Enabled flag off, a query with no mode call runs in system mode: no object or
-	 * field permission is checked. bypassSharing() alone then reads the row another user owns and keeps every field,
-	 * the hidden Email__c field included. A cursor and a query locator are not refused either, and each reaches the row.
-	 * When stripInaccessible() is added, the same read still removes the field the running user cannot read.
-	 */
-	@IsTest
-	private static void bypassSharingAloneWithTheQueryFlagOffKeepsEveryField()
-	{
-		User restricted = insertRestrictedReader();
-		Foobar__c row = insertRowOwnedByAdmin(null);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true, false);
-
-		List<SObject> rows;
-		List<SObject> strippedRows;
-		Integer cursorRows;
-		Integer locatorRows;
-		System.runAs(restricted)
-		{
-			rows = newRowQuery(row.Id).addField(Foobar__c.Email__c).bypassSharing().toList();
-			strippedRows = newRowQuery(row.Id).addField(Foobar__c.Email__c).bypassSharing().stripInaccessible().toList();
-			cursorRows = countCursorRows(newRowQuery(row.Id).bypassSharing().toCursor());
-			locatorRows = countLocatorRows(newRowQuery(row.Id).bypassSharing().toQueryLocator());
-		}
-
-		Assert.areEqual(1, rows.size(), 'Expected the read to reach the row the test administrator owns');
-		Assert.areEqual(row.Email__c, rows[0].get(Foobar__c.Email__c), 'Expected the row to keep the email, because the flag is off and no field is checked');
-		Assert.areEqual(1, strippedRows.size(), 'Expected the read with stripInaccessible() to reach the row too');
-		Assert.isFalse(strippedRows[0].isSet(Foobar__c.Email__c), 'Expected stripInaccessible() to remove the email the user cannot read, even with the flag off');
-		Assert.areEqual(1, cursorRows, 'Expected the cursor to be opened and to reach the row');
-		Assert.areEqual(1, locatorRows, 'Expected the query locator to be opened and to reach the row');
-	}
-
-	/**
 	 * @description withSystemMode() with bypassSharing() turns off both the field checks and record sharing. The row
 	 * another user owns comes back with the hidden Email__c field. When stripInaccessible() is added, the same read
 	 * removes the field the running user cannot read.
@@ -4401,29 +4755,6 @@ private class QRY_Builder_TEST
 		Assert.areEqual(row.Email__c, keptRows[0].get(Foobar__c.Email__c), 'Expected the row to keep the email, because system mode checks no field');
 		Assert.areEqual(1, strippedRows.size(), 'Expected the read with stripInaccessible() to reach the row too');
 		Assert.isFalse(strippedRows[0].isSet(Foobar__c.Email__c), 'Expected stripInaccessible() to remove the email the user cannot read');
-	}
-
-	/**
-	 * @description bypassSharing() alone leaves exactly one audit entry for skipping record sharing, and none for system
-	 * mode. An audit entry is the log record the framework writes when a safety check is turned off. Under the default
-	 * user mode the read may run in system mode inside the framework to skip sharing, but the field checks stay, so
-	 * nothing about system mode is recorded.
-	 */
-	@IsTest
-	private static void bypassSharingAloneWritesOneSharingAuditEntry()
-	{
-		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest();
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-
-		Test.startTest();
-		newFoobarNameQuery().bypassSharing().toList();
-		Test.stopTest();
-
-		String objectName = String.valueOf(Foobar__c.SObjectType);
-		Assert.areEqual(1, countBypassAuditEntries(SHARING_AUDIT_PREFIX + objectName), 'Expected exactly one audit entry for skipping record sharing');
-		Assert.areEqual(0, countBypassAuditEntries(SYSTEM_MODE_AUDIT_PREFIX + objectName), 'Expected no audit entry for system mode, because no field check was turned off');
-		Assert.areEqual(0, countBypassAuditEntries(SECURITY_MODE_AUDIT_PREFIX + objectName), 'Expected no audit entry for turning off every check');
 	}
 
 	/**
@@ -4514,184 +4845,6 @@ private class QRY_Builder_TEST
 	}
 
 	/**
-	 * @description bypassSharing() alone, under the default user mode, reads a row that another user owns. User mode
-	 * means the query runs with the running user's object and field permissions. The restricted user may read
-	 * Foobar__c records, but Foobar__c records are private and the test administrator owns the row, so only the bypass
-	 * can make it visible.
-	 */
-	@IsTest
-	private static void bypassSharingAloneReadsARowOwnedByAnotherUser()
-	{
-		User restricted = insertRestrictedReader();
-		Foobar__c row = insertRowOwnedByAdmin(null);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-
-		List<SObject> rows;
-		System.runAs(restricted)
-		{
-			rows = newRowQuery(row.Id).bypassSharing().toList();
-		}
-
-		Assert.areEqual(1, rows.size(), 'Expected bypassSharing() to read the row the test administrator owns');
-		Assert.areEqual(row.Id, rows[0].Id, 'Expected the row read to be the administrator\'s row');
-	}
-
-	/**
-	 * @description bypassSharing() alone reads the row another user owns, but removes the Email__c field, which the
-	 * running user cannot read. The field is selected on purpose. The same holds with and without stripInaccessible(),
-	 * because the bypass keeps the field checks of user mode.
-	 */
-	@IsTest
-	private static void bypassSharingAloneRemovesAFieldTheUserCannotRead()
-	{
-		User restricted = insertRestrictedReader();
-		Foobar__c row = insertRowOwnedByAdmin(null);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-
-		List<SObject> plainRows;
-		List<SObject> strippedRows;
-		System.runAs(restricted)
-		{
-			plainRows = newRowQuery(row.Id).addField(Foobar__c.Email__c).bypassSharing().toList();
-			strippedRows = newRowQuery(row.Id).addField(Foobar__c.Email__c).bypassSharing().stripInaccessible().toList();
-		}
-
-		for(List<SObject> rows : new List<List<SObject>> {plainRows, strippedRows})
-		{
-			Assert.areEqual(1, rows.size(), 'Expected the read to reach the row the test administrator owns');
-			Assert.areEqual(row.Name, rows[0].get(Foobar__c.Name), 'Expected the row to keep the name, which the user can read');
-			Assert.isFalse(rows[0].isSet(Foobar__c.Email__c), 'Expected the email, which the user cannot read, to be removed from the row');
-		}
-	}
-
-	/**
-	 * @description bypassSharing() alone counts the row another user owns: count() is one and exists() is true. A count
-	 * returns a number, so there is no field to remove.
-	 */
-	@IsTest
-	private static void bypassSharingAloneCountsRowsOwnedByAnotherUser()
-	{
-		User restricted = insertRestrictedReader();
-		Foobar__c row = insertRowOwnedByAdmin(null);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-
-		Integer rowCount;
-		Boolean rowExists;
-		System.runAs(restricted)
-		{
-			rowCount = newRowQuery(row.Id).bypassSharing().count();
-			rowExists = newRowQuery(row.Id).bypassSharing().exists();
-		}
-
-		Assert.areEqual(1, rowCount, 'Expected count() to include the row the test administrator owns');
-		Assert.isTrue(rowExists, 'Expected exists() to find the row the test administrator owns');
-	}
-
-	/**
-	 * @description bypassSharing() alone refuses toQueryLocator(), under the default user mode and under withUserMode().
-	 * A batch job reads a query locator later, so the framework cannot remove the fields the user cannot read from what
-	 * it returns. The refusal names the method and says to add withSystemMode(), and no query runs. A refused read also
-	 * writes no audit entry. An audit entry is the log record the framework writes when a safety check is turned off.
-	 */
-	@IsTest
-	private static void bypassSharingAloneRefusesAQueryLocator()
-	{
-		User restricted = insertRestrictedReader();
-		Foobar__c row = insertRowOwnedByAdmin(null);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-		LOG_Builder.ignoreTestMode = true;
-		TST_Factory.setupLoggerForTest();
-
-		Test.startTest();
-		System.runAs(restricted)
-		{
-			for(QRY_Builder.Builder query : new List<QRY_Builder.Builder> {newRowQuery(row.Id).bypassSharing(), newRowQuery(row.Id).withUserMode().bypassSharing()})
-			{
-				Integer queriesBefore = UTIL_Limits.soqlQueries().used();
-				try
-				{
-					Object answer = runTerminal(query, TERMINAL_TO_QUERY_LOCATOR);
-					Assert.fail('Expected the query to be refused; it returned ' + describeAnswer(answer));
-				}
-				catch(Exception error)
-				{
-					Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class, 'Expected the refusal. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
-					Assert.areEqual(buildBypassRefusalMessage(TERMINAL_TO_QUERY_LOCATOR), error.getMessage(), 'Expected the message to name toQueryLocator and say what to do');
-					Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query');
-				}
-			}
-		}
-		Test.stopTest();
-
-		String objectName = String.valueOf(Foobar__c.SObjectType);
-		Assert.areEqual(0, countBypassAuditEntries(SHARING_AUDIT_PREFIX + objectName), 'Expected no audit entry for skipping record sharing, because the read was refused');
-		Assert.areEqual(0, countBypassAuditEntries(SYSTEM_MODE_AUDIT_PREFIX + objectName), 'Expected no audit entry for system mode, because the read was refused');
-	}
-
-	/**
-	 * @description bypassSharing() alone refuses toCursor(), under the default user mode and under withUserMode(). A
-	 * later transaction can read a cursor, so the framework cannot remove the fields the user cannot read from what it
-	 * returns. The refusal names the method and says to add withSystemMode(), and no query runs.
-	 */
-	@IsTest
-	private static void bypassSharingAloneRefusesACursor()
-	{
-		User restricted = insertRestrictedReader();
-		Foobar__c row = insertRowOwnedByAdmin(null);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-
-		System.runAs(restricted)
-		{
-			for(QRY_Builder.Builder query : new List<QRY_Builder.Builder> {newRowQuery(row.Id).bypassSharing(), newRowQuery(row.Id).withUserMode().bypassSharing()})
-			{
-				Integer queriesBefore = UTIL_Limits.soqlQueries().used();
-				try
-				{
-					Object answer = runTerminal(query, TERMINAL_TO_CURSOR);
-					Assert.fail('Expected the query to be refused; it returned ' + describeAnswer(answer));
-				}
-				catch(Exception error)
-				{
-					Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class, 'Expected the refusal. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
-					Assert.areEqual(buildBypassRefusalMessage(TERMINAL_TO_CURSOR), error.getMessage(), 'Expected the message to name toCursor and say what to do');
-					Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query');
-				}
-			}
-		}
-	}
-
-	/**
-	 * @description bypassSharing() alone reads a page that holds the row another user owns, without the Email__c field
-	 * the user cannot read. getPage opens a cursor inside, but it removes the hidden fields from the rows it returns,
-	 * so it is not refused. It does not hand that cursor back, because rows read later from it would keep the hidden
-	 * field: the cursor is null, and the total and the paging values are still right.
-	 */
-	@IsTest
-	private static void bypassSharingAloneGetPageReadsAnotherUsersRowWithoutTheHiddenField()
-	{
-		User restricted = insertRestrictedReader();
-		Foobar__c row = insertRowOwnedByAdmin(null);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-
-		QRY_Builder.QueryPage page;
-		System.runAs(restricted)
-		{
-			page = newRowQuery(row.Id).addField(Foobar__c.Email__c).bypassSharing().getPage(1, BYPASS_PAGE_SIZE);
-		}
-
-		Assert.areEqual(1, page.records.size(), 'Expected the page to hold the row the test administrator owns');
-		Assert.areEqual(row.Id, page.records[0].Id, 'Expected the page to hold the administrator\'s row');
-		Assert.isFalse(page.records[0].isSet(Foobar__c.Email__c), 'Expected the email, which the user cannot read, to be removed from the row');
-		Assert.isNull(page.cursor, 'Expected no cursor, because rows read later from it would keep the hidden field');
-		Assert.areEqual(1, page.totalRecords, 'Expected the total to count the one row');
-		Assert.areEqual(1, page.pageNumber, 'Expected the page number asked for');
-		Assert.areEqual(BYPASS_PAGE_SIZE, page.pageSize, 'Expected the page size asked for');
-		Assert.areEqual(1, page.totalPages, 'Expected one page in total');
-		Assert.isFalse(page.hasMorePages, 'Expected no page after the only page');
-		Assert.isFalse(page.hasPriorPages, 'Expected no page before the first page');
-	}
-
-	/**
 	 * @description getRandomItems removes the fields the user cannot read when stripInaccessible() is on. The read runs
 	 * in system mode with sharing bypassed and selects Email__c, which the running user cannot read. The row comes back
 	 * without it.
@@ -4734,464 +4887,6 @@ private class QRY_Builder_TEST
 
 		Assert.areEqual(1, userModeFirstRows.size(), 'Expected the read to reach the administrator\'s row when withUserMode() comes first');
 		Assert.areEqual(1, bypassFirstRows.size(), 'Expected the read to reach the administrator\'s row when bypassSharing() comes first');
-	}
-
-	/**
-	 * @description bypassSharing() alone removes a hidden field read through a parent. The child row selects the email
-	 * of its parent through the Lookup__c relationship. Both rows are owned by the test administrator. The child comes
-	 * back, and its parent carries no email value.
-	 */
-	@IsTest
-	private static void bypassSharingAloneRemovesAHiddenFieldReadThroughAParent()
-	{
-		User restricted = insertRestrictedReader();
-		Foobar__c parent = insertRowOwnedByAdmin(null);
-		Foobar__c child = insertRowOwnedByAdmin(parent.Id);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-
-		List<SObject> rows;
-		System.runAs(restricted)
-		{
-			rows = newRowQuery(child.Id).relatedField(buildParentEmailPath()).bypassSharing().toList();
-		}
-
-		Assert.areEqual(1, rows.size(), 'Expected the read to reach the child row the test administrator owns');
-		SObject parentRow = rows[0].getSObject(Foobar__c.Lookup__c);
-		Assert.isNotNull(parentRow, 'Expected the child to come back with its parent, because only the hidden field is removed');
-		Assert.areEqual(parent.Id, parentRow.Id, 'Expected the parent to be the row the child points to');
-		Assert.isFalse(parentRow.isSet(Foobar__c.Email__c), 'Expected the parent email, which the user cannot read, to be removed');
-	}
-
-	/**
-	 * @description bypassSharing() alone removes a hidden field inside a TYPEOF field. TYPEOF picks which parent fields
-	 * to read by the type of parent an Event points to, and it reaches the query as plain text. The user may read
-	 * Account records and every Account field except Phone, and may read the Related To field of an Event, which
-	 * points to the parent. An Event that points to an Account comes back with that Account as its parent. The
-	 * Account carries its Name, and no Phone.
-	 */
-	@IsTest
-	@SuppressWarnings('PMD.KernNoStandardObjectInPackageTests')
-	private static void bypassSharingAloneRemovesAHiddenFieldInATypeofBranch()
-	{
-		User restricted = TST_Factory.insertUserWithOneHiddenField
-				(
-						SEL_Profile.PROFILE_MINIMUM_ACCESS,
-						new List<SObjectType> {Account.SObjectType},
-						READ_PERMISSIONS,
-						Account.Phone
-				);
-		grantReadOnEventRelatedTo(restricted);
-		Account parentAccount;
-		Event linkedEvent;
-		System.runAs(getTestAdmin())
-		{
-			parentAccount = (Account)TST_Builder.of(Account.SObjectType)
-					.withOverride(Account.Name, UTIL_Random.randomName())
-					.withOverride(Account.Phone, PARENT_PHONE)
-					.withOverride(Account.Industry, ACCOUNT_INDUSTRY)
-					.build();
-			linkedEvent = (Event)TST_Builder.of(Event.SObjectType)
-					.withOverride(Event.WhatId, parentAccount.Id)
-					.withOverride(Event.ActivityDateTime, Datetime.now())
-					.withOverride(Event.DurationInMinutes, EVENT_DURATION_MINUTES)
-					.build();
-		}
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-
-		List<SObject> rows;
-		System.runAs(restricted)
-		{
-			rows = QRY_Builder.selectFrom(Event.SObjectType)
-					.fields(new List<SObjectField> {Event.Id})
-					.addField(TYPEOF_ACCOUNT_NAME_AND_PHONE)
-					.condition(Event.Id).equals(linkedEvent.Id)
-					.bypassSharing()
-					.toList();
-		}
-
-		Assert.areEqual(1, rows.size(), 'Expected the read to reach the Event the test administrator owns');
-		SObject parent = ((Event)rows[0]).What;
-		Assert.isNotNull(parent, 'Expected the Event to come back with its parent, because the user may read the Related To field');
-		Assert.areEqual(parentAccount.Id, parent.Id, 'Expected the parent to be the Account the Event points to');
-		Assert.areEqual(parentAccount.Name, parent.get(Account.Name), 'Expected the parent to carry its Name, which every user can read');
-		Assert.isFalse(parent.isSet(Account.Phone), 'Expected the Account Phone, which the user cannot read, to be removed');
-	}
-
-	/**
-	 * @description bypassSharing() alone removes a hidden field from the rows of a child subquery. A subquery reads the
-	 * child rows of each row, here through the Lookup__c relationship, and selects Email__c. The child query filters
-	 * and sorts on Name, and the parent query keeps only rows whose owner is in a query inside isIn() on active
-	 * users. The user may read every field those filters and sorts use, so the read is not refused. The parent and its
-	 * child come back, and no child row carries an email.
-	 */
-	@IsTest
-	private static void bypassSharingAloneRemovesAHiddenFieldInAChildSubquery()
-	{
-		User restricted = insertRestrictedReader();
-		Foobar__c parent = insertRowOwnedByAdmin(null);
-		Foobar__c child = insertRowOwnedByAdmin(parent.Id);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-		String childRelationship = UTIL_System.getManagedPackageNamespacePrefix() + CHILD_FOOBARS_RELATIONSHIP;
-
-		List<SObject> rows;
-		System.runAs(restricted)
-		{
-			QRY_Builder.Builder childQuery = QRY_Builder.selectFrom(Foobar__c.SObjectType)
-					.fields(new List<SObjectField> {Foobar__c.Name, Foobar__c.Email__c})
-					.condition(Foobar__c.Name).equals(child.Name)
-					.orderBy(Foobar__c.Name);
-			QRY_Builder.Builder activeUsers = QRY_Builder.selectFrom(User.SObjectType)
-					.fields(new List<SObjectField> {User.Id})
-					.condition(User.IsActive).equals(true);
-			rows = newRowQuery(parent.Id).condition(Foobar__c.OwnerId).isIn(activeUsers).subselect(childQuery, childRelationship).bypassSharing().toList();
-		}
-
-		Assert.areEqual(1, rows.size(), 'Expected the read to reach the parent row the test administrator owns');
-		List<SObject> children = rows[0].getSObjects(childRelationship);
-		Assert.areEqual(1, children?.size(), 'Expected the parent to come back with its one child row');
-		Assert.areEqual(child.Id, children[0].Id, 'Expected the child row to be the administrator\'s child row');
-		Assert.isFalse(children[0].isSet(Foobar__c.Email__c), 'Expected the child email, which the user cannot read, to be removed');
-	}
-
-	/**
-	 * @description bypassSharing() alone refuses an aggregate read, under the default user mode and under withUserMode().
-	 * An aggregate read returns totals and group values, and the framework cannot remove a hidden field from those. The
-	 * refusal holds on every read of the same grouped query: toAggregateList(), getFirstAggregate(), toList(), count(),
-	 * exists(), getPage() and getRandomItems(). Each names its method, and no query runs. exists() is built on count(),
-	 * so its message names count.
-	 */
-	@IsTest
-	private static void bypassSharingAloneRefusesAnAggregateRead()
-	{
-		User restricted = insertRestrictedReader();
-		Foobar__c row = insertRowOwnedByAdmin(null);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-		List<String> terminals = new List<String>
-		{
-				TERMINAL_TO_AGGREGATE_LIST, TERMINAL_GET_FIRST_AGGREGATE, TERMINAL_TO_LIST, TERMINAL_COUNT, TERMINAL_EXISTS, TERMINAL_GET_PAGE,
-				TERMINAL_GET_RANDOM_ITEMS
-		};
-
-		System.runAs(restricted)
-		{
-			for(Boolean explicitUserMode : new List<Boolean> {false, true})
-			{
-				for(String terminal : terminals)
-				{
-					QRY_Builder.Builder query = explicitUserMode ? newGroupedQuery(row.Name).withUserMode().bypassSharing() : newGroupedQuery(row.Name).bypassSharing();
-					String namedMethod = terminal == TERMINAL_EXISTS ? TERMINAL_COUNT : terminal;
-					Integer queriesBefore = UTIL_Limits.soqlQueries().used();
-					try
-					{
-						Object answer = runTerminal(query, terminal);
-						Assert.fail('Expected the query to be refused on ' + terminal + '; it returned ' + describeAnswer(answer));
-					}
-					catch(Exception error)
-					{
-						Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class,
-								'Expected the refusal on ' + terminal + '. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
-						Assert.areEqual(buildBypassRefusalMessage(namedMethod), error.getMessage(), 'Expected the message to name ' + namedMethod + ' and say what to do');
-						Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read on ' + terminal + ' to run no query');
-					}
-				}
-			}
-		}
-	}
-
-	/**
-	 * @description bypassSharing() alone refuses a user who cannot read the object at all. The Standard User profile gives
-	 * no access to Foobar__c. count(), exists() and toList() are each refused with the message that names the object,
-	 * and no query runs. Inner queries are checked the same way, for a user who may read Foobar__c and User but not
-	 * ApiIssue__c or LoginFrequency__c. A Foobar__c read whose owner must be in an ApiIssue__c query is refused with the
-	 * message that names ApiIssue__c. A User read with a child query on LoginFrequency__c is refused with the message
-	 * that names LoginFrequency__c.
-	 */
-	@IsTest
-	private static void bypassSharingAloneRefusesAUserWithoutObjectRead()
-	{
-		User noAccessUser = TST_Factory.insertUser(SEL_Profile.PROFILE_STANDARD_USER);
-		User restricted = insertRestrictedReader();
-		Foobar__c row = insertRowOwnedByAdmin(null);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-		String expectedMessage = String.format(System.Label.QueryBuilder_BypassSharingObject_NotReadable,
-				new List<Object> {UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType)});
-		String loginFrequencies = UTIL_System.getManagedPackageNamespacePrefix() + CHILD_LOGIN_FREQUENCIES_RELATIONSHIP;
-		Map<String, String> expectedMessagesByCase = new Map<String, String>
-		{
-				'query inside isIn' => String.format(System.Label.QueryBuilder_BypassSharingObject_NotReadable,
-						new List<Object> {UTIL_SObjectDescribe.getObjectNameFromType(ApiIssue__c.SObjectType)}),
-				'child query' => String.format(System.Label.QueryBuilder_BypassSharingObject_NotReadable,
-						new List<Object> {UTIL_SObjectDescribe.getObjectNameFromType(LoginFrequency__c.SObjectType)})
-		};
-
-		System.runAs(restricted)
-		{
-			Assert.isFalse(UTIL_SObjectDescribe.isObjectAccessible(ApiIssue__c.SObjectType), 'Expected the user to have no read on ApiIssue__c');
-			Assert.isFalse(UTIL_SObjectDescribe.isObjectAccessible(LoginFrequency__c.SObjectType), 'Expected the user to have no read on LoginFrequency__c');
-			Assert.isTrue(UTIL_SObjectDescribe.isObjectAccessible(User.SObjectType), 'Expected the user to be able to read User');
-			QRY_Builder.Builder issueCreators = QRY_Builder.selectFrom(ApiIssue__c.SObjectType).fields(new List<SObjectField> {ApiIssue__c.CreatedById});
-			QRY_Builder.Builder frequencies = QRY_Builder.selectFrom(LoginFrequency__c.SObjectType).fields(new List<SObjectField> {LoginFrequency__c.Id});
-			Map<String, QRY_Builder.Builder> queriesByCase = new Map<String, QRY_Builder.Builder>
-			{
-					'query inside isIn' => newRowQuery(row.Id).condition(Foobar__c.OwnerId).isIn(issueCreators).bypassSharing(),
-					'child query' => QRY_Builder.selectFrom(User.SObjectType)
-							.fields(new List<SObjectField> {User.Name})
-							.condition(User.Id).equals(UserInfo.getUserId())
-							.subselect(frequencies, loginFrequencies)
-							.bypassSharing()
-			};
-			for(String testCase : queriesByCase.keySet())
-			{
-				Integer queriesBefore = UTIL_Limits.soqlQueries().used();
-				try
-				{
-					Object answer = runTerminal(queriesByCase.get(testCase), TERMINAL_TO_LIST);
-					Assert.fail('Expected the query to be refused for the ' + testCase + '; it returned ' + describeAnswer(answer));
-				}
-				catch(Exception error)
-				{
-					Assert.isInstanceOfType(error, QueryException.class,
-							'Expected the refusal for the ' + testCase + '. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
-					Assert.areEqual(expectedMessagesByCase.get(testCase), error.getMessage(), 'Expected the message to name the object of the ' + testCase);
-					Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query, for the ' + testCase);
-				}
-			}
-		}
-
-		System.runAs(noAccessUser)
-		{
-			for(String terminal : new List<String> {TERMINAL_COUNT, TERMINAL_EXISTS, TERMINAL_TO_LIST})
-			{
-				QRY_Builder.Builder query = newRowQuery(row.Id).bypassSharing();
-				Integer queriesBefore = UTIL_Limits.soqlQueries().used();
-				try
-				{
-					Object answer = runTerminal(query, terminal);
-					Assert.fail('Expected the query to be refused on ' + terminal + '; it returned ' + describeAnswer(answer));
-				}
-				catch(Exception error)
-				{
-					Assert.isInstanceOfType(error, QueryException.class, 'Expected the refusal on ' + terminal + '. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
-					Assert.areEqual(expectedMessage, error.getMessage(), 'Expected the message to name the object the user cannot read, on ' + terminal);
-					Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read on ' + terminal + ' to run no query');
-				}
-			}
-		}
-	}
-
-	/**
-	 * @description bypassSharing() alone refuses a filter on a field the user cannot read. The rows a filter returns tell
-	 * the user something about the field, even when the field is removed from the rows. The filter on Email__c is
-	 * refused on toList() and on count(), and also when it sits inside a group of conditions joined by OR, when it
-	 * matches a list of values with isIn(), when it sits inside a NOT condition, and when it is written as text after
-	 * the object name, such as Foobar__c.Email__c. A query inside isIn() and a child query added with subselect() are
-	 * checked the same way: a filter on Email__c in either one is refused too. A query inside isIn() is also refused
-	 * when it selects a field the user cannot read, because the values of that field decide which rows come back: a
-	 * User read whose Id must be in the User__c values of LoginFrequency__c is refused for a user who cannot read
-	 * User__c. The message names the field, and no query runs.
-	 */
-	@IsTest
-	private static void bypassSharingAloneRefusesAFilterOnAFieldTheUserCannotRead()
-	{
-		User restricted = insertRestrictedReader();
-		User cannotReadTrackedUser = TST_Factory.insertUserWithOneHiddenField(SEL_Profile.PROFILE_STANDARD_USER,
-				new List<SObjectType> {LoginFrequency__c.SObjectType}, READ_PERMISSIONS, LoginFrequency__c.User__c);
-		Foobar__c row = insertRowOwnedByAdmin(null);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-		String expectedMessage = buildFieldRefusalMessage(Foobar__c.Email__c);
-		String emailAfterObjectName = UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType) + UTIL_String.DOT
-				+ UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Email__c);
-		String childRelationship = UTIL_System.getManagedPackageNamespacePrefix() + CHILD_FOOBARS_RELATIONSHIP;
-
-		System.runAs(restricted)
-		{
-			QRY_Builder.Builder ownersOfTheEmail = QRY_Builder.selectFrom(Foobar__c.SObjectType)
-					.fields(new List<SObjectField> {Foobar__c.OwnerId})
-					.condition(Foobar__c.Email__c).equals(row.Email__c);
-			QRY_Builder.Builder childrenWithTheEmail = newFoobarNameQuery().condition(Foobar__c.Email__c).equals(row.Email__c);
-			Map<String, QRY_Builder.Builder> queriesByCase = new Map<String, QRY_Builder.Builder>
-			{
-					'filter read with toList' => newFoobarNameQuery().condition(Foobar__c.Email__c).equals(row.Email__c).bypassSharing(),
-					'filter read with count' => newFoobarNameQuery().condition(Foobar__c.Email__c).equals(row.Email__c).bypassSharing(),
-					'filter inside an OR group' => newFoobarNameQuery().addCondition(newEmailOrNameGroup(row)).bypassSharing(),
-					'filter on a list of values' => newFoobarNameQuery().condition(Foobar__c.Email__c).isIn(new List<Object> {row.Email__c}).bypassSharing(),
-					'filter inside a NOT condition' => newFoobarNameQuery().addCondition(newNotEmailCondition(row)).bypassSharing(),
-					'filter written after the object name' => newFoobarNameQuery().condition(emailAfterObjectName).equals(row.Email__c).bypassSharing(),
-					'filter inside a query inside isIn' => QRY_Builder.selectFrom(User.SObjectType)
-							.fields(new List<SObjectField> {User.Name})
-							.condition(User.Id).isIn(ownersOfTheEmail)
-							.bypassSharing(),
-					'filter inside a child query' => newRowQuery(row.Id).subselect(childrenWithTheEmail, childRelationship).bypassSharing()
-			};
-			Map<String, String> terminalsByCase = new Map<String, String>
-			{
-					'filter read with toList' => TERMINAL_TO_LIST,
-					'filter read with count' => TERMINAL_COUNT,
-					'filter inside an OR group' => TERMINAL_TO_LIST,
-					'filter on a list of values' => TERMINAL_TO_LIST,
-					'filter inside a NOT condition' => TERMINAL_TO_LIST,
-					'filter written after the object name' => TERMINAL_TO_LIST,
-					'filter inside a query inside isIn' => TERMINAL_TO_LIST,
-					'filter inside a child query' => TERMINAL_TO_LIST
-			};
-			for(String testCase : queriesByCase.keySet())
-			{
-				Integer queriesBefore = UTIL_Limits.soqlQueries().used();
-				try
-				{
-					Object answer = runTerminal(queriesByCase.get(testCase), terminalsByCase.get(testCase));
-					Assert.fail('Expected the query to be refused for the ' + testCase + '; it returned ' + describeAnswer(answer));
-				}
-				catch(Exception error)
-				{
-					Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class,
-							'Expected the refusal for the ' + testCase + '. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
-					Assert.areEqual(expectedMessage, error.getMessage(), 'Expected the message to name the field, for the ' + testCase);
-					Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query, for the ' + testCase);
-				}
-			}
-		}
-
-		System.runAs(cannotReadTrackedUser)
-		{
-			Assert.isFalse(UTIL_SObjectDescribe.isFieldAccessible(LoginFrequency__c.User__c), 'Expected the user to have no read on User__c');
-			QRY_Builder.Builder trackedUsers = QRY_Builder.selectFrom(LoginFrequency__c.SObjectType).fields(new List<SObjectField> {LoginFrequency__c.User__c});
-			QRY_Builder.Builder query = QRY_Builder.selectFrom(User.SObjectType)
-					.fields(new List<SObjectField> {User.Name})
-					.condition(User.Id).isIn(trackedUsers)
-					.bypassSharing();
-			Integer queriesBefore = UTIL_Limits.soqlQueries().used();
-			try
-			{
-				Object answer = runTerminal(query, TERMINAL_TO_LIST);
-				Assert.fail('Expected the query to be refused for the field selected inside isIn(); it returned ' + describeAnswer(answer));
-			}
-			catch(Exception error)
-			{
-				Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class,
-						'Expected the refusal for the field selected inside isIn(). Actual: ' + error.getTypeName() + ': ' + error.getMessage());
-				Assert.areEqual(buildFieldRefusalMessage(LoginFrequency__c.User__c), error.getMessage(), 'Expected the message to name the field selected inside isIn()');
-				Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query, for the field selected inside isIn()');
-			}
-		}
-	}
-
-	/**
-	 * @description bypassSharing() alone refuses a sort on a field the user cannot read. The order of the rows tells the
-	 * user something about the field, even when the field is removed from the rows. The sort is refused when it is
-	 * given as a field token and when it is given as text in each way the query accepts: with spaces around it, with
-	 * a direction, as the second item of a list, with a direction and a place for blank values in lower case, and
-	 * after the object name, such as Foobar__c.Email__c. A sort on Email__c in a child query added with subselect()
-	 * is refused too. The message names the field, and no query runs.
-	 */
-	@IsTest
-	private static void bypassSharingAloneRefusesASortOnAFieldTheUserCannotRead()
-	{
-		User restricted = insertRestrictedReader();
-		Foobar__c row = insertRowOwnedByAdmin(null);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-		String email = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Email__c);
-		String name = UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Name);
-		String childRelationship = UTIL_System.getManagedPackageNamespacePrefix() + CHILD_FOOBARS_RELATIONSHIP;
-
-		System.runAs(restricted)
-		{
-			Map<String, QRY_Builder.Builder> queriesByCase = new Map<String, QRY_Builder.Builder>
-			{
-					'sort given as a field token' => newRowQuery(row.Id).orderBy(Foobar__c.Email__c).bypassSharing(),
-					'sort text with spaces around it' => newRowQuery(row.Id).orderBy('  ' + email + ' ').bypassSharing(),
-					'sort text with a direction' => newRowQuery(row.Id).orderBy(email + ' DESC').bypassSharing(),
-					'sort text as the second item of a list' => newRowQuery(row.Id).orderBy(name + ', ' + email).bypassSharing(),
-					'sort text with a direction and nulls last in lower case' => newRowQuery(row.Id).orderBy(email + '  desc   nulls last').bypassSharing(),
-					'sort text after the object name' => newRowQuery(row.Id)
-							.orderBy(UTIL_SObjectDescribe.getObjectNameFromType(Foobar__c.SObjectType) + UTIL_String.DOT + email)
-							.bypassSharing(),
-					'sort inside a child query' => newRowQuery(row.Id).subselect(newFoobarNameQuery().orderBy(email + ' ASC'), childRelationship).bypassSharing()
-			};
-			for(String testCase : queriesByCase.keySet())
-			{
-				Integer queriesBefore = UTIL_Limits.soqlQueries().used();
-				try
-				{
-					Object answer = runTerminal(queriesByCase.get(testCase), TERMINAL_TO_LIST);
-					Assert.fail('Expected the query to be refused for the ' + testCase + '; it returned ' + describeAnswer(answer));
-				}
-				catch(Exception error)
-				{
-					Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class,
-							'Expected the refusal for the ' + testCase + '. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
-					Assert.areEqual(buildFieldRefusalMessage(Foobar__c.Email__c), error.getMessage(), 'Expected the message to name the field, for the ' + testCase);
-					Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query, for the ' + testCase);
-				}
-			}
-		}
-	}
-
-	/**
-	 * @description bypassSharing() alone refuses a grouping on a field the user cannot read. A grouping returns every
-	 * value of the field. The query is an aggregate read, so it is refused as every aggregate read is, before the field
-	 * names are checked: the message names toAggregateList and no query runs.
-	 */
-	@IsTest
-	private static void bypassSharingAloneRefusesAGroupingOnAFieldTheUserCannotRead()
-	{
-		User restricted = insertRestrictedReader();
-		insertRowOwnedByAdmin(null);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-
-		System.runAs(restricted)
-		{
-			QRY_Builder.Builder query = QRY_Builder.selectFrom(Foobar__c.SObjectType)
-					.count(Foobar__c.Id, ROW_COUNT_ALIAS)
-					.groupBy(Foobar__c.Email__c)
-					.bypassSharing();
-			Integer queriesBefore = UTIL_Limits.soqlQueries().used();
-			try
-			{
-				Object answer = runTerminal(query, TERMINAL_TO_AGGREGATE_LIST);
-				Assert.fail('Expected the query to be refused; it returned ' + describeAnswer(answer));
-			}
-			catch(Exception error)
-			{
-				Assert.isInstanceOfType(error, UTIL_Exceptions.IllegalStateException.class, 'Expected the refusal. Actual: ' + error.getTypeName() + ': ' + error.getMessage());
-				Assert.areEqual(buildBypassRefusalMessage(TERMINAL_TO_AGGREGATE_LIST), error.getMessage(), 'Expected the message for an aggregate read');
-				Assert.areEqual(queriesBefore, UTIL_Limits.soqlQueries().used(), 'Expected the refused read to run no query');
-			}
-		}
-	}
-
-	/**
-	 * @description Records a known limit of bypassSharing() alone: a filter on a parent field the user cannot read still
-	 * runs. The framework checks only the names of fields that belong to the queried object, so it does not check a
-	 * relationship path such as Lookup__r.Email__c, or a condition written as plain text. The rows can therefore tell
-	 * the user something about such a field, and a developer must not filter on it under the bypass. Both reads here
-	 * filter on the parent's email, once as a path and once as plain text. Each returns the child row, without the
-	 * child's own email.
-	 */
-	@IsTest
-	private static void bypassSharingAloneStillFiltersThroughARelationshipPathTheUserCannotRead()
-	{
-		User restricted = insertRestrictedReader();
-		Foobar__c parent = insertRowOwnedByAdmin(null);
-		Foobar__c child = insertRowOwnedByAdmin(parent.Id);
-		TST_Factory.newFeatureFlag(QRY_Builder.FLAG_USER_MODE_QUERIES, true);
-		String parentEmailPath = buildParentEmailPath();
-		String filterText = parentEmailPath + ' = \'' + String.escapeSingleQuotes(parent.Email__c) + '\'';
-
-		List<SObject> pathRows;
-		List<SObject> textRows;
-		System.runAs(restricted)
-		{
-			pathRows = newRowQuery(child.Id).addField(Foobar__c.Email__c).andCondition(parentEmailPath).equals(parent.Email__c).bypassSharing().toList();
-			textRows = newRowQuery(child.Id).addField(Foobar__c.Email__c).addCondition(new TextFilter(filterText)).bypassSharing().toList();
-		}
-
-		for(List<SObject> rows : new List<List<SObject>> {pathRows, textRows})
-		{
-			Assert.areEqual(1, rows.size(), 'Expected the filter on the parent email to run and return the child row');
-			Assert.areEqual(child.Id, rows[0].Id, 'Expected the row to be the child row');
-			Assert.isFalse(rows[0].isSet(Foobar__c.Email__c), 'Expected the child email, which the user cannot read, to be removed');
-		}
 	}
 
 	/**
@@ -6117,6 +5812,29 @@ private class QRY_Builder_TEST
 					.toSoql();
 
 			Assert.areEqual('SELECT Id FROM ' + OBJECT_NAME + ' WITH DATA CATEGORY Geography__c AT USA__c', soql, 'Expected the data category text to stay as it is');
+		}
+	}
+
+	/**
+	 * @description Tests that count() keeps the data category filter. Foobar__c has no data categories, so the
+	 * platform refuses a count that carries the filter, and that refusal shows the filter reached the count. A count
+	 * without the filter would count every row instead.
+	 */
+	@IsTest
+	private static void countKeepsTheDataCategoryFilter()
+	{
+		System.runAs(getTestAdmin())
+		{
+			try
+			{
+				QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().withDataCategory('Geography__c').at('USA__c').count();
+				Assert.fail('Expected the platform to refuse a count with a data category filter on an object without data categories');
+			}
+			catch(Exception error)
+			{
+				Assert.isInstanceOfType(error, QueryException.class, 'Expected the platform to refuse the count query');
+				Assert.isTrue(error.getMessage().contains('WITH DATA CATEGORY'), 'Expected the refusal to name the data category filter: ' + error.getMessage());
+			}
 		}
 	}
 
@@ -8634,41 +8352,6 @@ private class QRY_Builder_TEST
 	}
 
 	/**
-	 * @description Gives a user read access to the Related To field of an Event, the field that points to the record
-	 * the Event is about. Event access does not come from an object permission, so a permission set cannot list the
-	 * Event object. It can still grant one of its fields. The method saves a permission set with that one field
-	 * permission and assigns it to the user.
-	 *
-	 * @param user The user who gets the access.
-	 */
-	@SuppressWarnings('PMD.KernNoStandardObjectInPackageTests')
-	private static void grantReadOnEventRelatedTo(User user)
-	{
-		String permissionSetName = EVENT_RELATED_TO_PERMISSION_SET_PREFIX + UTIL_Random.randomAlphanumeric(PERMISSION_SET_NAME_RANDOM_LENGTH);
-		SObjectType fieldPermissionsType = new FieldPermissions().getSObjectType();
-		String eventObjectName = UTIL_SObjectDescribe.getObjectNameFromType(Event.SObjectType);
-		System.runAs(new User(Id = UserInfo.getUserId()))
-		{
-			PermissionSet permissionSet = (PermissionSet)TST_Builder.of(PermissionSet.SObjectType)
-					.withOptionalFields(new List<String>(UTIL_SObjectDescribe.getDescribe(PermissionSet.SObjectType).getCreatableRequiredFields()))
-					.withOverride(PermissionSet.Name, permissionSetName)
-					.withOverride(PermissionSet.Label, permissionSetName)
-					.build();
-			TST_Builder.of(fieldPermissionsType)
-					.withOptionalFields(new List<String>(UTIL_SObjectDescribe.getDescribe(fieldPermissionsType).getCreatableRequiredFields()))
-					.withOverrides(new Map<SObjectField, Object>
-					{
-							FieldPermissions.ParentId => permissionSet.Id,
-							FieldPermissions.SobjectType => eventObjectName,
-							FieldPermissions.Field => eventObjectName + '.' + UTIL_SObjectDescribe.getCachedFieldName(Event.WhatId),
-							FieldPermissions.PermissionsRead => true
-					})
-					.build();
-			TST_Factory.createPermissionSetAssignments(new List<User> {user}, permissionSet.Id);
-		}
-	}
-
-	/**
 	 * @description Saves a Standard User who may read Foobar__c records and every Foobar__c field except Email__c. The
 	 * Standard User profile gives no access to Foobar__c, so the user has only what this method grants. The user has no
 	 * View All, so record sharing hides the rows the test administrator owns.
@@ -8677,7 +8360,20 @@ private class QRY_Builder_TEST
 	 */
 	private static User insertRestrictedReader()
 	{
-		return TST_Factory.insertUserWithOneHiddenField(SEL_Profile.PROFILE_STANDARD_USER, new List<SObjectType> {Foobar__c.SObjectType}, READ_PERMISSIONS, Foobar__c.Email__c);
+		return insertReaderWithOneHiddenField(Foobar__c.Email__c);
+	}
+
+	/**
+	 * @description Saves a Standard User who may read Foobar__c records and every Foobar__c field except one. The user
+	 * has no View All, so record sharing hides the rows the test administrator owns.
+	 *
+	 * @param hiddenField The one Foobar__c field the user cannot read
+	 *
+	 * @return The saved user
+	 */
+	private static User insertReaderWithOneHiddenField(SObjectField hiddenField)
+	{
+		return TST_Factory.insertUserWithOneHiddenField(SEL_Profile.PROFILE_STANDARD_USER, new List<SObjectType> {Foobar__c.SObjectType}, READ_PERMISSIONS, hiddenField);
 	}
 
 	/**
@@ -8729,163 +8425,6 @@ private class QRY_Builder_TEST
 				.count(Foobar__c.Id, ROW_COUNT_ALIAS)
 				.groupBy(Foobar__c.Name)
 				.condition(Foobar__c.Name).equals(name);
-	}
-
-	/**
-	 * @description Runs one read terminal of a query, chosen by its method name, and returns what it gave back.
-	 *
-	 * @param query The query to run
-	 * @param terminal The name of the terminal method to call, one of the TERMINAL constants
-	 *
-	 * @return The rows, number, Boolean, query locator, cursor, page or totals the terminal returned
-	 */
-	private static Object runTerminal(QRY_Builder.Builder query, String terminal)
-	{
-		if(terminal == TERMINAL_COUNT)
-		{
-			return query.count();
-		}
-		if(terminal == TERMINAL_EXISTS)
-		{
-			return query.exists();
-		}
-		if(terminal == TERMINAL_TO_QUERY_LOCATOR)
-		{
-			return query.toQueryLocator();
-		}
-		if(terminal == TERMINAL_TO_CURSOR)
-		{
-			return query.toCursor();
-		}
-		if(terminal == TERMINAL_TO_AGGREGATE_LIST)
-		{
-			return query.toAggregateList();
-		}
-		if(terminal == TERMINAL_GET_FIRST_AGGREGATE)
-		{
-			return query.getFirstAggregate();
-		}
-		if(terminal == TERMINAL_GET_PAGE)
-		{
-			return query.getPage(1, BYPASS_PAGE_SIZE);
-		}
-		if(terminal == TERMINAL_GET_RANDOM_ITEMS)
-		{
-			return query.getRandomItems(1);
-		}
-		return query.toList();
-	}
-
-	/**
-	 * @description Describes what a read terminal returned, for the message of a test that expected the read to be
-	 * refused. A list is described by its size.
-	 *
-	 * @param answer What the terminal returned
-	 *
-	 * @return A short description of the answer
-	 */
-	private static String describeAnswer(Object answer)
-	{
-		if(answer instanceof List<SObject>)
-		{
-			return ((List<SObject>)answer).size() + ' rows';
-		}
-		if(answer instanceof List<QRY_Builder.AggregateRow>)
-		{
-			return ((List<QRY_Builder.AggregateRow>)answer).size() + ' groups';
-		}
-		return String.valueOf(answer);
-	}
-
-	/**
-	 * @description Builds the message the builder gives when it refuses a read that cannot remove hidden fields and runs
-	 * with bypassSharing() alone.
-	 *
-	 * @param terminal The name of the terminal method the message must name
-	 *
-	 * @return The expected message
-	 */
-	private static String buildBypassRefusalMessage(String terminal)
-	{
-		return String.format(System.Label.QueryBuilder_BypassSharingRead_NeedsSystemMode, new List<Object> {terminal});
-	}
-
-	/**
-	 * @description Builds the message the builder gives when bypassSharing() alone would filter or sort on a field the
-	 * running user cannot read.
-	 *
-	 * @param field The field the message must name
-	 *
-	 * @return The expected message
-	 */
-	private static String buildFieldRefusalMessage(SObjectField field)
-	{
-		return String.format(System.Label.QueryBuilder_BypassSharingField_NotReadable, new List<Object> {UTIL_SObjectDescribe.getCachedFieldName(field)});
-	}
-
-	/**
-	 * @description Builds the path from a Foobar__c row to the email of its parent, through the Lookup__c relationship,
-	 * from the field tokens, so the path carries the package namespace where there is one.
-	 *
-	 * @return The path, such as Lookup__r.Email__c
-	 */
-	private static String buildParentEmailPath()
-	{
-		return UTIL_SObjectDescribe.getCachedFieldDescribe(Foobar__c.Lookup__c).getRelationshipName() + '.' + UTIL_SObjectDescribe.getCachedFieldName(Foobar__c.Email__c);
-	}
-
-	/**
-	 * @description Builds a group of two conditions joined by OR: the email of the row, or its name.
-	 *
-	 * @param row The row whose email and name the conditions match
-	 *
-	 * @return The group of conditions
-	 */
-	private static QRY_Condition.OrCondition newEmailOrNameGroup(Foobar__c row)
-	{
-		QRY_Condition.OrCondition emailOrName = new QRY_Condition.OrCondition();
-		emailOrName.add(new QRY_Condition.FieldCondition(Foobar__c.Email__c, QRY_Condition.Operator.EQUALS, row.Email__c));
-		emailOrName.add(new QRY_Condition.FieldCondition(Foobar__c.Name, QRY_Condition.Operator.EQUALS, row.Name));
-		return emailOrName;
-	}
-
-	/**
-	 * @description Builds a NOT condition around a filter on the row's email, so the filter keeps every row whose email
-	 * is not the row's own.
-	 *
-	 * @param row The row whose email the filter uses.
-	 *
-	 * @return The NOT condition.
-	 */
-	private static QRY_Condition.NotCondition newNotEmailCondition(Foobar__c row)
-	{
-		return new QRY_Condition.NotCondition(new QRY_Condition.FieldCondition(Foobar__c.Email__c, QRY_Condition.Operator.EQUALS, row.Email__c));
-	}
-
-	/**
-	 * @description Counts the bypass audit events written for a query (the query surface) whose target matches the given
-	 * value. The log merges events that are the same into one detail row, and keeps how many there were on a rollup
-	 * row. So this method adds up the count on each matching rollup row. Two events that are the same give 2, not 1.
-	 *
-	 * @param target The bypass audit target to count, for example sharing: followed by the object name
-	 *
-	 * @return The number of matching events
-	 */
-	private static Integer countBypassAuditEntries(String target)
-	{
-		String rollupBypassPrefix = TRG_PersistLogEntry.PREFIX_ROLLUP + LOG_Builder.RESERVED_FINGERPRINT_PREFIX;
-		Integer entryCount = 0;
-		for(LogEntry__c entry : new SEL_LogEntry().findAllOrderedByCreatedDateDesc())
-		{
-			Map<String, Object> context = SEL_LogEntry.parseContextDataForTest(entry);
-			if(entry.Fingerprint__c?.startsWith(rollupBypassPrefix) == true
-					&& target.equals(context?.get(UTIL_BypassAudit.CONTEXT_TARGET))
-					&& UTIL_BypassAudit.SURFACE_QUERY.equals(context?.get(UTIL_BypassAudit.CONTEXT_SURFACE)))
-			{
-				entryCount += entry.OccurrenceCount__c?.intValue() ?? 0;
-			}
-		}
-		return entryCount;
 	}
 
 	/**
@@ -10148,51 +9687,6 @@ private class QRY_Builder_TEST
 					.withSystemMode()
 					.condition(Foobar__c.Name).equals(CACHE_PROBE_NAME)
 					.withCache(UTIL_Cache.Scope.IN_TRANSACTION, null);
-		}
-	}
-
-	/**
-	 * @description A condition written the way your own code can write one: it gives the query its filter as plain text.
-	 * The builder cannot see which fields the text uses.
-	 */
-	private inherited sharing class TextFilter implements QRY_Condition.Evaluable
-	{
-		/**
-		 * @description The filter, as it is written into the WHERE clause.
-		 */
-		private final String filterText;
-
-		/**
-		 * @description Keeps the filter text.
-		 *
-		 * @param filterText The filter, as it is written into the WHERE clause
-		 */
-		public TextFilter(String filterText)
-		{
-			this.filterText = filterText;
-		}
-
-		/**
-		 * @description Returns the filter text unchanged.
-		 *
-		 * @return The filter text
-		 */
-		public String toSoql()
-		{
-			return filterText;
-		}
-
-		/**
-		 * @description Returns the filter text unchanged. The text is already written in full, so the options change
-		 * nothing.
-		 *
-		 * @param options The options for writing the query text
-		 *
-		 * @return The filter text
-		 */
-		public String toSoql(QRY_Condition.SoqlOptions options)
-		{
-			return filterText;
 		}
 	}
 

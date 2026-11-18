@@ -23,6 +23,13 @@
 //   65e — validation surface emission (object-qualified key
 //         `validation|object:Account`, unchanged target shape)
 //   65g — flood control: `detail:bypass:` / `rollup:bypass:` fingerprint rows
+//   65h — the bypass the launch made at log level ERROR is kept: a new
+//         `detail:bypass:` row whose target is the random name the handoff
+//         carries (surface trigger-object, action BYPASS)
+//   65i — the three lower-level saves: `dml|system-mode:Contact`,
+//         `dml|sharing:Contact` and a bare `dml|system-mode` (operation=insert on
+//         a fresh detail row), each with a `kern__ClassMethod__c` that is not the
+//         framework's fallback caller (built from a class token, never typed)
 //
 // POLL BUDGET: 60s nominal, effectively bounded by the 8000ms CPU-spin guard
 // (~4 intervals); the runner's 30s pre-wait absorbs normal platform-event
@@ -57,6 +64,13 @@
 
 final Integer POLL_BUDGET_MS = 60000;
 final Integer POLL_INTERVAL_MS = 2000;
+final String SURFACE_TRIGGER_OBJECT = 'trigger-object';
+final String ACTION_BYPASS = 'BYPASS';
+// 65i: the caller the framework records when it finds no frame outside the package.
+// Built from a class token, so the package's namespace is never typed here.
+final String PACKAGE_CLASS_NAME = kern.TRG_Base.class.getName();
+final String FALLBACK_CALLER = (PACKAGE_CLASS_NAME.contains('.') ? PACKAGE_CLASS_NAME.substringBefore('.') + '.' : '') + 'UTIL_BypassAudit.emit';
+final List<String> LOWER_LEVEL_SAVE_KEYS = new List<String> {'dml|system-mode:Contact', 'dml|sharing:Contact', 'dml|system-mode'};
 
 try
 {
@@ -80,12 +94,15 @@ try
 		Map<String, Object> handoff = (Map<String, Object>)JSON.deserializeUntyped(handoffRows[0].kern__TextAreaLong__c);
 		Datetime windowStart = Datetime.newInstance(Long.valueOf(String.valueOf(handoff.get('windowStartMs'))));
 		String launchUserId = (String)handoff.get('launchUserId');
+		String errorLevelTarget = (String)handoff.get('errorLevelTarget');
 
 		Map<String, Map<String, Object>> contextBySurfaceAndTarget = new Map<String, Map<String, Object>>();
+		Map<String, String> callerBySurfaceAndTarget = new Map<String, String>();
 		Set<String> detailKeys = new Set<String>();
 		Integer auditCount = 0;
 		Integer detailRows = 0;
 		Integer rollupRows = 0;
+		Boolean isErrorLevelDetailFound = false;
 
 		// Poll until every expected shape persists (PE delivery latency) or budget elapses.
 		Long pollStartMs = System.currentTimeMillis();
@@ -94,17 +111,20 @@ try
 		while(pollElapsedMs < POLL_BUDGET_MS && !allLanded)
 		{
 			contextBySurfaceAndTarget = new Map<String, Map<String, Object>>();
+			callerBySurfaceAndTarget = new Map<String, String>();
 			detailKeys = new Set<String>();
 			auditCount = 0;
 			detailRows = 0;
 			rollupRows = 0;
+			isErrorLevelDetailFound = false;
 
 			// Long-Text fields like ContextData__c cannot be filtered with SOQL LIKE —
 			// pull the window and classify in Apex.
 			for(kern__LogEntry__c entry :
 			[
 					SELECT kern__ContextData__c,
-							kern__Fingerprint__c
+							kern__Fingerprint__c,
+							kern__ClassMethod__c
 					FROM kern__LogEntry__c
 					WHERE LastModifiedDate >= :windowStart
 					AND kern__UserId__c = :launchUserId
@@ -133,12 +153,19 @@ try
 				{
 					rollupRows++;
 				}
+				String target = String.valueOf(context.get('target'));
+				// 65h: the launch's ERROR-level bypass, a new detail row for its random target.
+				if(isDetailRow && String.isNotBlank(errorLevelTarget) && errorLevelTarget.equals(target)
+						&& SURFACE_TRIGGER_OBJECT.equals(context.get('surface')) && ACTION_BYPASS.equals(context.get('action')))
+				{
+					isErrorLevelDetailFound = true;
+				}
 				String surface = (String)context.get('surface');
 				if(String.isBlank(surface))
 				{
 					continue;
 				}
-				String key = surface + '|' + (String)context.get('target');
+				String key = surface + '|' + target;
 				if(isDetailRow)
 				{
 					detailKeys.add(key);
@@ -149,7 +176,13 @@ try
 				if(!contextBySurfaceAndTarget.containsKey(key))
 				{
 					contextBySurfaceAndTarget.put(key, context);
+					callerBySurfaceAndTarget.put(key, entry.kern__ClassMethod__c);
 				}
+			}
+			Boolean areLowerLevelSavesLanded = true;
+			for(String lowerLevelSaveKey : LOWER_LEVEL_SAVE_KEYS)
+			{
+				areLowerLevelSavesLanded = areLowerLevelSavesLanded && contextBySurfaceAndTarget.containsKey(lowerLevelSaveKey);
 			}
 
 			allLanded = contextBySurfaceAndTarget.containsKey('trigger-object|Account')
@@ -157,7 +190,9 @@ try
 					&& contextBySurfaceAndTarget.containsKey('query|system-mode:Account')
 					&& contextBySurfaceAndTarget.containsKey('query|sharing:Account')
 					&& contextBySurfaceAndTarget.containsKey('dml|system-mode:Account')
-					&& (detailRows > 0 || rollupRows > 0);
+					&& (detailRows > 0 || rollupRows > 0)
+					&& isErrorLevelDetailFound
+					&& areLowerLevelSavesLanded;
 			if(allLanded)
 			{
 				break;
@@ -279,6 +314,51 @@ try
 		else
 		{
 			System.debug('FAIL: 65g — no fingerprinted audit rows; flood control not wired');
+		}
+
+		// Test 65i: each of the three lower-level saves wrote a bypass entry, and the entry
+		// names the anonymous script, not the fallback. Every package frame carries the
+		// namespace, so a fallback caller would mean the script's own frame was missed.
+		// A row of this window counts whether it is a fresh detail row or a repeat
+		// counted on its rollup row: both carry the caller, which is part of the
+		// fingerprint (ROLLUP CONTEXT above).
+		List<String> lowerLevelSaveProblems = new List<String>();
+		for(String lowerLevelSaveKey : LOWER_LEVEL_SAVE_KEYS)
+		{
+			String caller = callerBySurfaceAndTarget.get(lowerLevelSaveKey);
+			if(!contextBySurfaceAndTarget.containsKey(lowerLevelSaveKey))
+			{
+				lowerLevelSaveProblems.add(lowerLevelSaveKey + ' missing');
+			}
+			else if(String.isBlank(caller) || FALLBACK_CALLER.equals(caller))
+			{
+				lowerLevelSaveProblems.add(lowerLevelSaveKey + ' has the fallback caller ' + caller);
+			}
+		}
+		Map<String, Object> processorEntry = contextBySurfaceAndTarget.get('dml|system-mode');
+		if(processorEntry != null && detailKeys.contains('dml|system-mode') && !'insert'.equals(processorEntry.get('operation')))
+		{
+			lowerLevelSaveProblems.add('dml|system-mode carries operation ' + processorEntry.get('operation'));
+		}
+		if(lowerLevelSaveProblems.isEmpty())
+		{
+			System.debug('PASS: 65i — the three lower-level saves each wrote a bypass entry naming the script, not ' + FALLBACK_CALLER);
+		}
+		else
+		{
+			System.debug('FAIL: 65i — ' + String.join(lowerLevelSaveProblems, '; '));
+		}
+
+		// Test 65h: the org's log level ERROR applies to application logs only. A bypass
+		// entry is kept at every level while logging is on, so the launch's bypass of its
+		// random target landed as a new detail row.
+		if(isErrorLevelDetailFound)
+		{
+			System.debug('PASS: 65h — the bypass made at log level ERROR was kept (detail:bypass: row, target ' + errorLevelTarget + ')');
+		}
+		else
+		{
+			System.debug('FAIL: 65h — no detail:bypass: row for the bypass made at log level ERROR (target ' + errorLevelTarget + ')');
 		}
 	}
 }

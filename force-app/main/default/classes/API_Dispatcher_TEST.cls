@@ -8,7 +8,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
 @IsTest(seeAllData=false isParallel=false)
@@ -18,6 +18,17 @@ private class API_Dispatcher_TEST
 	 * @description Assertion message for a call that was expected to throw and returned instead.
 	 */
 	private static final String MSG_EXPECTED_FAIL = 'Operation should have failed';
+
+	/**
+	 * @description The start of the target of a bypass entry for a save in system mode. The object's name follows it.
+	 */
+	private static final String SYSTEM_MODE_TARGET_PREFIX = 'system-mode:';
+
+	/**
+	 * @description The start of the target of a bypass entry for a save that ignores record sharing. The object's name
+	 * follows it.
+	 */
+	private static final String SHARING_TARGET_PREFIX = 'sharing:';
 
 	/**
 	 * @description Assertion message for a log entry the dispatcher was expected to write and that was not found.
@@ -200,6 +211,42 @@ private class API_Dispatcher_TEST
 						ApiCall__c.ServiceName__c => API_PostExample.class.getName(),
 						ApiCall__c.Direction__c => SEL_ApiCall.TYPE_OUTBOUND
 				}).withCount(count).buildList();
+	}
+
+	/**
+	 * @description The dispatcher saves the call records of a batch in system mode and without record sharing. That
+	 * save is the framework's own, so it writes no bypass entry for the call object while logging is on. The dispatcher
+	 * saves the log entries of its calls when it ends, so the test reads the saved entries. The test also makes one
+	 * save of its own in system mode, which must be recorded. That proves the audit was on, so the missing entries for
+	 * the call records mean something. One entry can be saved as more than one row (the entry and its daily count), so
+	 * the test checks that its own entry is there, not how many rows it has.
+	 *
+	 * @see API_Dispatcher.execute
+	 */
+	@IsTest
+	private static void shouldWriteNoBypassEntryForTheBatchUnitOfWork()
+	{
+		String serviceName = API_PostExample.class.getName();
+		API_MockFactory.forService(serviceName).body(UTIL_String.EMPTY_JSON_RESPONSE).statusCode(API_Base.HTTP_OK).register();
+		List<ApiCall__c> apiCalls = newOutboundApiCalls(2);
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+
+		Test.startTest();
+		API_Dispatcher.execute(apiCalls);
+		DML_Transaction recordedTransaction = new DML_Transaction();
+		recordedTransaction.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		recordedTransaction.doInsert(TST_Factory.newFoobar());
+		recordedTransaction.commitWork();
+		Test.stopTest();
+
+		Integer recordedEntries = UTIL_BypassAudit_TEST.countSavedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SYSTEM_MODE_TARGET_PREFIX + String.valueOf(Foobar__c.SObjectType));
+		Assert.isTrue(recordedEntries > 0, 'Expected a saved system mode entry for the test\'s own save, got ' + recordedEntries);
+		String callObjectName = String.valueOf(ApiCall__c.SObjectType);
+		Integer systemModeEntries = UTIL_BypassAudit_TEST.countSavedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SYSTEM_MODE_TARGET_PREFIX + callObjectName);
+		Integer sharingEntries = UTIL_BypassAudit_TEST.countSavedBypassEntries(UTIL_BypassAudit.SURFACE_DML, SHARING_TARGET_PREFIX + callObjectName);
+		Assert.areEqual(0, systemModeEntries, 'Expected no system mode entry for the call records, got ' + systemModeEntries);
+		Assert.areEqual(0, sharingEntries, 'Expected no sharing entry for the call records, got ' + sharingEntries);
 	}
 
 	/**

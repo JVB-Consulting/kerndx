@@ -9,7 +9,7 @@
  *
  * @group Email
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=true)
@@ -24,6 +24,11 @@ private class FLOW_SendEmail_TEST
 	 * @description The length of the random key stored in the query result memory cache.
 	 */
 	private static final Integer MEMORY_CACHE_KEY_LENGTH = 20;
+
+	/**
+	 * @description The start of the target of a bypass entry for a system-mode read. The object's name follows it.
+	 */
+	private static final String SYSTEM_MODE_TARGET_PREFIX = 'system-mode:';
 
 	/**
 	 * @description Inserts the shared base fixture (a Foobar record and a file) in a single DML transaction.
@@ -384,6 +389,35 @@ private class FLOW_SendEmail_TEST
 		Test.stopTest();
 
 		assertSendSuccessful(dtoResponses);
+	}
+
+	/**
+	 * @description Sending to a User Id reads the user's email address in system mode. That read is the framework's
+	 * own, so it writes no bypass entry. The test turns logging on and holds the entries in memory instead of saving
+	 * them, so it can count them.
+	 *
+	 * @see FLOW_SendEmail.sendEmail
+	 */
+	@IsTest
+	private static void shouldWriteNoBypassEntryWhenTheRecipientEmailIsRead()
+	{
+		buildBaseFixture();
+		Foobar__c newFoobar = new SEL_Foobar().getAll().iterator().next();
+		FLOW_SendEmail.DTO_Request dtoEmail = new FLOW_SendEmail.DTO_Request();
+		dtoEmail.templateUniqueName = SEL_EmailTemplate.TEST_EMAIL_TEMPLATE;
+		dtoEmail.toAddress = UserInfo.getUserId();
+		dtoEmail.whatId = newFoobar.Id;
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LOG_Builder.suspendSaving();
+
+		Test.startTest();
+		List<FLOW_SendEmail.DTO_Response> dtoResponses = FLOW_SendEmail.sendEmail(new List<FLOW_SendEmail.DTO_Request> {dtoEmail});
+		Test.stopTest();
+
+		assertSendSuccessful(dtoResponses);
+		Integer bypassEntries = UTIL_BypassAudit_TEST.countBufferedBypassEntries(UTIL_BypassAudit.SURFACE_QUERY, SYSTEM_MODE_TARGET_PREFIX + String.valueOf(User.SObjectType));
+		Assert.areEqual(0, bypassEntries, 'Expected no bypass entry for the framework\'s own read of the recipient email, got ' + bypassEntries);
 	}
 
 	/**

@@ -11,7 +11,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -172,7 +172,7 @@ global inherited sharing class API_Dispatcher
 		List<API_Base> apiHandlers = new List<API_Base>();
 		List<API_Base> handlersToCommit = new List<API_Base>();
 		DML_Transaction unitOfWork = new DML_Transaction();
-		unitOfWork.setAccessLevel(AccessLevel.SYSTEM_MODE);
+		unitOfWork.setAccessLevelInternal(AccessLevel.SYSTEM_MODE);
 		unitOfWork.setAllowPartial(true);
 
 		hydrateLoggerContext(apiCalls);
@@ -312,7 +312,7 @@ global inherited sharing class API_Dispatcher
 			{
 				throw new UTIL_Exceptions.IllegalStateException('Simulated commit work exception');
 			}
-			unitOfWork.commitWork(false);
+			unitOfWork.commitWorkInternal(false);
 		}
 		catch(Exception error)
 		{

@@ -809,10 +809,10 @@ async function runSection65()
 {
 	const launchScript = path.join(SCRIPTS_DIR, 'section-65-bypass-audit-framework-wide.apex');
 	const verifyScript = path.join(SCRIPTS_DIR, 'section-65b-bypass-audit-verify.apex');
-	const expectedLaunch = 2;
-	const expectedVerify = 6;
+	const expectedLaunch = 3;
+	const expectedVerify = 8;
 
-	console.log('  Section 65: exercising the four global bypass surfaces (launch)...');
+	console.log('  Section 65: exercising the four global bypass surfaces, the three lower-level saves and a bypass at log level ERROR (launch)...');
 	const launchResult = await runScript(launchScript);
 	console.log(`  Section 65 (launch): ${launchResult.pass} pass, ${launchResult.fail} fail`);
 
@@ -831,7 +831,8 @@ async function runSection65()
 			result: totalPass === totalExpected && launchResult.fail === 0 && verifyResult.fail === 0 ? 'PASS' : 'FAIL',
 			score: `${totalPass}/${totalExpected}`,
 			notes: `Launch: ${launchResult.pass}/${expectedLaunch}, Verify: ${verifyResult.pass}/${expectedVerify}`
-					+ ' — four bypass surfaces -> object-qualified query/DML audit targets + flood-control shape'
+					+ ' — four bypass surfaces -> object-qualified query/DML audit targets + flood-control shape;'
+					+ ' the three lower-level saves name their caller; a bypass at log level ERROR is kept'
 		}
 	};
 }
@@ -977,6 +978,33 @@ async function runSection67()
 			result: result.pass === expected && result.fail === 0 ? 'PASS' : 'FAIL',
 			score: `${result.pass}/${expected}`,
 			notes: 'Post-action core: ordering, dispatch-scope, touched types, object-scope filter, entry-criteria'
+		}
+	};
+}
+
+// Section 90: a subscriber's after-insert trigger action row on the framework's API Issue object, with an entry
+// formula that names no context class, and the post-trigger action count there. The rows hang on the subscriber's own
+// setting for the object, because the framework's settings are protected. They ship behind a feature flag that is off,
+// so the fixture turns the flag on for the script and the off state is put back after it.
+async function runSection90()
+{
+	const {deployCmdtState} = require('./cmdt-deployer');
+	const scriptPath = path.join(SCRIPTS_DIR, 'section-90-framework-object-trigger-events.apex');
+	const expected = 6;
+
+	console.log('  Section 90: deploying framework-object-events-enabled...');
+	await deployCmdtState('framework-object-events-enabled');
+	const result = await runScript(scriptPath);
+	console.log(`  Section 90: ${result.pass} pass, ${result.fail} fail`);
+
+	console.log('  Section 90: restoring framework-object-events-disabled...');
+	await deployCmdtState('framework-object-events-disabled');
+
+	return {
+		'section-90': {
+			result: result.pass === expected && result.fail === 0 ? 'PASS' : 'FAIL',
+			score: `${result.pass}/${expected}`,
+			notes: 'Trigger events on a framework object: after-insert row on API Issue, context found with no class name, 201 records, post-trigger count, framework action'
 		}
 	};
 }
@@ -1374,6 +1402,7 @@ const ORCHESTRATED_SECTIONS = [
 	{section: 68, header: 'Step 6h: Section 68 (post-trigger actions — feature-flag gate — CMDT cycle)...', run: runSection68},
 	{section: 69, header: 'Step 6i: Section 69 (post-trigger actions — no-DML guard — CMDT cycle)...', run: runSection69},
 	{section: 70, header: 'Step 6j: Section 70 (post-trigger actions — failure-action policy — CMDT cycle)...', run: runSection70},
+	{section: 90, header: 'Step 6j2: Section 90 (trigger action rows on the API Issue object, CMDT cycle)...', run: runSection90},
 	{section: 71, header: 'Step 6k: Section 71 (CDC change-event header recorder — launch + verify)...', run: runSection71},
 	{section: 72, header: 'Step 6l: Section 72 (CDC BlockDml degrade — launch + verify)...', run: runSection72},
 	{section: 75, header: 'Step 6m: Section 75 (queueable unhandled-exception surfacing — launch + verify)...', run: runSection75},
@@ -1492,6 +1521,7 @@ module.exports = {
 	runSection35,
 	runSection76,
 	runSection67,
+	runSection90,
 	runSection68,
 	runSection69,
 	runSection70,
