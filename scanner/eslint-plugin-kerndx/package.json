@@ -1,6 +1,6 @@
 {
   "name": "eslint-plugin-kerndx",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "ESLint behavioral rules for KernDX LWC components — zero formatting opinions.",
   "license": "MIT",
   "main": "index.js",

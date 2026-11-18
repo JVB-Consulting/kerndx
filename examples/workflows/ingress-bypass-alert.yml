@@ -10,6 +10,7 @@ name: ingress-bypass-alert
 #
 # Required checks watched (update list if Ingress Gate ruleset changes):
 #   - Static Code Analysis
+#   - Secret Scan
 #   - Naming Validation
 #
 # Notes:
@@ -50,13 +51,14 @@ jobs:
           PR_MERGED_BY: ${{ github.event.pull_request.merged_by.login }}
         run: |
           set -euo pipefail
-          required_checks=["Static Code Analysis","Naming Validation"]
+          required_checks=('Static Code Analysis' 'Secret Scan' 'Naming Validation')
           # `filter=latest` returns the latest check-run per name per GitHub's
           # own gating semantics (considers check_suite + rerun lineage) — no
           # need to re-implement ordering client-side.
           lookup_conclusion() {
             local name="$1"
-            gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs?check_name=${name// /%20}&filter=latest" \
+            gh api --method GET "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs" \
+              -f check_name="${name}" -f filter=latest \
               --jq '.check_runs[0].conclusion // "missing"'
           }
 
@@ -85,7 +87,8 @@ jobs:
                 failed_checks+="• *${name}*: \`${conclusion}\`\n"
                 # Surface the workflow run URL for the failing check so the
                 # Slack reader doesn't have to click through two hops.
-                run_url=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs?check_name=${name// /%20}&filter=latest" \
+                run_url=$(gh api --method GET "repos/${GITHUB_REPOSITORY}/commits/${SHA}/check-runs" \
+                  -f check_name="${name}" -f filter=latest \
                   --jq '.check_runs[0].html_url // ""')
                 if [ -n "${run_url}" ]; then
                   failed_run_urls+="• <${run_url}|${name} run>\n"

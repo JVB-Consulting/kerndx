@@ -245,6 +245,29 @@ test('every workflow action reference is pinned to a full commit SHA with its re
 	assert.ok(references >= 10, `expected at least 10 action references across the templates, found ${references}`);
 });
 
+test('every package runner call (npx, npm exec, pnpm dlx, yarn dlx, bunx) in every rendered workflow names an exact version', () =>
+{
+	let calls = 0;
+	for(const name of templates)
+	{
+		for(const slackEnabled of [
+			true,
+			false
+		])
+		{
+			for(const block of collectRunBlocks(yaml.load(render(name, slackEnabled))))
+			{
+				for(const match of block.matchAll(/\b(?:npx|bunx|npm\s+exec|pnpm\s+dlx|yarn\s+dlx)\b((?:\s+-{1,2}[\w-]+)*)\s+(\S+)/g))
+				{
+					calls++;
+					assert.match(match[2], /^(@[\w.-]+\/)?[\w.-]+@\d+\.\d+\.\d+$/, `${name} runs a package without an exact version: ${match[2]}`);
+				}
+			}
+		}
+	}
+	assert.ok(calls >= 1, `expected at least 1 package runner call across the templates, found ${calls}`);
+});
+
 test('the bootstrap partial and scanner-parity run Node 22', () =>
 {
 	for(const name of [

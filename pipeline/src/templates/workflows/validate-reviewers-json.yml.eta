@@ -26,7 +26,7 @@ jobs:
 
       - name: Validate JSON against schema
         run: |
-          npx --yes ajv-cli@5 validate \
+          npx --yes ajv-cli@5.0.0 validate \
             --spec=draft7 \
             --all-errors \
             -s <%= reviewers.schemaFile %> \

@@ -10,6 +10,23 @@ pipeline package adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [v0.6.1] — 2026-11-17
+
+**Distribution:** `KernDX-1.12.0-3-pipeline.zip`. Ships as `pipeline-v0.6.1` with Kern 1.12.0-3. The KernDX ESLint plugin moves to 0.6.1 with it, with no change of its own.
+
+This release fixes two workflows the pipeline can write for you. If you turned either on, run `kerndx upgrade` with the new
+bundle; otherwise there is nothing to do.
+
+### Fixed
+
+- **The ingress-bypass alert fires only on a real bypass.** The workflow wrote its list of required checks as a JSON string,
+  which bash reads as one name, so it found none of the checks and sent an alert on every merge, and a real bypass was lost
+  among them. It now writes the checks as a bash list with each name quoted, so each check is read by its own name. If you
+  turned this workflow on, run `kerndx upgrade` with the new bundle to write `ingress-bypass-alert.yml` again.
+- **The reviewers-file check runs a fixed version of `ajv-cli`.** It ran `npx --yes ajv-cli@5`, which takes the newest 5.x
+  release on each run. It now runs `ajv-cli@5.0.0`, and every `npx` call in a workflow the pipeline writes names an exact
+  version. If you turned this workflow on, run `kerndx upgrade` with the new bundle to write `validate-reviewers-json.yml` again.
+
 ## [v0.6.0] — 2026-10-30
 
 **Distribution:** `KernDX-1.11.0-1-pipeline.zip`. Ships as `pipeline-v0.6.0` with Kern 1.11.0-1. The KernDX ESLint plugin moves to 0.6.0 with it.

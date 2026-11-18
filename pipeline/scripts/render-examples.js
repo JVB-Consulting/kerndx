@@ -32,6 +32,7 @@ const EXAMPLE_CONFIGURATION = {
 	ruleSelector: 'pmd,flow,eslint',
 	requiredChecks: [
 		'Static Code Analysis',
+		'Secret Scan',
 		'Naming Validation'
 	],
 	bypassActors: [],
