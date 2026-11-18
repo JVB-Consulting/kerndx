@@ -61,7 +61,7 @@ current user's object and field permissions, and record sharing.
 | Look up a method or a pattern                                                            | [Quick Reference](#quick-reference)                                                                        |
 | Understand how the security layers fit together                                          | [How does it work?](#how-does-it-work)                                                                     |
 | Understand how the framework picks the sharing at run time                               | [How the Proxy Pattern Works](#how-the-proxy-pattern-works)                                                |
-| See why KernDX is worth using                                                            | [Why KernDX](/)                                                                                            |
+| See why KernDX is worth using                                                            | [Why KernDX: the security example](/#security)                                                             |
 
 ---
 

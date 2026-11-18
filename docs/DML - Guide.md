@@ -63,7 +63,7 @@ record sharing then follows your class's sharing keyword.
 | Test code that saves records                                           | [Testing](#testing)                                                                                 |
 | Avoid the common mistakes                                              | [Anti-Patterns](#anti-patterns)                                                                     |
 | Understand how the framework is built, and what it can do              | [How does it work?](#how-does-it-work)                                                              |
-| See why KernDX is worth using                                          | [Why KernDX](/)                                                                                     |
+| See why KernDX is worth using                                          | [Why KernDX: the saving records example](/#saving-records)                                          |
 
 ---
 

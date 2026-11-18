@@ -12,7 +12,7 @@ relationships, mock Ids and bulk data), and the architects who give a whole team
 tests.
 
 New to it? Try the [Test Data Fast Start](Fast%20Start%20-%20Test%20Data.md) first: a full build-and-test cycle, plus
-`TST_Mock` for query testing with no saved records. Deciding whether to use KernDX? See [Why KernDX](/).
+`TST_Mock` for query testing with no saved records. Deciding whether to use KernDX? See [Why KernDX](/#test-data).
 
 ## Copy this first
 
@@ -54,7 +54,7 @@ in memory without saving it, add `.withoutInsertion()` before `.build()`.
 | Look up every builder method                                                | [Layer 1: TST_Builder](#layer-1-tst_builder)                                                 |
 | Look up every factory method                                                | [Layer 2: TST_Factory](#layer-2-tst_factory)                                                 |
 | Avoid the common mistakes                                                   | [Anti-Patterns](#anti-patterns)                                                              |
-| See why KernDX is worth using                                               | [Why KernDX](/)                                                                              |
+| See why KernDX is worth using                                               | [Why KernDX: the test data example](/#test-data)                                             |
 
 ---
 

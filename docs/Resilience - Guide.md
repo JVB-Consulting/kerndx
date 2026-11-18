@@ -75,7 +75,7 @@ exception still reaches your code. After enough failures in a row the breaker op
 | Set retry or the breaker on one `UTIL_HttpClient` call            | [Per-Call Overrides with UTIL_HttpClient](#per-call-overrides-with-util_httpclient)       |
 | Test a retry strategy or a breaker                                | [Testing](#testing)                                                                       |
 | Avoid the mistakes that quietly turn the protection off           | [Anti-Patterns](#anti-patterns)                                                           |
-| See why KernDX is worth using                                     | [Why KernDX](/)                                                                           |
+| See why KernDX is worth using                                     | [Why KernDX: the resilient callouts example](/#resilient-callouts)                        |
 
 ---
 

@@ -85,7 +85,7 @@ reads into the code.
 | Understand component architecture                                     | [Base Component Architecture](#base-component-architecture)                       |
 | Understand how the pieces fit together                                | [How does it work?](#how-does-it-work)                                            |
 | See every component in the package                                    | [Complete Component Inventory](#complete-component-inventory)                     |
-| See why KernDX is worth using                                         | [Why KernDX](/)                                                                   |
+| See why KernDX is worth using                                         | [Why KernDX: the LWC example](/#lwc)                                              |
 
 ---
 
@@ -1410,7 +1410,7 @@ These are the building blocks KernDX uses inside its own components. You don't p
 
 ### Streaming Monitor Components
 
-KernDX's Streaming Monitor is adapted from Philippe Ozil's [Streaming Monitor](https://github.com/pozil/streaming-monitor), which he released to the public domain under CC0-1.0, rebuilt to follow KernDX conventions. If you want the monitor on its own, without the framework, install his instead: it is [free on the AppExchange](https://appexchange.salesforce.com/appxListingDetail?listingId=a0N3A00000FYEEWUA5) and it is the better choice for that.
+KernDX's Streaming Monitor is adapted from Philippe Ozil's [Streaming Monitor](https://github.com/pozil/streaming-monitor), which he released to the public domain under CC0-1.0, rebuilt to follow KernDX conventions. Both monitors watch the same event types, replay past events, publish test events, and show org limits and event usage. KernDX's version adds search on the org limits screen, a table view of event usage, times in the time zone set on your Salesforce user, translatable screen text, platform events published with your permissions checked, and a message on screen when a generic event fails to send. His is [free on the AppExchange](https://appexchange.salesforce.com/appxListingDetail?listingId=a0N3A00000FYEEWUA5).
 
 | Component                | Purpose                                                 |
 |--------------------------|---------------------------------------------------------|

@@ -146,7 +146,7 @@ const MOVED_GUIDE = [
 ].join('\n');
 
 const COMPARISONS = [
-	'# Strategic Guide — Overview',
+	'# Strategic Guide - Overview',
 	'',
 	'## Logging {#logging}',
 	'',
@@ -258,7 +258,7 @@ test('a heading moved to the movedTo page is listed as moved', () =>
 
 test('with movedTo given, a heading in movedAnchors that is not on the movedTo page is still lost', () =>
 {
-	const result = compareRewrite(PAGE, MOVED_GUIDE, {movedTo: '# Strategic Guide — Overview\n\nThe buffer keeps 50 entries before it sends them.\n'});
+	const result = compareRewrite(PAGE, MOVED_GUIDE, {movedTo: '# Strategic Guide - Overview\n\nThe buffer keeps 50 entries before it sends them.\n'});
 	assert.equal(result.passed, false);
 	assert.ok(holds(result.lost, 'heading', '### Limits'));
 });

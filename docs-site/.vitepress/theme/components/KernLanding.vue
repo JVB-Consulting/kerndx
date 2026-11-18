@@ -129,8 +129,8 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', onHashChange));
 					<span class="kl-badge" data-spec-id="badge-api">API {{ landing.apiVersion }}</span>
 				</div>
 				<h1 data-spec-id="hero-headline">Every Salesforce framework your team keeps rebuilding, in one Apex &amp; LWC library.</h1>
-				<p class="kl-sub" data-spec-id="hero-subline">Spend your team on the features that move the business, not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package, secure by default, open source on GitHub.</p>
-				<p class="kl-depth" data-spec-id="hero-depth">You write the line you expect. You get the depth you didn't: security by default, with logging, performance, and traceability built in.</p>
+				<p class="kl-sub" data-spec-id="hero-subline">Spend your team on the features that move the business, not on rebuilding the trigger framework, logging, security, and the rest of the plumbing every Salesforce org writes anyway. One managed package with the safe behaviour on automatically, open source on GitHub.</p>
+				<p class="kl-depth" data-spec-id="hero-depth">You write the line you expect. You get the depth you didn't: the safe behaviour on automatically, with logging, performance, and traceability built in.</p>
 				<p class="kl-durability" data-spec-id="hero-durability">Built to stay consistent after years of changes and dozens of contributors.</p>
 				<div class="kl-cta-row">
 					<a class="kl-cta primary" :href="resolve('/installation')" data-spec-id="cta-install">Install KernDX →</a>
@@ -406,13 +406,13 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', onHashChange));
 				<p class="kl-headline">What's different by default.</p>
 				<div class="kl-bydefault" data-spec-id="by-default">
 					<ul>
-						<li><strong>Security is enforced on reads and writes</strong>, with an audit entry written every time it's deliberately bypassed.</li>
+						<li><strong>Security is enforced on reads and writes</strong>, with an audit entry written when a call opts out through the builders, triggers or validation rules.</li>
 						<li><strong>One integrated package</strong>: triggers, queries, transactions, logging, REST, async, and masking share one model, instead of you wiring separate libraries together.</li>
 						<li><strong>100% Apex coverage and PMD-clean</strong>, enforced on every build, not aspirational.</li>
 					</ul>
 					<a class="kl-cta ghost" :href="resolve('/strategic-guide-choosing-a-framework')" data-spec-id="by-default-link">Full capability-by-capability comparison →</a>
 				</div>
-				<p class="kl-foot-note" data-spec-id="by-default-honesty">Honest about scope: a logging-only library can go deeper on logging, and a mocking library on mocking. The guide says so, capability by capability.</p>
+				<p class="kl-foot-note" data-spec-id="by-default-honesty">Honest about scope: where another library has something KernDX does not, the guide names it, capability by capability. For example, <code>nebula-logger</code> offers a choice of how each log is saved, all seven log levels, a retention date per log entry or scenario, and Big Object archiving. <code>fflib-mocks</code> can check how a mock was called and with what (behaviour verification).</p>
 			</div>
 		</section>
 
@@ -432,14 +432,14 @@ onBeforeUnmount(() => window.removeEventListener('hashchange', onHashChange));
 								<li>you need security you can show a reviewer</li>
 							</ul>
 						</div>
-						<div class="kl-col maybe" data-spec-id="assess-more-than-you-need"><h3>Maybe more than you need if…</h3>
+						<div class="kl-col maybe" data-spec-id="assess-not-needed"><h3>Not needed if…</h3>
 							<ul>
-								<li>a throwaway or greenfield org with no Apex and no near-term plans</li>
-								<li>you already run a framework you're happy with</li>
+								<li>your org has no Apex and none planned</li>
 							</ul>
 						</div>
 					</div>
-					<p class="kl-foot-note" data-spec-id="adopt-unmanaged">Can't install a managed package, or would rather not? Because the source is available, you can deploy KernDX straight into your org as unmanaged code (no namespace, no Dev Hub), or repackage it under your own namespace. There's a way in for every org.</p>
+					<p class="kl-foot-note" data-spec-id="assess-already-running">Already running another framework? That is a cost to weigh, not a reason on its own. Staying has costs too, such as wiring separate libraries together or safety checks that can be switched off without a record. Moving has the cost of the migration. The <a :href="resolve('/strategic-guide-choosing-a-framework')">capability-by-capability comparison</a> sets out both.</p>
+					<p class="kl-foot-note" data-spec-id="adopt-unmanaged">Can't install a managed package, or would rather not? Because the source is available, you can deploy KernDX straight into your org as unmanaged code (no namespace, no Dev Hub), or repackage it under your own namespace. Installed unmanaged, its code counts toward your org's 6 MB Apex limit, and you update it by redeploying the source. There's a way in for every org.</p>
 			</div>
 		</section>
 

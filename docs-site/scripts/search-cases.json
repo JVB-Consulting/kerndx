@@ -193,7 +193,7 @@
   {"group": "topic:triggers", "query": "move trigger handler to trigger actions", "kind": "vocabulary", "expected": ["Triggers - Guide > Moving your own trigger handler into trigger actions"], "accepted": []},
   {"group": "topic:triggers", "query": "stop slow action log entries", "kind": "vocabulary", "expected": ["Triggers - Guide > How do I stop every slow-action entry?"], "accepted": ["Triggers - Guide > Performance Logging", "Logging - Guide"]},
   {"group": "topic:async-processing", "query": "duplicate", "kind": "vocabulary", "expected": ["Async Processing - Guide > Preventing duplicate runs"], "accepted": ["Validation - Guide > Don't use this when", "Fast Start - Inbound APIs > Duplicate Alert"]},
-  {"group": "topic:selectors", "query": "what is a selector", "kind": "vocabulary", "expected": ["Strategic Guide — Glossary > Framework Terms"], "accepted": ["Selectors - Guide"]},
+  {"group": "topic:selectors", "query": "what is a selector", "kind": "vocabulary", "expected": ["Strategic Guide - Glossary > Framework Terms"], "accepted": ["Selectors - Guide"]},
   {"group": "topic:e2e-testing", "query": "Playwright", "kind": "vocabulary", "expected": ["E2E Testing - Guide > Authentication"], "accepted": ["Fast Start - E2E Testing"]},
   {"group": "topic:code-scanning", "query": "PMD", "kind": "vocabulary", "expected": ["Code Scanning - Guide > PMD Rule Reference"], "accepted": ["Fast Start - Code Scanning", "Code Scanning - Guide"]},
   {"group": "topic:dml", "query": "roll back if one record fails", "kind": "vocabulary", "expected": ["DML - Guide > Mixed Operations and Rollback"], "accepted": ["DML - Guide > Transactional DML Pattern", "From Plain Apex to KernDX > Saving records"]},

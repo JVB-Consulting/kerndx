@@ -68,7 +68,7 @@ log record.
 | Find the slow rules                                                  | [Enabling Performance Monitoring](#enabling-performance-monitoring)             |
 | Fix a rule that does not run, a formula error or a query limit error | [Common Issues](#common-issues)                                                 |
 | Understand how the framework runs your rules, and the parts involved | [How does it work?](Validation%20-%20Guide.md#how-does-it-work), [What are the moving parts?](#what-are-the-moving-parts) |
-| See why KernDX is worth using                                        | [Why KernDX](/)                                                                 |
+| See why KernDX is worth using                                        | [Why KernDX: the validation example](/#validation)                              |
 
 ---
 

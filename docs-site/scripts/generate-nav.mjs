@@ -305,18 +305,39 @@ export function generateSidebar(pages)
 // The latest docs are split into five areas, one per top-menu item, and each area has its own
 // sidebar. Frozen version trees (/1.x/) keep the single sidebar from generateSidebar() above.
 
-// The top menu of the latest docs, in reading order. Each item opens the first page of its area.
-export const TOP_MENU = [
-	{text: 'Why KernDX', link: '/'},
-	{text: 'Get Started', link: '/installation'},
-	{text: 'Fast Starts', link: '/fast-starts'},
-	{text: 'Guides', link: '/triggers-guide'},
-	{text: 'Reference', link: '/reference/'}
+// The top menu of the latest docs, in reading order, with the area each item belongs to. Each item
+// opens the first page of its area, which shows that area's menu. Why KernDX opens the Strategic
+// Overview, not the front page: the front page has no left-hand menu, and the site title already
+// links to it.
+const TOP_MENU_ITEMS = [
+	{area: 'why', text: 'Why KernDX', link: '/strategic-guide-overview'},
+	{area: 'get-started', text: 'Get Started', link: '/installation'},
+	{area: 'fast-starts', text: 'Fast Starts', link: '/fast-starts'},
+	{area: 'guides', text: 'Guides', link: '/triggers-guide'},
+	{area: 'reference', text: 'Reference', link: '/reference/'}
 ];
 
-// The top menu of a frozen tree: as it was before the Guides area, so it links only to pages
-// that the older tree has.
+// The top menu items, without the area.
+export const TOP_MENU = TOP_MENU_ITEMS.map(({text, link}) => ({text, link}));
+
+// The top menu of a frozen tree: the latest menu without the Guides item, because the older trees
+// have no Guides area. Every other item opens a page each frozen tree has, Why KernDX included (the
+// Strategic Overview ships in every frozen tree). It has no `activeMatch`: a frozen tree has one menu for all its pages,
+// so there are no areas to light a tab for, and the latest tree's areas do not fit its older
+// pages. Each item lights only on the page it opens.
 export const FROZEN_TOP_MENU = TOP_MENU.filter(item => item.text !== 'Guides');
+
+// The top menu of the latest docs, each item with the `activeMatch` that keeps it lit on every
+// page of its area. `sidebarAreas` is what generateSidebarAreas returns, so a tab and the menu
+// beside it always agree on the area a page is in.
+export function topMenuFor(sidebarAreas)
+{
+	return TOP_MENU_ITEMS.map(({area, text, link}) =>
+	{
+		const activeMatch = activeMatchFor(sidebarAreas, area);
+		return activeMatch ? {text, link, activeMatch} : {text, link};
+	});
+}
 
 // The areas, in top-menu order.
 export const AREAS = ['why', 'get-started', 'fast-starts', 'guides', 'reference'];
@@ -414,7 +435,93 @@ export function sidebarForPath(sidebars, path)
 
 function sidebarKeyFor(keys, path)
 {
-	return [...keys].sort((a, b) => b.split('/').length - a.split('/').length).find(key => path.startsWith(key));
+	return keysInTryOrder(keys).find(key => path.startsWith(key));
+}
+
+// The sidebar keys in the order VitePress tries them: most path segments first, and keys with the
+// same number of segments in the order they were written (sort() is stable).
+function keysInTryOrder(keys)
+{
+	return [...keys].sort((a, b) => b.split('/').length - a.split('/').length);
+}
+
+// A page's sidebar key path ("/selectors-guide.md", "/reference/index.md") in the form a top-menu
+// tab tests its `activeMatch` against ("/selectors-guide", "/reference/"). VitePress drops a final
+// "index.md" or ".md" in the same way.
+function menuPath(route)
+{
+	return route.replace(/(?:(^|\/)index)?\.md$/, '$1');
+}
+
+function escapeForPattern(text)
+{
+	return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// The pattern part for one sidebar key: a key for one page ends in ".md" and matches only that
+// page; any other key is a start of a path and matches every page that starts with it.
+function keyPattern(key)
+{
+	return key.endsWith('.md') ? `${escapeForPattern(menuPath(key))}$` : escapeForPattern(key);
+}
+
+// True when one page could match both keys. A key for one page matches only that page; any other
+// key matches every page that starts with it.
+function canMatchSamePage(key, otherKey)
+{
+	const isOnePage = key.endsWith('.md'), otherIsOnePage = otherKey.endsWith('.md');
+	const start = menuPath(key), otherStart = menuPath(otherKey);
+	if(isOnePage && otherIsOnePage)
+	{
+		return start === otherStart;
+	}
+	if(isOnePage || otherIsOnePage)
+	{
+		return isOnePage ? start.startsWith(otherStart) : otherStart.startsWith(start);
+	}
+	return start.startsWith(otherStart) || otherStart.startsWith(start);
+}
+
+// The `activeMatch` of an area's top-menu tab, built from the sidebar keys so that the tab is lit on
+// exactly the pages that show the area's menu. VitePress gives a page the menu of the first key, in
+// try order, that the page's path starts with. So a page is in the area when one of the area's keys
+// matches it and no key of another area that is tried earlier does. Only the earlier keys that could
+// match the same page are written out, which keeps the pattern short. Undefined when the area has no key.
+//
+// Two paths light no tab. The front page has its own key, for the Why KernDX menu, but it is in no
+// area of the top menu. And a page that does not exist starts with the catch-all key "/", so that key
+// is written as the list of pages in its area's menu instead: the not-found page then matches nothing.
+export function activeMatchFor({menus, paths}, area)
+{
+	const triedEarlier = [];
+	const choices = [];
+	for(const key of keysInTryOrder(Object.keys(paths)))
+	{
+		if(paths[key] === area && key === '/')
+		{
+			const links = linksIn(menus[area] ?? []).filter(link => link !== '/').map(escapeForPattern);
+			if(links.length)
+			{
+				choices.push(`(?:${links.join('|')})$`);
+			}
+		}
+		else if(paths[key] === area && key !== '/index.md')
+		{
+			const excluded = triedEarlier.filter(otherKey => canMatchSamePage(key, otherKey)).map(keyPattern);
+			choices.push(excluded.length ? `(?!${excluded.join('|')})${keyPattern(key)}` : keyPattern(key));
+		}
+		else
+		{
+			triedEarlier.push(key);
+		}
+	}
+	return choices.length ? `^(?:${choices.join('|')})` : undefined;
+}
+
+// Every link in a menu, at any depth.
+function linksIn(groups)
+{
+	return groups.flatMap(item => [...(item.link ? [item.link] : []), ...linksIn(item.items ?? [])]);
 }
 
 function commonPrefix(paths)
@@ -442,7 +549,14 @@ function areaMenu(area, pages)
 		// The API tree and the release notes, both open: on a reference page they are the whole menu.
 		return generateSidebar(pages).map(group => ({...group, collapsed: false}));
 	}
-	return [{text: AREA_MENU_TITLE[area], items: pages.slice().sort(orderCompare).map(menuLink)}];
+	const items = pages.slice().sort(orderCompare).map(menuLink);
+	if(area === 'why')
+	{
+		// The front page has no menu of its own, so the Why KernDX menu ends with a way back to it.
+		// It comes last, so the Why KernDX tab still opens the first entry, as every other tab does.
+		items.push({text: 'Front page', link: '/'});
+	}
+	return [{text: AREA_MENU_TITLE[area], items}];
 }
 
 // The area menus in a compact form: `menus` holds each area's sidebar once, and `paths` maps a
@@ -452,7 +566,9 @@ function areaMenu(area, pages)
 //
 // Keys are as few as possible: each area gets the prefix its pages share (for example
 // "/fast-start"), the guides take the catch-all "/", and a page that a shorter key would send to
-// the wrong menu gets its own exact key. The home page shows the Why KernDX menu.
+// the wrong menu gets its own exact key. The front page is routed to the Why KernDX menu, though it
+// shows no menu (its frontmatter turns the sidebar off), and no top-menu tab is lit there.
+// The top-menu tabs are lit from these keys too (activeMatchFor), and both are checked here.
 export function generateSidebarAreas(pages)
 {
 	const visible = pages.filter(p => !(p.frontmatter && p.frontmatter.draft));
@@ -515,6 +631,17 @@ export function generateSidebarAreas(pages)
 		if(paths[sidebarKeyFor(Object.keys(paths), route)] !== area)
 		{
 			throw new Error(`Sidebar keys send ${route} to the wrong menu; expected the ${area} menu`);
+		}
+	}
+	const tabPatterns = Object.keys(menus).map(area => [area, activeMatchFor({menus, paths}, area)])
+		.filter(([, activeMatch]) => activeMatch).map(([area, activeMatch]) => [area, new RegExp(activeMatch)]);
+	for(const [route, area] of routes)
+	{
+		const lit = tabPatterns.filter(([, pattern]) => pattern.test(menuPath(route))).map(([tabArea]) => tabArea);
+		if(route === '/index.md' ? lit.length !== 0 : lit.length !== 1 || lit[0] !== area)
+		{
+			const expected = route === '/index.md' ? 'no tab' : `only the ${area} tab`;
+			throw new Error(`The top menu lights [${lit.join(', ')}] on ${route}; expected ${expected}`);
 		}
 	}
 	return {menus, paths};

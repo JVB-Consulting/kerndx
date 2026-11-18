@@ -48,7 +48,7 @@ returns a response: a [status code of `0`](#status-code-is-0) means no answer ca
 | Review advanced features                          | [What else can it do?](#what-else-can-it-do)                                |
 | Understand API architecture                       | [How does it work?](#how-does-it-work)                                      |
 | Understand the two-class inbound design           | [Inbound API Architecture](Web%20Services%20-%20Guide.md#inbound-api-architecture) |
-| See why KernDX is worth using                     | [Why KernDX](/)                                                             |
+| See why KernDX is worth using                     | Why KernDX: the [outbound calls](/#outbound-calls) and [Flow actions](/#flow-actions) examples |
 
 ---
 
@@ -2872,7 +2872,7 @@ API_MockFactory.clearMocks();
 
 #### Call Verification
 
-As well as returning a fake response, the factory records what your code actually sent, so a test can assert the call happened and carried the right data (the same style of check Mockito offers for Java):
+As well as returning a fake response, the factory records what your code actually sent, so a test can assert that a mock was called, or never called, and that the last request body held the right field:
 
 ```apex
 // Check if a service was called

@@ -13,7 +13,7 @@ business analysts who configure scheduled jobs, compare the execution strategies
 
 New to it? Try [Fast Start - Async Processing](Fast%20Start%20-%20Async%20Processing.md) first: a step-by-step
 walkthrough that covers implementation, testing, and common pitfalls. Deciding whether to use KernDX? See
-[Why KernDX](/).
+[Why KernDX](/#async-chains).
 
 ## Copy this first
 
@@ -69,7 +69,7 @@ Id jobId = kern.UTIL_AsynchronousJobLauncher.process(accounts, new MyProcessor()
 | My org hit its 24-hour job limit | [What happens to your background work at the 24-hour job limit?](#what-happens-to-your-background-work-at-the-24-hour-job-limit) |
 | Test a processor or a scheduler                       | [Testing](#testing)                                                                            |
 | Fix a job that is not behaving                        | [Common Pitfalls](#common-pitfalls)                                                            |
-| See why KernDX is worth using                         | [Why KernDX](/)                                                                                |
+| See why KernDX is worth using                         | Why KernDX: the [async chains](/#async-chains) and [scheduled jobs](/#scheduled-jobs) examples |
 
 ---
 

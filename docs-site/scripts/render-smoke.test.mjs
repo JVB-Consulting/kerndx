@@ -6,6 +6,7 @@ import {spawn} from 'node:child_process';
 import {readdir, readFile} from 'node:fs/promises';
 import {setTimeout as sleep} from 'node:timers/promises';
 import {parseFrontmatter} from './frontmatter.mjs';
+import {TOP_MENU} from './generate-nav.mjs';
 import {movedAnchorsOf} from './prepare.mjs';
 import {slugForPath} from './slug.mjs';
 
@@ -858,6 +859,51 @@ try
 	expandState = await expandAllState();
 	assert(expandState.text === 'Expand all' && expandState.open.every(open => !open),
 		`Space on "Collapse all" closes every group and the button reads "Expand all" again (${JSON.stringify(expandState)})`);
+
+	// 14. The top menu. Each tab, clicked on the front page, opens a page that shows a left-hand menu, with
+	//     that tab lit. The front page has no left-hand menu, so a tab that links to it leaves the reader
+	//     with no way into its area. Then, on a deeper page of each area, that area's tab is lit and no
+	//     other: a tab that lights only on its own first page leaves the reader with no sign of where they
+	//     are. The Glossary is a Strategic Guide by name but sits in Get Started, and the Resilience guide
+	//     starts like the release notes, which are in Reference, so both are checked as well.
+	await page.setViewportSize({width: 1280, height: 800});
+	const menuBar = page.locator('.VPNavBarMenu');
+	const litTabs = async() => (await menuBar.locator('.VPNavBarMenuLink.active').allInnerTexts()).map(text => text.trim());
+	for(const tab of TOP_MENU)
+	{
+		await page.goto(`${BASE}/`, {waitUntil: 'networkidle'});
+		await menuBar.getByRole('link', {name: tab.text, exact: true}).click();
+		await page.locator('.VPSidebar').waitFor({state: 'visible', timeout: 5000}).catch(() => {});
+		await page.waitForLoadState('networkidle');
+		assert(await page.locator('.VPSidebar').isVisible(), `the "${tab.text}" tab, clicked on the front page, opens a page with a left-hand menu (${page.url()})`);
+		const lit = await litTabs();
+		assert(lit.length === 1 && lit[0] === tab.text, `the "${tab.text}" tab is lit on the page it opens (lit: ${lit.join(', ') || 'none'})`);
+	}
+	const deeperPages = [
+		['/strategic-guide-risks', 'Why KernDX'],
+		['/set-up-your-computer', 'Get Started'],
+		['/strategic-guide-glossary', 'Get Started'],
+		['/fast-start-selectors', 'Fast Starts'],
+		['/selectors-guide', 'Guides'],
+		['/resilience-guide', 'Guides'],
+		['/reference/apex/qry-builder', 'Reference'],
+		['/release-notes-kern-1-11', 'Reference']
+	];
+	for(const [route, tabText] of deeperPages)
+	{
+		await page.goto(`${BASE}${route}`, {waitUntil: 'networkidle'});
+		const lit = await litTabs();
+		assert(lit.length === 1 && lit[0] === tabText, `on ${route} only the "${tabText}" tab is lit (lit: ${lit.join(', ') || 'none'})`);
+	}
+	// The front page and the not-found page are in no area, so no tab is lit there. The not-found page
+	// builds its menu only in the browser, so the built HTML cannot show this.
+	await page.goto(`${BASE}/`, {waitUntil: 'networkidle'});
+	const frontPageLit = await litTabs();
+	assert(frontPageLit.length === 0, `no tab is lit on the front page (lit: ${frontPageLit.join(', ')})`);
+	await page.goto(`${BASE}/no-such-page`, {waitUntil: 'networkidle'});
+	const notFoundLit = await litTabs();
+	assert(await page.locator('.NotFound').isVisible() && notFoundLit.length === 0,
+		`no tab is lit on the not-found page (lit: ${notFoundLit.join(', ')})`);
 
 	console.log('render smoke-test PASSED');
 }

@@ -56,7 +56,7 @@ sharing keyword.
 | Fake query results in a test, aggregates too | [Basic Query Mocking](#basic-query-mocking), [Mocking an aggregate query](#mocking-an-aggregate-query) |
 | Avoid the common mistakes | [Anti-Patterns](#anti-patterns) |
 | How it works, every method, and where the security methods are described | [How does it work?](#how-does-it-work), [Layer 1: QRY_Builder](Selectors%20-%20Guide.md#layer-1-qry-builder-the-engine-every-selector-runs-on), [Where the security methods are described](Selectors%20-%20Guide.md#where-the-security-methods-are-described) |
-| See why KernDX is worth using | [Why KernDX](/) |
+| See why KernDX is worth using | [Why KernDX: the selectors example](/#selectors) |
 
 ---
 

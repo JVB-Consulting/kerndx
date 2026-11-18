@@ -9,7 +9,7 @@ movedAnchors: {"when-the-native-salesforce-tool-is-enough": "/#consoles"}
 # Administration Tools
 
 **Who this page is for:** the admins, developers, and reviewers who run a KernDX org day to day. Deciding whether to use
-KernDX? See [Why KernDX](/).
+KernDX? See [Why KernDX](/#consoles).
 
 ## What problem does this solve?
 
@@ -109,7 +109,7 @@ Subscribe to platform events, Change Data Capture, and custom channels, then wat
 
 See event-driven work that's normally invisible without standing up your own streaming infrastructure (a CometD client) or a separate subscriber app. Publish an event and watch it arrive the moment it's sent, with its full payload.
 
-This tool is adapted from Philippe Ozil's [Streaming Monitor](https://github.com/pozil/streaming-monitor), which he released to the public domain under CC0-1.0, rebuilt to follow KernDX conventions. If you want the monitor on its own, without the framework, install his instead: it is [free on the AppExchange](https://appexchange.salesforce.com/appxListingDetail?listingId=a0N3A00000FYEEWUA5) and it is the better choice for that.
+This tool is adapted from Philippe Ozil's [Streaming Monitor](https://github.com/pozil/streaming-monitor), which he released to the public domain under CC0-1.0, rebuilt to follow KernDX conventions. Both monitors watch the same event types, replay past events, publish test events, and show org limits and event usage. KernDX's version adds search on the org limits screen, a table view of event usage, times in the time zone set on your Salesforce user, translatable screen text, platform events published with your permissions checked, and a message on screen when a generic event fails to send. His is [free on the AppExchange](https://appexchange.salesforce.com/appxListingDetail?listingId=a0N3A00000FYEEWUA5).
 
 <HeroLoop src="/recordings/streaming-monitor.webm" mp4="/recordings/streaming-monitor.mp4" poster="/recordings/streaming-monitor-poster.jpg" caption="Subscribe to a channel, publish an event, and watch it arrive." guide="/lwc-guide#streamingmonitor-event-monitoring" guideLabel="LWC Guide">
 

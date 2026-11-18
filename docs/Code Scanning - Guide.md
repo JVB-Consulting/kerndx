@@ -50,7 +50,7 @@ Flows and custom objects (a Node script). Each check lists what it found; none o
 | Plan a phased rollout over an existing codebase                   | [Phased Adoption Strategy](#phased-adoption-strategy)                                |
 | Find out why my tool cannot load the rules                        | [PMD Version Compatibility](#pmd-version-compatibility)                              |
 | Understand how the three checkers fit together                    | [How does it work?](#how-does-it-work)                                               |
-| See why KernDX is worth using                                     | [Why KernDX](/)                                                                      |
+| See why KernDX is worth using                                     | [Why KernDX: the code scanning example](/#code-scanning)                             |
 
 ---
 
