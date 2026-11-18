@@ -15,8 +15,11 @@
  * Performance and SOQL Cost:
  * The first `isEnabled(...)` call per transaction loads every active flag and its active strategies in
  * one CMDT query (`SEL_FeatureFlag.activeFlags` static cache); subsequent calls reuse that cache. Most
- * strategy types then add 1 SOQL per evaluation: Profile, Public Group, Permission Set Group, and unprefixed
- * (your org's own) Custom Permission. A Hierarchical Custom Setting, a List Custom Setting or a Custom Metadata
+ * strategy types then add 1 SOQL per evaluation: Profile, Permission Set Group, and unprefixed
+ * (your org's own) Custom Permission. Public Group runs one query to find the group by its API name, then the
+ * queries that read the group's members: four queries in all for a group whose members are users, more for nested
+ * groups and roles. A target that is not an API name runs one more query, to look for a group with that label, so a
+ * target that matches no group costs two queries. A Hierarchical Custom Setting, a List Custom Setting or a Custom Metadata
  * record is read once per transaction (per setting and user for the hierarchy): the rows are kept in memory
  * until a framework write empties the query cache, so a loop that checks the same flag pays one query, not one per pass.
  * Code that flips a setting and checks the flag again in the same transaction writes the setting through
@@ -53,7 +56,7 @@
  * }
  * ```
  */
-@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ExcessiveClassLength')
 global inherited sharing class UTIL_FeatureFlag
 {
 	/**
@@ -69,6 +72,57 @@ global inherited sharing class UTIL_FeatureFlag
 	 */
 	@TestVisible
 	private static final String NAMESPACE_DELIMITER = '__';
+
+	/**
+	 * @description The class and method name that Public Group strategy warnings are logged under.
+	 */
+	@TestVisible
+	private static final String METHOD_CHECK_PUBLIC_GROUP = UTIL_FeatureFlag.class.getName() + '.checkPublicGroup';
+
+	/**
+	 * @description The first part of the fingerprint for the warning about a target that matched a public group's label, not its API name.
+	 */
+	@TestVisible
+	private static final String PUBLIC_GROUP_LABEL_KEY = 'feature-flag-public-group-label:';
+
+	/**
+	 * @description The first part of the fingerprint for the warning about a target that matched more than one public group.
+	 */
+	@TestVisible
+	private static final String PUBLIC_GROUP_DUPLICATE_KEY = 'feature-flag-public-group-duplicate:';
+
+	/**
+	 * @description The first part of the fingerprint for the warning about a target that matched no public group.
+	 */
+	@TestVisible
+	private static final String PUBLIC_GROUP_NOT_FOUND_KEY = 'feature-flag-public-group-not-found:';
+
+	/**
+	 * @description The fingerprints of the warnings already logged in this transaction, so each warning is logged once.
+	 */
+	private static final Set<String> WARNED_FINGERPRINTS = new Set<String>();
+
+	/**
+	 * @description The log text for a target that matched a public group's label. {0} is the target.
+	 */
+	@TestVisible
+	private static final String PUBLIC_GROUP_LABEL_MESSAGE = 'The Public Group strategy target \'\'{0}\'\' is the label of a public group, not its API name. '
+			+ 'The group is used. Enter the group\'\'s API name, shown as Group Name in Setup.';
+
+	/**
+	 * @description The log text for a target that matched more than one public group. {0} is the target and {1} is the
+	 * number of groups read, which stops at two.
+	 */
+	@TestVisible
+	private static final String PUBLIC_GROUP_DUPLICATE_MESSAGE = 'The Public Group strategy target \'\'{0}\'\' matches {1} or more public groups, '
+			+ 'so no group is used. Enter the API name of one group, shown as Group Name in Setup.';
+
+	/**
+	 * @description The log text for a target that matched no public group. {0} is the target.
+	 */
+	@TestVisible
+	private static final String PUBLIC_GROUP_NOT_FOUND_MESSAGE = 'The Public Group strategy target \'\'{0}\'\' matches no public group by API name or label, '
+			+ 'so no group is used. Enter the group\'\'s API name, shown as Group Name in Setup.';
 
 	/**
 	 * @description The global interface for all feature evaluation strategies.
@@ -670,16 +724,118 @@ global inherited sharing class UTIL_FeatureFlag
 	}
 
 	/**
-	 * @description Checks if the user is a member of the specified Public Group.
+	 * @description Checks if the user is a member of the Public Group the strategy names. The target is the group's
+	 * API name. A label also works when exactly one public group has it, with a warning in the log (see
+	 * findTargetPublicGroup). When no single group is found, the user is treated as not in the group.
 	 *
-	 * @param strategy The strategy record containing the target group name.
+	 * @param strategy The strategy record containing the target group API name.
 	 * @param context The user context to evaluate against.
 	 *
 	 * @return `MATCH_TRUE`, `MATCH_FALSE`, or `NO_MATCH` based on group membership and expectation.
 	 */
 	private static StrategyResult checkPublicGroup(FeatureFlagStrategy__mdt strategy, UserContext context)
 	{
-		return getStrategyResult(strategy, new SEL_Group().userIsInGroup(context.userId, strategy.Target__c));
+		SEL_Group selector = new SEL_Group();
+		Group targetGroup = findTargetPublicGroup(selector, strategy.Target__c);
+		return getStrategyResult(strategy, targetGroup != null && selector.isUserInGroup(context.userId, targetGroup.Id));
+	}
+
+	/**
+	 * @description Finds the one public group that a Public Group strategy target names. Queues and role groups never
+	 * count. The steps are:
+	 *
+	 * - One public group has the target as its API name: that group is used.
+	 * - No group has that API name, and one public group has the target as its label: that group is used, and a warning
+	 *   is logged, because the target should be the API name.
+	 * - More than one group has the API name, or more than one has the label: no group is used, and a warning is logged.
+	 *   The framework never picks one of them.
+	 * - No group has the target as its API name or label: no group is used, and a warning is logged.
+	 *
+	 * A blank target finds no group and logs nothing. When no group is found, the strategy gives the same result as for
+	 * a user who is not in the group.
+	 *
+	 * Each warning has a fingerprint made of its kind and the target, so a flag that is checked many times in one
+	 * transaction does not fill the log. The warning is marked as sent before it is sent, so a flag check that runs while it
+	 * is being sent cannot send it again.
+	 *
+	 * @param selector The group selector to read with.
+	 * @param target The strategy target: a public group's API name, or its label.
+	 *
+	 * @return The public group to check membership in, or null when no single group was found.
+	 */
+	private static Group findTargetPublicGroup(SEL_Group selector, String target)
+	{
+		if(String.isBlank(target))
+		{
+			return null;
+		}
+
+		List<Group> groupsByApiName = selector.findPublicGroupsByDeveloperName(target);
+
+		if(!groupsByApiName.isEmpty())
+		{
+			return findTheOnlyGroup(groupsByApiName, target);
+		}
+
+		List<Group> groupsByLabel = selector.findPublicGroupsByLabel(target);
+
+		if(groupsByLabel.isEmpty())
+		{
+			logPublicGroupWarning(PUBLIC_GROUP_NOT_FOUND_KEY, String.format(PUBLIC_GROUP_NOT_FOUND_MESSAGE, new List<Object> {target}), target);
+			return null;
+		}
+
+		Group groupByLabel = findTheOnlyGroup(groupsByLabel, target);
+
+		if(groupByLabel != null)
+		{
+			logPublicGroupWarning(PUBLIC_GROUP_LABEL_KEY, String.format(PUBLIC_GROUP_LABEL_MESSAGE, new List<Object> {target}), target);
+		}
+
+		return groupByLabel;
+	}
+
+	/**
+	 * @description Returns the group when the list holds exactly one. When it holds more than one, it logs a warning
+	 * and returns null, because the target does not say which group is meant.
+	 *
+	 * @param foundGroups The public groups one lookup found. It is never empty.
+	 * @param target The strategy target the groups were found with.
+	 *
+	 * @return The only group in the list, or null when there is more than one.
+	 */
+	private static Group findTheOnlyGroup(List<Group> foundGroups, String target)
+	{
+		if(foundGroups.size() > 1)
+		{
+			String message = String.format(PUBLIC_GROUP_DUPLICATE_MESSAGE, new List<Object> {target, foundGroups.size()});
+			logPublicGroupWarning(PUBLIC_GROUP_DUPLICATE_KEY, message, target);
+			return null;
+		}
+
+		return foundGroups[0];
+	}
+
+	/**
+	 * @description Logs a warning about a Public Group strategy target. The fingerprint is the kind of warning and the
+	 * target, so repeats of the same warning are counted in one row instead of filling the log. The same warning is
+	 * logged once per transaction.
+	 *
+	 * @param fingerprintPrefix The kind of warning, which starts the fingerprint.
+	 * @param message The warning text.
+	 * @param target The strategy target the warning is about.
+	 */
+	private static void logPublicGroupWarning(String fingerprintPrefix, String message, String target)
+	{
+		String fingerprint = fingerprintPrefix + target;
+
+		if(WARNED_FINGERPRINTS.contains(fingerprint))
+		{
+			return;
+		}
+
+		WARNED_FINGERPRINTS.add(fingerprint);
+		LOG_Builder.build().warn(message).withFingerprint(fingerprint).emitAt(METHOD_CHECK_PUBLIC_GROUP);
 	}
 
 	/**

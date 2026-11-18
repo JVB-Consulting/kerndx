@@ -9,7 +9,7 @@
  *
  * @group Validation
  *
- * @date January 2026, October 2026
+ * @date January 2026, November 2026
  */
 @IsTest(seeAllData=false isParallel=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssTypeCount')
@@ -54,6 +54,33 @@ private class UTIL_ValidationRule_TEST
 	 * unreadable context class must name it.
 	 */
 	private static final String JSON_ACCESS_ANNOTATION = '@JsonAccess(serializable=\'always\')';
+
+	/**
+	 * @description The name of a custom label the package ships, so a label merge field test runs in every org.
+	 */
+	private static final String SHIPPED_LABEL_NAME = 'EventUsageMetrics_Validation_StartAfterEnd';
+
+	/**
+	 * @description A merge field that names the shipped label. It carries the package namespace, as in
+	 * {!$Label.kern__LabelName}, in an org where the package has one, and no namespace in an org where it has none.
+	 */
+	private static final String SHIPPED_LABEL_MERGE_FIELD = '{!$Label.' + UTIL_System.getManagedPackageNamespacePrefix() + SHIPPED_LABEL_NAME + '}';
+
+	/**
+	 * @description The name of a custom label that does not exist in any org.
+	 */
+	private static final String MISSING_LABEL_NAME = 'No_Such_Label_For_Validation_Messages';
+
+	/**
+	 * @description A merge field that names a label that does not exist.
+	 */
+	private static final String MISSING_LABEL_MERGE_FIELD = '{!$Label.' + MISSING_LABEL_NAME + '}';
+
+	/**
+	 * @description Any compiled pattern. A test context holds one only so that it cannot be turned into JSON; what the
+	 * pattern matches does not matter.
+	 */
+	private static final Pattern PATTERN_JSON_CANNOT_HOLD = Pattern.compile('any text');
 
 	/**
 	 * @description The error message of the test rule that every record fails. Tests look for it on the record or in the
@@ -1028,16 +1055,112 @@ private class UTIL_ValidationRule_TEST
 	}
 
 	/**
-	 * @description Tests processMergeFields returns original template when context is null.
+	 * @description Tests that a label merge field is filled when the context is null, and that a property merge field is
+	 * left as written, because there is no context to read it from.
 	 */
 	@IsTest
 	private static void shouldProcessMergeFieldsWithNullContext()
 	{
 		Test.startTest();
-		String result = UTIL_ValidationRule.processMergeFields('Hello {!name}', null);
+		String result = UTIL_ValidationRule.processMergeFields('Hello {!name} ' + SHIPPED_LABEL_MERGE_FIELD, null);
 		Test.stopTest();
 
-		Assert.areEqual('Hello {!name}', result, 'Should return original template when context is null');
+		Assert.areEqual('Hello {!name} ' + System.Label.EventUsageMetrics_Validation_StartAfterEnd, result,
+				'Expected the label to be filled and the property merge field to be left as written when the context is null');
+	}
+
+	/**
+	 * @description Tests that a merge field naming a label is filled with the text of that label.
+	 */
+	@IsTest
+	private static void shouldFillLabelMergeFieldWithLabelText()
+	{
+		TestContext context = new TestContext();
+
+		Test.startTest();
+		String result = UTIL_ValidationRule.processMergeFields('[' + SHIPPED_LABEL_MERGE_FIELD + ']', context);
+		Test.stopTest();
+
+		Assert.areEqual('[' + System.Label.EventUsageMetrics_Validation_StartAfterEnd + ']', result, 'Expected the merge field to hold the text of the label');
+	}
+
+	/**
+	 * @description Tests that $label in lower case names a label too, as it does in a formula.
+	 */
+	@IsTest
+	private static void shouldFillLabelMergeFieldWrittenInLowerCase()
+	{
+		String mergeField = '{!$label.' + UTIL_System.getManagedPackageNamespacePrefix() + SHIPPED_LABEL_NAME + '}';
+
+		Test.startTest();
+		String result = UTIL_ValidationRule.processMergeFields(mergeField, new TestContext());
+		Test.stopTest();
+
+		Assert.areEqual(System.Label.EventUsageMetrics_Validation_StartAfterEnd, result, 'Expected $label in lower case to be filled with the label text');
+	}
+
+	/**
+	 * @description Tests that a message with a label merge field and a property merge field gets both filled.
+	 */
+	@IsTest
+	private static void shouldFillLabelAndPropertyMergeFieldsInOneMessage()
+	{
+		TestContext context = new TestContext();
+		context.name = 'TestValue';
+
+		Test.startTest();
+		String result = UTIL_ValidationRule.processMergeFields('{!name}: ' + SHIPPED_LABEL_MERGE_FIELD, context);
+		Test.stopTest();
+
+		Assert.areEqual('TestValue: ' + System.Label.EventUsageMetrics_Validation_StartAfterEnd, result,
+				'Expected both the property and the label to be filled');
+	}
+
+	/**
+	 * @description Tests that a message whose only merge field names a label never turns the context into JSON. The
+	 * context here cannot be turned into JSON, so reading it would write a warning to the log. The label is filled and the
+	 * log stays empty.
+	 */
+	@IsTest
+	private static void shouldNotReadContextForMessageWithOnlyLabelMergeFields()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		TestUnreadableContext context = new TestUnreadableContext();
+		context.namePattern = PATTERN_JSON_CANNOT_HOLD;
+
+		Test.startTest();
+		String result = UTIL_ValidationRule.processMergeFields(SHIPPED_LABEL_MERGE_FIELD, context);
+		Test.stopTest();
+
+		Assert.areEqual(System.Label.EventUsageMetrics_Validation_StartAfterEnd, result, 'Expected the label to be filled');
+		Assert.areEqual(0, new SEL_LogEntry().findByLogLevel(LOG_Engine.LEVEL_WARN).size(),
+				'Expected no warning, because a message with only a label merge field never reads the context');
+	}
+
+	/**
+	 * @description Tests that a merge field naming a label that does not exist is left as written, not emptied, and that
+	 * one warning naming the label is written to the log, even when the message names the label twice and a second
+	 * message names it again.
+	 */
+	@IsTest
+	private static void shouldLeaveMissingLabelMergeFieldAsWrittenAndWarnOnce()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		String template = '[' + MISSING_LABEL_MERGE_FIELD + '][' + MISSING_LABEL_MERGE_FIELD + ']';
+
+		Test.startTest();
+		String firstResult = UTIL_ValidationRule.processMergeFields(template, new TestContext());
+		String secondResult = UTIL_ValidationRule.processMergeFields(MISSING_LABEL_MERGE_FIELD, null);
+		Test.stopTest();
+
+		Assert.areEqual(template, firstResult, 'Expected a merge field for a missing label to be left as written');
+		Assert.areEqual(MISSING_LABEL_MERGE_FIELD, secondResult, 'Expected the merge field to be left as written in the second message too');
+
+		List<LogEntry__c> warnings = new SEL_LogEntry().findByLogLevel(LOG_Engine.LEVEL_WARN);
+		Assert.areEqual(1, warnings.size(), 'Expected exactly one warning for the missing label in this transaction');
+		Assert.isTrue(warnings[0].Message__c.contains(MISSING_LABEL_NAME), 'Expected the warning to name the missing label');
 	}
 
 	/**
@@ -1153,7 +1276,7 @@ private class UTIL_ValidationRule_TEST
 		TST_Factory.setupLoggerForTest();
 		TestUnreadableContext context = new TestUnreadableContext();
 		context.name = 'Test';
-		context.namePattern = Pattern.compile(context.name);
+		context.namePattern = PATTERN_JSON_CANNOT_HOLD;
 		String contextClassName = TestUnreadableContext.class.getName();
 
 		Test.startTest();
@@ -1352,9 +1475,9 @@ private class UTIL_ValidationRule_TEST
 	{
 		LOG_Builder.ignoreTestMode = true;
 
-		// Use ApiCall__c which is NOT in STANDARD_OBJECT_CONTEXT_TYPES
-		// This exercises the auto-resolution path where no built-in context exists
-		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(ApiCall__c.SObjectType);
+		// ScheduledJob__c has no built-in formula context, so this exercises the path where none is found
+		String objectName = UTIL_SObjectDescribe.getObjectNameFromType(ScheduledJob__c.SObjectType);
+		Assert.isNull(UTIL_FormulaFilter.resolveContextClass(ScheduledJob__c.SObjectType, null), 'Expected ScheduledJob__c to have no built-in formula context');
 
 		TriggerSetting__mdt triggerSetting = TST_Factory.newTriggerSetting(objectName);
 
@@ -1374,13 +1497,13 @@ private class UTIL_ValidationRule_TEST
 		testCache.put(objectName, operationMap);
 		SEL_ValidationRules.testCacheOverride = testCache;
 
-		// Create a ApiCall__c record - this object is NOT in STANDARD_OBJECT_CONTEXT_TYPES
-		ApiCall__c record = new ApiCall__c();
+		// Create a ScheduledJob__c record - this object has no built-in formula context
+		ScheduledJob__c record = (ScheduledJob__c)TST_Builder.of(ScheduledJob__c.SObjectType).withoutInsertion().build();
 
 		Test.startTest();
 		List<UTIL_ValidationRule.ValidationResult> results = UTIL_ValidationRule.validate
 				(
-						new List<ApiCall__c> {record},
+						new List<ScheduledJob__c> {record},
 						null,
 						TriggerOperation.BEFORE_INSERT
 				);

@@ -54,7 +54,7 @@
  *
  * @group Validation
  *
- * @date January 2026, October 2026
+ * @date January 2026, November 2026
  *
  * @since 1.0
  *
@@ -95,6 +95,12 @@ global inherited sharing class UTIL_ValidationRule
 	private static final Pattern MERGE_FIELD_PATTERN = Pattern.compile('\\{!([^}]+)\\}');
 
 	/**
+	 * @description The start of a merge field that names a custom label, as in {!$Label.MyLabel}. It is matched without
+	 * regard to case, as in a formula, so {!$label.MyLabel} names the same label.
+	 */
+	private static final String LABEL_MERGE_FIELD_PREFIX = '$Label.';
+
+	/**
 	 * @description Set of object API names bypassed for the current transaction.
 	 */
 	private static final Set<String> BYPASSED_OBJECTS = new Set<String>();
@@ -125,6 +131,13 @@ global inherited sharing class UTIL_ValidationRule
 	 * log in this transaction. It keeps the warning to one per class, however many merge fields and records there are.
 	 */
 	private static final Set<String> UNREADABLE_CONTEXT_CLASSES_WARNED = new Set<String>();
+
+	/**
+	 * @description Names of the labels that an error message asked for, that do not exist, and that have already been
+	 * reported in the log in this transaction. The names are in lower case, because label names do not depend on case. It
+	 * keeps the warning to one per label, however many messages and records name it.
+	 */
+	private static final Set<String> MISSING_LABELS_WARNED = new Set<String>();
 
 	/**
 	 * @description Types of validation bypasses available. Used internally for Flow integration.
@@ -1178,20 +1191,28 @@ global inherited sharing class UTIL_ValidationRule
 	}
 
 	/**
-	 * @description Fills the merge fields in an error message. A merge field is written {!PropertyName} or
-	 * {!path.to.Property} and names a property of the context. The context is turned into JSON once per message, and each
-	 * merge field reads its value from that JSON. If the context cannot be turned into JSON, every merge field in the
-	 * message is left empty and one warning is written to the log for that context class; the method never throws.
+	 * @description Fills the merge fields in an error message. There are two kinds of merge field.
+	 *
+	 * - {!$Label.MyLabel} names a custom label and is filled with the label's text in the running user's language. Write
+	 * {!$Label.namespace__MyLabel} for a label in a managed package's namespace. It is filled even when the context is
+	 * null. A label that does not exist or cannot be read leaves the merge field as written and writes one warning to the
+	 * log (see fillLabelMergeField).
+	 * - {!PropertyName} or {!path.to.Property} names a property of the context. The context is turned into JSON once per
+	 * message, only when the message has such a merge field, and each merge field reads its value from that JSON. When the
+	 * context is null, these merge fields are left as written. If the context cannot be turned into JSON, they are left
+	 * empty and one warning is written to the log for that context class.
+	 *
+	 * The method never throws.
 	 *
 	 * @param template The message template with merge fields
-	 * @param context The context object to pull values from
+	 * @param context The context object to pull values from, or null
 	 *
 	 * @return The processed message with merge fields replaced
 	 */
 	@TestVisible
 	private static String processMergeFields(String template, Object context)
 	{
-		if(String.isBlank(template) || context == null)
+		if(String.isBlank(template))
 		{
 			return template;
 		}
@@ -1204,18 +1225,82 @@ global inherited sharing class UTIL_ValidationRule
 
 		while(matcher.find())
 		{
-			if(!contextRead)
-			{
-				contextValues = readContextValues(context);
-				contextRead = true;
-			}
-
 			String fieldPath = matcher.group(1);
-			String replacement = getMergeFieldValue(contextValues, fieldPath);
-			result = result.replace('{!' + fieldPath + '}', replacement);
+
+			if(fieldPath.startsWithIgnoreCase(LABEL_MERGE_FIELD_PREFIX))
+			{
+				result = fillLabelMergeField(result, fieldPath);
+			}
+			else if(context != null)
+			{
+				if(!contextRead)
+				{
+					contextValues = readContextValues(context);
+					contextRead = true;
+				}
+
+				String replacement = getMergeFieldValue(contextValues, fieldPath);
+				result = result.replace('{!' + fieldPath + '}', replacement);
+			}
 		}
 
 		return result;
+	}
+
+	/**
+	 * @description Fills a merge field that names a custom label, such as {!$Label.MyLabel}, with the label's text in the
+	 * running user's language. A name with two underscores, such as ns__MyLabel, is a label in the namespace before the
+	 * underscores (a namespace is the prefix that sets apart the labels of a managed package). A name without them is a
+	 * label with no namespace, such as one created in your own org. When the label does not exist or cannot be read, the
+	 * merge field is left as written and a warning is written to the log (see warnLabelDoesNotExist).
+	 *
+	 * @param message The message being filled
+	 * @param fieldPath The text inside the merge field, such as $Label.MyLabel
+	 *
+	 * @return The message with every copy of this merge field filled, or the message unchanged when the label does not exist
+	 */
+	private static String fillLabelMergeField(String message, String fieldPath)
+	{
+		String labelReference = fieldPath.substring(LABEL_MERGE_FIELD_PREFIX.length());
+		Boolean hasNamespace = labelReference.contains(UTIL_String.DOUBLE_UNDERSCORE);
+		String namespace = hasNamespace ? labelReference.substringBefore(UTIL_String.DOUBLE_UNDERSCORE) : UTIL_String.EMPTY;
+		String labelName = hasNamespace ? labelReference.substringAfter(UTIL_String.DOUBLE_UNDERSCORE) : labelReference;
+
+		try
+		{
+			return message.replace('{!' + fieldPath + '}', System.Label.get(namespace, labelName));
+		}
+		catch(Exception error)
+		{
+			warnLabelDoesNotExist(labelReference, error);
+			return message;
+		}
+	}
+
+	/**
+	 * @description Writes a warning to the log that a validation error message names a label that does not exist or cannot
+	 * be read, so the merge field is shown as written. The warning names the label and quotes the platform's error. It is
+	 * written only the first time a label fails in a transaction, so a label named twice, or a save of many records, gives
+	 * one warning.
+	 *
+	 * @param labelReference The label as the message names it, such as MyLabel or ns__MyLabel
+	 * @param error The error the platform raised when asked for the label
+	 */
+	private static void warnLabelDoesNotExist(String labelReference, Exception error)
+	{
+		if(!MISSING_LABELS_WARNED.add(labelReference.toLowerCase()))
+		{
+			return;
+		}
+
+		String message = 'A validation error message names the label ' + labelReference + ', which does not exist or cannot be read, so the merge field is shown as written ('
+				+ error.getMessage() + '). Check the label name. Write a label from a managed package as {!$Label.namespace__LabelName}.';
+
+		LOG_Builder.build()
+				.warn(message)
+				.withSummary('A validation error message names a label that does not exist or cannot be read')
+				.at(UTIL_ValidationRule.class.getName() + '/processMergeFields')
+				.emit();
 	}
 
 	/**

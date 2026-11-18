@@ -1,21 +1,139 @@
 ---
 navOrder: 30
+navLabel: "LWC (Lightning web components)"
+movedAnchors: {"access-to-the-packages-apex-classes": "/lwc-guide#access-to-the-apex-classes-behind-a-page", "why-choose-this-over-the-built-in-option": "/#lwc", "how-does-this-compare-to-standard-lwc-development": "/#lwc"}
 ---
 
 # LWC - Guide
 
-**Framework:** KernDX
-**Package Type:** Managed Package
+**Who this page is for:** developers who build [Lightning Web Components](https://developer.salesforce.com/docs/platform/lwc/guide)
+with KernDX's base classes, utilities and pre-built components, faster and more consistently; architects who design
+component architectures with clean separation of concerns and reusable patterns; and business analysts who assemble
+pages from the pre-built components and need to know their configuration options.
+
+New to it? Try [Fast Start - LWC](Fast%20Start%20-%20LWC.md) first. Deciding whether to use KernDX? See
+[Why KernDX](Strategic%20Guide%20-%20Overview.md).
+
+## Copy this first
+
+```javascript
+import {ComponentBuilder} from 'kern/componentBuilder';
+import saveRecord from '@salesforce/apex/MyController.saveRecord';
+import RECORD_SAVED from '@salesforce/label/c.MyComponent_RecordSaved';
+
+export default class MyComponent extends ComponentBuilder('notification', 'controller')
+{
+	async handleSave()
+	{
+		const recordId = await this.callControllerMethod(saveRecord, {record: this.record});
+		if(recordId)
+		{
+			this.showSuccessToast(RECORD_SAVED);
+		}
+	}
+}
+```
+
+**What this does:** builds a component with toasts and Apex calls already wired in. `handleSave()` calls your Apex
+method `saveRecord` with the record and waits for it. People who use the component need access to your `MyController`
+Apex class, through their profile or a permission set.
+
+- Your `saveRecord` method must return a value, for example the Id of the record it saved. `callControllerMethod` gives
+  that value back.
+- When the save works, the Id is there, so the component shows a success toast.
+- When the save fails, `callControllerMethod` does not throw. It logs the error, shows an error toast and gives back
+  `undefined`, so no success toast appears.
+- A method that returns nothing gives back no value when it works either, so the success toast would never appear. For
+  such a method, pass `{isThrow: true}` and use `try` and `catch`, as the sample under
+  [ComponentBuilder Pattern](#componentbuilder-pattern) shows.
+
+The toast text comes from a custom label of your own, `MyComponent_RecordSaved` (for example, "Record saved
+successfully"). Create the label in your org before you deploy the component: the component does not deploy without
+it. The Fast Start - LWC section [Create the component](Fast%20Start%20-%20LWC.md#step-2-create-the-component) shows
+the steps. A label lets your org translate the text or change it without a code change, so never type text a user
+reads into the code.
+
+**Read next:** [Every feature you can add](#what-modules-can-i-include), [Ready-made helper functions](#utility-modules),
+[Methods your component gets](#basecomponent-api-reference), [Test your component](#testing).
+
+---
+
+## Quick Navigation
+
+| I need to...                                                          | Go to...                                                                          |
+|-----------------------------------------------------------------------|-----------------------------------------------------------------------------------|
+| Place a ready-made component on a page or a Flow screen, mostly with no code | [Appendix: Droppable Components](#appendix-droppable-components-quick-reference)  |
+| Choose which features my component gets                               | [What modules can I include?](#what-modules-can-i-include)                        |
+| Give users access to the Apex classes behind a page                   | [Access to the Apex classes behind a page](LWC%20-%20Guide.md#access-to-the-apex-classes-behind-a-page) |
+| Call Apex from a component                                            | [Controller Methods](#controller-methods)                                         |
+| Show a toast                                                          | [Notification Methods](#notification-methods)                                     |
+| Open a record page from a component                                   | [Navigation Methods](#navigation-methods)                                         |
+| Send messages between components                                      | [Lightning Message Service Methods](#lightning-message-service-methods)           |
+| Move a Flow screen on or back from a component                        | [Flow Navigation Methods](#flow-navigation-methods)                               |
+| Look up every method and property a component gets                    | [BaseComponent API Reference](#basecomponent-api-reference)                       |
+| Use the helper functions (strings, arrays, IDs, the clipboard)        | [Utility Modules](#utility-modules)                                               |
+| Log from a component and link it to the Apex logs                     | [utilityLogger - Client-Side Logging](#utilitylogger---client-side-logging)       |
+| Turn an Apex error into a readable message                            | [Reduce Errors](#reduce-errors)                                                   |
+| Check a feature flag in a component                                   | [featureFlag - Feature Flag Bridge](#featureflag---feature-flag-bridge)           |
+| Find the Flow screen components                                       | [Flow Screen Components](#flow-screen-components)                                 |
+| Build a record form from a field set                                  | [createForm - Dynamic Record Forms](#createform---dynamic-record-forms)           |
+| Watch the events flowing through your org, live                       | [streamingMonitor - Event Monitoring](#streamingmonitor---event-monitoring)       |
+| Check the package is set up after install                             | [healthCheck - Post-Install Diagnostics](#healthcheck---post-install-diagnostics) |
+| Write Jest tests                                                      | [Testing](#testing)                                                               |
+| Stand in for KernDX modules in a Jest test                            | [Mocking KernDX Modules](#mocking-kerndx-modules)                                 |
+| Fix a component that does not work                                    | [Troubleshooting](#troubleshooting)                                               |
+| Understand component architecture                                     | [Base Component Architecture](#base-component-architecture)                       |
+| Understand how the pieces fit together                                | [How does it work?](#how-does-it-work)                                            |
+| See every component in the package                                    | [Complete Component Inventory](#complete-component-inventory)                     |
+| See why KernDX is worth using                                         | [Why KernDX](/)                                                                   |
+
+---
+
+## Quick Start
+
+Pick the shape that fits your screen:
+
+| What you need | What to do |
+|---|---|
+| A custom component | Extend `ComponentBuilder` and list the features you want: the sample below, or the one under [Copy this first](#copy-this-first) |
+| A common screen (a record form, a Flow footer, an event monitor, a search lookup) | Place a ready-made component through Lightning App Builder or Flow Builder, with no code: [Appendix: Droppable Components](#appendix-droppable-components-quick-reference). The search lookup is the one exception: it needs an Apex class of yours that implements [`IF_Search`](reference/apex/IF_Search.md), named in its required `controllerName` property |
+| A small task inside your component (logging, formatting a string, sorting an array) | Import a helper function: [Utility Modules](#utility-modules) |
+
+```javascript
+import {ComponentBuilder} from 'kern/componentBuilder';
+import saveRecord from '@salesforce/apex/MyController.saveRecord';
+import RECORD_SAVED from '@salesforce/label/c.MyComponent_RecordSaved';
+
+export default class MyComponent extends ComponentBuilder('notification', 'controller')
+{
+	async handleSave()
+	{
+		const recordId = await this.callControllerMethod(saveRecord, {record: this.record});
+		if(recordId)
+		{
+			this.showSuccessToast(RECORD_SAVED);
+		}
+	}
+}
+```
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**Target Audience:**
+`ComponentBuilder('notification', 'controller')` gives your component toast notifications and a clean way to call Apex.
+Need more? Add `'navigation'` for record-page navigation, or pass `'all'` to include every feature. The KernDX rule:
+build every new component on `ComponentBuilder`, not on `LightningElement` directly, so they all share the same wiring.
 
-- **Developers** - Building [Lightning Web Components](https://developer.salesforce.com/docs/platform/lwc/guide) using KernDX's base classes, utilities, and pre-built components
-- **Architects** - Designing component architectures with proper separation of concerns and reusable patterns
-- **Business Analysts** - Understanding available components and their configuration options
+### Access to the Apex classes behind a page
+
+**Set up access before anyone but a System Administrator opens a page built on `ComponentBuilder` or the package's components.** The package's modules and components call Apex classes in the package, and a user
+needs access to those classes. Give it in one of these ways:
+
+- Assign the **Kern Component Access** permission set to every user of such a page. It grants the classes behind `kern/featureFlag`, `kern/utilityLogger`,
+  `searchLookup`, `createForm` and `sObjectLookup`, and the Apex classes and Flow actions those components use (see the permission set).
+- Or add Apex class access for the component's controller to a permission set they already have.
+- A user with **Kern Administrator** already has all of this access.
 
 ---
 
@@ -23,13 +141,19 @@ navOrder: 30
 
 Every Lightning Web Component (LWC) you build needs the same repetitive plumbing: toast notifications, Apex calls with error handling, navigation, and logging that survives a page reload. Re-writing that wiring in each component is slow and easy to get inconsistent.
 
-This part of KernDX gives you that plumbing once, as a base class you extend and a set of ready-to-use helper functions, plus drop-on-the-page components (search lookups, forms, an event monitor) you can use without writing code at all.
+This part of KernDX gives you that plumbing once:
 
-Developers use it to build components faster and more consistently. Architects use it to keep separation of concerns clean. Business analysts use the pre-built components to assemble pages. Use it whenever you create a custom LWC, or when a standard Lightning base component already does the job and you just need to place it.
+- a base class you extend, with the features you list already wired in;
+- a set of ready-to-use helper functions;
+- drop-on-the-page components (search lookups, forms, an event monitor) you can use without writing code at all.
+
+Use it whenever you create a custom LWC. Where a ready-made component, or a standard Lightning base component, already does the job, you just place it.
 
 ## Mental model
 
-Think of `ComponentBuilder` as ordering a car with the options you want. You pick the features you need (toasts, Apex calls, navigation, messaging, Flow control), and you drive away in a component that already has them fitted, rather than bolting each one on by hand. The utility modules are the toolkit in the boot: small, separate tools you use when a job needs them.
+Think of `ComponentBuilder` as ordering a car with the options you want. You pick the features you need (toasts, Apex calls, navigation, messaging, Flow control), and you drive away in a component that already has them fitted, rather than bolting each one on by hand.
+
+The utility modules are the toolkit in the boot: small, separate tools you use when a job needs them.
 
 ## Use this when
 
@@ -40,342 +164,305 @@ Think of `ComponentBuilder` as ordering a car with the options you want. You pic
 
 ## Don't use this when
 
+KernDX is opinionated here: every custom component you write extends `ComponentBuilder`, even with a single feature. The cost is small, and it keeps your components consistent. You skip it only when you write no component at all:
+
 - A standard Lightning base component already does the job. If `lightning-record-form` or another built-in covers your screen, just place it; there is nothing to extend.
 - You only need to drop a single ready-made component on a page. Configure it through Lightning App Builder; no custom code is involved.
 
-For any other custom component, extend `ComponentBuilder` even with a single feature. The cost is small, and it keeps your components consistent.
-
 ---
 
-## Table of Contents
+## Base Component Architecture
 
-<details>
-<summary>Expand</summary>
+You pick the capabilities you want, and KernDX hands you a base class that already includes them. You list the features; you extend the result.
 
-1. [Quick Navigation](#quick-navigation)
-2. [Quick Start](#quick-start)
-3. [What are the parts?](#what-are-the-parts)
-    - [Component Categories](#component-categories)
-    - [Why choose this over the built-in option?](#why-choose-this-over-the-built-in-option)
-    - [How does this compare to standard LWC development?](#how-does-this-compare-to-standard-lwc-development)
-4. [How does it work?](#how-does-it-work)
-    - [Architecture Diagram](#architecture-diagram)
-5. [Utility Modules](#utility-modules)
-    - [utilityLogger - Client-Side Logging](#utilitylogger---client-side-logging)
-        - [Log Level Constants](#log-level-constants)
-        - [Basic Logging](#basic-logging)
-        - [Correlation Tracking](#correlation-tracking)
-        - [Automatic Correlation with withCorrelation](#automatic-correlation-with-withcorrelation)
-        - [Performance Timing](#performance-timing)
-        - [Server Integration](#server-integration)
-    - [utilityString - String Manipulation](#utilitystring---string-manipulation)
-        - [Template String Formatting](#template-string-formatting)
-        - [Case Conversion](#case-conversion)
-        - [Character Insertion](#character-insertion)
-        - [Currency Formatting](#currency-formatting)
-        - [Constants](#constants)
-    - [utilityArray - Array Operations](#utilityarray---array-operations)
-        - [Convert Array to Keyed Object](#convert-array-to-keyed-object)
-        - [Extract Objects by ID](#extract-objects-by-id)
-        - [Filter Objects by ID](#filter-objects-by-id)
-    - [utilitySystem - System Utilities](#utilitysystem---system-utilities)
-        - [Copy to Clipboard](#copy-to-clipboard)
-        - [Reduce Errors](#reduce-errors)
-        - [Set Property on Object](#set-property-on-object)
-        - [Flatten Object](#flatten-object)
-        - [Sort Array of Objects](#sort-array-of-objects)
-    - [utilityRandom - Random Generation](#utilityrandom---random-generation)
-        - [Generate UUID](#generate-uuid)
-        - [Random Strings](#random-strings)
-    - [utilityGenerator - Generator Functions](#utilitygenerator---generator-functions)
-        - [Counter Generator](#counter-generator)
-        - [Array Generator](#array-generator)
-    - [featureFlag - Feature Flag Bridge](#featureflag---feature-flag-bridge)
-        - [LDS Cache Staleness: Not for Client-Side Authorization](#lds-cache-staleness-not-for-client-side-authorization)
-6. [Base Component Architecture](#base-component-architecture)
-    - [ComponentBuilder Pattern](#componentbuilder-pattern)
-    - [What modules can I include?](#what-modules-can-i-include)
-    - [How Modules Work](#how-modules-work)
-        - [Module Architecture](#module-architecture)
-        - [Module Files](#module-files)
-        - [Why This Pattern?](#why-this-pattern)
-        - [When to Use Which Modules](#when-to-use-which-modules)
-        - [Extending at Runtime (Advanced: Internal API)](#extending-at-runtime-advanced-internal-api)
-        - [Performance Consideration](#performance-consideration)
-    - [BaseComponent API Reference](#basecomponent-api-reference)
-        - [Notification Methods](#notification-methods)
-        - [Navigation Methods](#navigation-methods)
-        - [Lightning Message Service Methods](#lightning-message-service-methods)
-        - [Controller Methods](#controller-methods)
-        - [Flow Navigation Methods](#flow-navigation-methods)
-        - [Utility Methods](#utility-methods)
-        - [Properties](#properties)
-7. [Flow Screen Components](#flow-screen-components)
-    - [flowFooter - Flow Navigation](#flowfooter---flow-navigation)
-    - [jsonViewer - JSON Display](#jsonviewer---json-display)
-8. [Page Components](#page-components)
-    - [streamingMonitor - Event Monitoring](#streamingmonitor---event-monitoring)
-    - [searchLookup - Search Interface](#searchlookup---search-interface)
-    - [scheduledJobDetail - Scheduled Job Detail](#scheduledjobdetail---scheduled-job-detail)
-    - [healthCheck - Post-Install Diagnostics](#healthcheck---post-install-diagnostics)
-9. [Form Components](#form-components)
-    - [createForm - Dynamic Record Forms](#createform---dynamic-record-forms)
-    - [sObjectLookup - Object Lookup](#sobjectlookup---object-lookup)
-10. [Internal Components Reference](#internal-components-reference)
-    - [UI Support Components](#ui-support-components)
-    - [Streaming Monitor Components](#streaming-monitor-components)
-    - [Chain Monitor Components](#chain-monitor-components)
-    - [Log Console Components](#log-console-components)
-11. [Demo Components](#demo-components)
-12. [Testing](#testing)
-    - [Jest Test Setup](#jest-test-setup)
-    - [Mocking KernDX Modules](#mocking-kerndx-modules)
-    - [Test Patterns](#test-patterns)
-        - [Testing Utility Modules](#testing-utility-modules)
-        - [Testing Components](#testing-components)
-13. [What to avoid](#what-to-avoid)
-14. [Recommended habits](#recommended-habits)
-    - [Use ComponentBuilder for New Components](#use-componentbuilder-for-new-components)
-    - [Use Utility Modules for Common Operations](#use-utility-modules-for-common-operations)
-    - [Correlate Client and Server Logs](#correlate-client-and-server-logs)
-    - [Handle Errors Consistently](#handle-errors-consistently)
-    - [Clean Up Subscriptions](#clean-up-subscriptions)
-    - [Add JSDoc to Component Classes and Methods](#add-jsdoc-to-component-classes-and-methods)
-15. [Troubleshooting](#troubleshooting)
-    - [Common Issues](#common-issues)
-    - [Debugging Tips](#debugging-tips)
-16. [Related Documentation](#related-documentation)
-17. [Appendix: Droppable Components Quick Reference](#appendix-droppable-components-quick-reference)
-    - [Flow Screen Components](#flow-screen-components-1)
-        - [flowFooter](#flowfooter)
-        - [jsonViewer](#jsonviewer)
-    - [App Page / Record Page / Home Page Components](#app-page--record-page--home-page-components)
-        - [streamingMonitor](#streamingmonitor)
-        - [searchLookup](#searchlookup)
-        - [createForm](#createform)
-        - [scheduledJobDetail](#scheduledjobdetail)
-        - [healthCheck](#healthcheck)
-    - [Programmatic Components (for Custom LWC Development)](#programmatic-components-for-custom-lwc-development)
-        - [sObjectLookup](#sobjectlookup)
-        - [paginatedTable](#paginatedtable)
-        - [customDataTable](#customdatatable)
-        - [cronExpressionEditor](#cronexpressioneditor)
-    - [Component Availability Summary](#component-availability-summary)
-    - [Complete Component Inventory](#complete-component-inventory)
-        - [Utility Modules (9 components)](#utility-modules-9-components)
-        - [Base Architecture (8 components)](#base-architecture-8-components)
-        - [Components You Can Use (15 components)](#components-you-can-use-15-components)
-        - [Internal UI Components (15 components)](#internal-ui-components-15-components)
-        - [Streaming Monitor Internals (9 components)](#streaming-monitor-internals-9-components)
-        - [Chain Monitor (7 components)](#chain-monitor-7-components)
-        - [Log Console (4 components)](#log-console-4-components)
-        - [Data Masking Advisor (10 components)](#data-masking-advisor-10-components)
-        - [Demo Components (1 component)](#demo-components-1-component)
-    - [Test Coverage Summary](#test-coverage-summary)
+Most components need the same handful of capabilities: showing a toast, calling Apex, navigating to a record, talking to sibling components, driving a Flow. Writing that wiring by hand in every component is repetitive and drifts out of sync over time.
 
-</details>
+The helper functions in [Utility Modules](#utility-modules) (logging, string formatting, arrays) are separate: you import them wherever you need them.
 
----
+### ComponentBuilder Pattern
 
-## Quick Navigation
+`ComponentBuilder` is the factory that does this. You call it with the feature modules you want, and it returns a base class with those mixed in.
 
-| I am a...     | I need to...                      | Go to...                                                                         |
-|---------------|-----------------------------------|----------------------------------------------------------------------------------|
-| **Architect** | Understand component architecture | [Base Component Architecture](#base-component-architecture)                      |
-| **Architect** | Review available modules          | [Utility Modules](#utility-modules)                                              |
-| **Developer** | Build my first component          | [Quick Start](#quick-start)                                                      |
-| **Developer** | Write Jest tests                  | [Testing](#testing)                                                              |
-| **Developer** | Use utility modules               | [Utility Modules](#utility-modules)                                              |
-| **Analyst**   | See available components          | [Appendix: Droppable Components](#appendix-droppable-components-quick-reference) |
-| **Analyst**   | Find flow screen components       | [Flow Screen Components](#flow-screen-components)                                |
-
----
-
-## Quick Start
-
-Here is the whole idea in one example. To build a custom component, extend `ComponentBuilder` and list the features you want:
+**Import:**
 
 ```javascript
 import {ComponentBuilder} from 'kern/componentBuilder';
-import saveRecord from '@salesforce/apex/MyController.saveRecord';
+```
 
+**Basic Usage:**
+
+The JavaScript samples in this guide take toast and message text from custom labels of your own, such as
+`MyComponent_AccountsLoaded`. Create each label in your org before you deploy the component, as
+[Copy this first](#copy-this-first) explains. The HTML samples and the string-helper samples type short text in to
+stay short. In your own component, take that text from a label too.
+
+```javascript
+import {ComponentBuilder} from 'kern/componentBuilder';
+import getAccounts from '@salesforce/apex/AccountController.getAccounts';
+import ACCOUNTS_LOADED from '@salesforce/label/c.MyComponent_AccountsLoaded';
+import LOAD_FAILED from '@salesforce/label/c.MyComponent_LoadFailed';
+
+// Include specific modules
 export default class MyComponent extends ComponentBuilder('notification', 'controller')
 {
-	async handleSave()
+	// Component now has notification and controller methods available
+
+	async handleClick()
 	{
-		const result = await this.callControllerMethod(saveRecord, {record: this.record});
-		this.showSuccessToast('Record saved successfully');
+		try
+		{
+			// isThrow makes a failed call throw, so the catch below runs; silent skips the generic error toast
+			const result = await this.callControllerMethod(getAccounts, {}, {isThrow: true, silent: true});
+			this.showSuccessToast(ACCOUNTS_LOADED);
+		}
+		catch (error)
+		{
+			this.showErrorToast(LOAD_FAILED);
+		}
 	}
 }
 ```
 
-That one line gives your component toast notifications and a clean way to call Apex. Need more? Add `'navigation'` for record-page navigation, or pass `'all'` to include every feature. The rule of thumb is simple: build every new component on `ComponentBuilder`, not on `LightningElement` directly, so they all share the same wiring.
+**Include All Modules:**
 
-One thing to set up before anyone but a System Administrator opens a page built this way: the package's modules and components call Apex classes in the package, and
-a user needs access to those classes. Assign the **Kern Component Access** permission set to every user of such a page (it grants the classes behind `kern/featureFlag`,
-`kern/utilityLogger`, `searchLookup`, `createForm` and `sObjectLookup`, and the matching Flow actions, and nothing else), or add Apex class access for the component's
-controller to a permission set they already have. Kern Administrator includes them all.
+```javascript
+import {ComponentBuilder} from 'kern/componentBuilder';
 
-The sections below go deeper on each piece.
-
----
-
-## What are the parts?
-
-The pieces of this part of KernDX are: helper functions for common operations (logging, string handling, arrays), a base class you extend to build your own components, and a library of pre-built components for common patterns.
-
-> **What components are for, and what they are not for:** Components handle the screen: what the user sees and clicks. They should not hold business logic. Your Apex controllers and trigger actions own that. So keep components thin: call a server method with `callControllerMethod()` and display what comes back.
-
-> **What's in this part of KernDX:** components made up of helper-function modules, the base-component architecture, Flow screen components, page components, form components,
-> data masking advisor components, log console components, and admin components. Every one is covered by Jest tests at 100% coverage. The current component and test counts are in [Strategic Guide - Metrics](Strategic%20Guide%20-%20Metrics.md#lwc-components). So you can build on this layer without worrying that an upgrade will quietly break it.
-
-> For current framework statistics, see [Metrics](Strategic%20Guide%20-%20Metrics.md).
-
-> **When you don't need this:**
-> - Simple screens where a standard Lightning base component (such as `lightning-record-form`) already does the job. Just place it.
-> - For everything else, building a custom component, extend `ComponentBuilder` even with a single module. The cost of doing so is small, and it is still the recommended approach for all custom components.
-
-### Component Categories
-
-```text
-+-------------------------------------------------------------------------+
-|                         KERN LWC ARCHITECTURE                           |
-+-------------------------------------------------------------------------+
-|                                                                         |
-|  COMPONENTS YOU CAN USE                                                 |
-|  ======================                                                 |
-|                                                                         |
-|  +-------------------+  +-------------------+  +-------------------+    |
-|  |  UTILITY MODULES  |  |  FLOW COMPONENTS  |  |  PAGE COMPONENTS  |    |
-|  +-------------------+  +-------------------+  +-------------------+    |
-|  | utilityLogger     |  | flowFooter        |  | streamingMonitor  |    |
-|  | utilityString     |  | jsonViewer        |  | searchLookup      |    |
-|  | utilityArray      |  |                   |  |                   |    |
-|  | utilitySystem     |  +-------------------+  +-------------------+    |
-|  | utilityRandom     |                                                  |
-|  | utilityGenerator  |  +-------------------+  +-------------------+    |
-|  | utilityStreaming  |  | FORM COMPONENTS   |  | SCHEDULING        |    |
-|  +-------------------+  +-------------------+  +-------------------+    |
-|                         | createForm        |  | scheduledJob      |    |
-|                         | sObjectLookup     |  |   Detail          |    |
-|                         | searchLookup      |  | cronExpression    |    |
-|                         +-------------------+  |   Editor          |    |
-|                                                 +-------------------+    |
-|                                                                         |
-+-------------------------------------------------------------------------+
-|                                                                         |
-|  BASE ARCHITECTURE (for building custom components)                     |
-|  ==================================================                     |
-|                                                                         |
-|  +-------------------+     +-------------------+                        |
-|  | ComponentBuilder  |---->| baseComponent     |                        |
-|  +-------------------+     +-------------------+                        |
-|          |                         |                                    |
-|          v                         v                                    |
-|  +-------------------+     +-------------------+                        |
-|  | componentExtender |     | Module Mixins:    |                        |
-|  +-------------------+     | - moduleController|                        |
-|                            | - moduleNavigation|                        |
-|                            | - moduleNotification                       |
-|                            | - moduleLightningMessageService            |
-|                            | - moduleFlowNavigation                     |
-|                            +-------------------+                        |
-|                                                                         |
-+-------------------------------------------------------------------------+
+export default class FullFeaturedComponent extends ComponentBuilder('all')
+{
+	// All modules available: notification, navigation, lightning-message, controller, flow-navigation
+}
 ```
 
-> **What you actually use:** `ComponentBuilder` is the one entry point you call. The `baseComponent`, `componentExtender`, and `module*` pieces shown in the diagram are the wiring behind it: KernDX assembles them for you. Always build a component with `extends ComponentBuilder('module1', 'module2')` and let the framework handle the rest.
+**Wire adapters work as usual.** A wire adapter is the platform's way to send data to a component, so you do not call
+for it yourself. `getRecord` and a cacheable Apex method are examples.
 
-### Why choose this over the built-in option?
+- Put `@wire` (imported from `lwc`) on a property or a method. The platform sends the data, and sends it again when
+  one of the adapter's inputs changes.
+- A `ComponentBuilder` component is still a Lightning web component, so `@wire` works the same way in it.
+- The `controller` module adds `handleWireResponse()`. Call it in your wired method with the result. It returns the
+  data, or `undefined` while there is no data yet. On an error it logs the error, shows an error toast and returns
+  `undefined`.
 
-What you get, and why it helps:
+See the sample in [Controller Methods](#controller-methods).
 
-- **Every component looks and behaves the same.** All components follow the same coding standards and conventions, so a developer moving between them faces no surprises.
-- **Common chores are already written.** Logging, string handling, and array work are ready to import, so you don't reinvent them per component.
-- **You include only the features you use.** The `ComponentBuilder` pattern lets you add exactly the capabilities a component needs and nothing more.
-- **Client and server logs read as one story.** Client-side logging lines up with your Apex logs through [`LOG_Builder`](reference/apex/LOG_Builder.md), which makes a single user action easy to trace end to end.
-- **Flow screens are quicker to assemble.** Several components are designed for [Flow Screen](https://developer.salesforce.com/docs/platform/lwc/guide/use-flow.html) use, so you place them rather than build them.
-- **Watching real-time events takes no extra code.** [Platform Event](https://developer.salesforce.com/docs/atlas.en-us.platform_events.meta/platform_events/platform_events_intro.htm) monitoring and subscription management come built in.
-- **Upgrades are less likely to break your build.** Every utility module is covered by [Jest](https://developer.salesforce.com/docs/platform/lwc/guide/testing.html) tests at 100% coverage, so the layer you build on stays stable.
+### What modules can I include?
 
-### How does this compare to standard LWC development?
+| Module              | Functionality Included                                                                                                                                                                                    |
+|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `notification`      | [Toast](https://developer.salesforce.com/docs/platform/lwc/guide/use-toast.html) notifications: `showSuccessToast()`, `showErrorToast()`, `showWarningToast()`, `showInfoToast()`, `customNotification()` |
+| `navigation`        | Page [navigation](https://developer.salesforce.com/docs/platform/lwc/guide/use-navigate.html): `redirectToRecordPage()`, `generateRecordPageURL()`                                                        |
+| `lightning-message` | [LMS](https://developer.salesforce.com/docs/platform/lwc/guide/use-message-channel.html): `addMessageChannelSubscription()`, `publishLightningMessage()`, `clearSubscriptions()`                          |
+| `controller`        | [Apex calls](https://developer.salesforce.com/docs/platform/lwc/guide/apex.html): `callControllerMethod()`, `handleWireResponse()`                                                                        |
+| `flow-navigation`   | [Flow events](https://developer.salesforce.com/docs/platform/lwc/guide/use-flow.html): `dispatchFlowNextEvent()`, `dispatchFlowBackEvent()`, `dispatchFlowFinishEvent()`                                  |
+| `all`               | All of the above                                                                                                                                                                                          |
 
-| Feature                 | KernDX LWC Framework                          | Standard LWC Development                                                                                                                         |
-|-------------------------|-----------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Base Component**      | ComponentBuilder with modular functionality   | Manual mixin composition or monolithic base                                                                                                      |
-| **Client Logging**      | utilityLogger with server correlation         | console.log with no persistence                                                                                                                  |
-| **String Utilities**    | utilityString module                          | Manual implementation or external libraries                                                                                                      |
-| **Toast Notifications** | Built-in via moduleNotification               | Manual [ShowToastEvent](https://developer.salesforce.com/docs/platform/lwc/guide/use-toast.html) import                                          |
-| **Navigation**          | Built-in via moduleNavigation                 | Manual [NavigationMixin](https://developer.salesforce.com/docs/platform/lwc/guide/use-navigate.html) composition                                 |
-| **LMS Integration**     | Built-in via moduleLightningMessageService    | Manual [Lightning Message Service](https://developer.salesforce.com/docs/platform/lwc/guide/use-message-channel.html) subscribe/publish handling |
-| **Flow Navigation**     | Built-in via moduleFlowNavigation             | Manual [FlowNavigationNextEvent](https://developer.salesforce.com/docs/platform/lwc/guide/use-flow.html) handling                                |
-| **Data Tables**         | Pre-built with pagination, sorting, selection | Build from scratch with [lightning-datatable](https://developer.salesforce.com/docs/component-library/bundle/lightning-datatable/documentation)  |
+### How Modules Work
 
----
+> **Note:** You only ever call `ComponentBuilder`; the other names here are its internal wiring, shown so the behaviour isn't a mystery, as [What you actually use](#component-categories) says.
 
-## How does it work?
+Here is the mechanism in plain terms. When you list modules in `ComponentBuilder`, each one adds its methods straight onto your component instance as the component is created. So by the time your code runs, the methods are simply there to call.
 
-### Architecture Diagram
+#### Module Architecture
 
 ```text
 +---------------------------------------------------------------------------+
-|                       LWC FRAMEWORK ARCHITECTURE                          |
-+---------------------------------------------------------------------------+
-|                                                                           |
-|  UTILITY MODULES (Stateless Services)                                     |
-|  ====================================                                     |
-|  +---------------+ +---------------+ +---------------+ +---------------+  |
-|  | utilityLogger | | utilityString | | utilityArray  | | utilitySystem |  |
-|  | - log levels  | | - templates   | | - keyBy()     | | - clipboard   |  |
-|  | - correlation | | - case conv.  | | - extractById | | - reduceErrors|  |
-|  | - server sync | | - currency    | | - filterById  | | - sort        |  |
-|  +---------------+ +---------------+ +---------------+ +---------------+  |
-|  +---------------+ +---------------+                                      |
-|  | utilityRandom | | utilityGen    |                                      |
-|  | - UUID        | | - counters    |                                      |
-|  | - strings     | | - arrays      |                                      |
-|  +---------------+ +---------------+                                      |
-|                                                                           |
-+---------------------------------------------------------------------------+
-|                                                                           |
-|  COMPONENT BUILDER (Base Class Factory)                                   |
-|  ======================================                                   |
-|                                                                           |
-|  ComponentBuilder('notification', 'controller', ...)                      |
-|        |                                                                  |
-|        v                                                                  |
-|  +-------------------------------------------------------------------+   |
-|  |  Base Component (auto-generated from selected modules)            |   |
-|  |  +-------------+ +------------+ +----------+ +----------------+   |   |
-|  |  | notification | | controller | | navigation| | lightning-msg |   |   |
-|  |  | showToast()  | | callCtrl() | | redirect() | | subscribe()  |   |   |
-|  |  +-------------+ +------------+ +----------+ +----------------+   |   |
-|  +-------------------------------------------------------------------+   |
-|        |                                                                  |
-|        v                                                                  |
-|  Your Custom Components (extend ComponentBuilder result)                  |
-|                                                                           |
-+---------------------------------------------------------------------------+
-|                                                                           |
-|  PRE-BUILT COMPONENTS                                                     |
-|  ====================                                                     |
-|  Flow:  flowFooter, jsonViewer                                            |
-|  Page:  streamingMonitor, searchLookup, scheduledJobDetail                |
-|  Form:  createForm, sObjectLookup                                         |
-|                                                                           |
+|  ComponentBuilder('notification', 'controller')                           |
+|                         |                                                 |
+|                         v                                                 |
+|  +---------------------------------------------------------------------+ |
+|  | Creates new class extending baseComponent                           | |
+|  |                                                                     | |
+|  |  constructor() {                                                    | |
+|  |    componentExtender(this, 'notification', 'controller')            | |
+|  |  }                                                                  | |
+|  +---------------------------------------------------------------------+ |
+|                         |                                                 |
+|                         v                                                 |
+|  +---------------------------------------------------------------------+ |
+|  | componentExtender calls each module's initialiser:                  | |
+|  |                                                                     | |
+|  |  initialiseNotificationModule(this)                                 | |
+|  |    -> this.showSuccessToast = function() {...}                      | |
+|  |    -> this.showErrorToast = function() {...}                        | |
+|  |    -> this.customNotification = function() {...}                    | |
+|  |                                                                     | |
+|  |  initialiseControllerModule(this)                                   | |
+|  |    -> this.callControllerMethod = function() {...}                  | |
+|  |    -> this.handleWireResponse = function() {...}                    | |
+|  +---------------------------------------------------------------------+ |
+|                         |                                                 |
+|                         v                                                 |
+|  Your component now has: showSuccessToast(), showErrorToast(),            |
+|  customNotification(), callControllerMethod(), handleWireResponse()       |
 +---------------------------------------------------------------------------+
 ```
 
-This part of KernDX is organised into three groups, each solving a different need.
+#### Module Files
 
-1. **Helper functions for everyday tasks.** When you need to format a string, sort an array, generate a UUID, or write a client log, you import a small function instead of writing it yourself. These are plain JavaScript modules (`utilityLogger`, `utilityString`, `utilityArray`, `utilitySystem`, `utilityRandom`; `utilityGenerator` and `utilityStreaming` are internal to the package). They have no memory of past calls: you call a function, you get a result. They are not components, so you bring them into a component with a normal ES module import.
+Each module is a separate JavaScript file that exports an initialiser function:
 
-2. **A base class for building your own components.** Rather than re-wiring toasts, Apex calls, and navigation in every component, you extend one base class that already has them. `ComponentBuilder(...)` is a factory: you list the features you want (notification, navigation, controller, lightning-message, flow-navigation) and it hands back a base class with exactly those mixed in. Your component extends that result instead of extending `LightningElement` directly. The [Base Component Architecture](#base-component-architecture) section explains the full system.
+| File                              | Export                                        | Purpose                                                                           |
+|-----------------------------------|-----------------------------------------------|-----------------------------------------------------------------------------------|
+| `kern/moduleNotification`            | `initialiseNotificationModule(component)`     | Adds toast methods                                                                |
+| `kern/moduleNavigation`              | `initialiseNavigationModule(component)`       | Adds navigation methods                                                           |
+| `kern/moduleLightningMessageService` | `initialiseLightningMessageModule(component)` | Adds LMS methods                                                                  |
+| `kern/moduleController`              | `initialiseControllerModule(component)`       | Adds Apex call methods                                                            |
+| `kern/moduleFlowNavigation`          | `initialiseFlowNavigationModule(component)`   | Adds Flow event methods                                                           |
+| `kern/componentExtender` (internal)  | `componentExtender(component, ...modules)`    | Orchestrates module loading (used by `ComponentBuilder`; do not import directly) |
 
-3. **Pre-built components you can use as-is.** For common patterns there is already a finished component: Flow screen components (`flowFooter`, `jsonViewer`), page components (`streamingMonitor`, `searchLookup`, `scheduledJobDetail`), and form components (`createForm`, `sObjectLookup`). So a common screen often needs no new code at all.
+#### Why This Pattern?
 
-All components use Allman bracing, tabs for indentation, single quotes, and follow the conventions defined in
-[`docs/Code Conventions - Guide.md`](./Code%20Conventions%20-%20Guide.md). Every component requires a `.js-meta.xml` file with `apiVersion` 68.0.
+Why build it this way rather than one giant base class? Four reasons, each with a benefit for you:
+
+1. **You load only what you use.** Include just the features a component needs, so it carries no dead weight.
+2. **No deep inheritance chain to reason about.** Unlike traditional mixins, the methods are added straight onto the instance.
+3. **Each piece is easy to test.** Every module can be tested on its own.
+4. **It isn't locked to one base class.** The pattern works with any LWC base class.
+
+#### When to Use Which Modules
+
+| Scenario                              | Recommended Modules               |
+|---------------------------------------|-----------------------------------|
+| Simple form with save confirmation    | `notification`                    |
+| Record page with navigation           | `notification`, `navigation`      |
+| Component communicating with siblings | `lightning-message`               |
+| Data loading from Apex                | `controller`, `notification`      |
+| Flow screen component                 | `notification`, `flow-navigation` |
+| Full-featured component               | `all`                             |
+
+#### Extending at Runtime (Advanced: Internal API)
+
+> **For a rare edge case only:** almost always you list your modules up front in `ComponentBuilder(...)` and you are done. The pattern below is for the unusual case where a module has to be added later, after the component is already built, based on a runtime condition.
+
+The sample below imports `componentExtender`, the internal piece that `ComponentBuilder` is built on. It is exposed, but it is internal: it is not meant to be imported directly, and it may change without notice. Prefer listing the module up front in `ComponentBuilder(...)`, even if some instances never use it. The sample only shows what happens inside the framework:
+
+```javascript
+// Internal: shown for explanation only, not for use in your own components
+import {componentExtender} from 'kern/componentExtender';
+
+connectedCallback()
+{
+	// Add navigation module if condition is met
+	if (this.enableNavigation)
+	{
+		componentExtender(this, 'navigation');
+	}
+}
+```
+
+#### Performance Consideration
+
+`'all'` is convenient, but it sets up all 5 modules whether you use them or not. When a component is performance-sensitive, for example one rendered many times in a list, list only the modules you actually use instead.
+
+### BaseComponent API Reference
+
+Once your component extends `ComponentBuilder`, these methods and properties are available to call.
+
+#### Notification Methods
+
+```javascript
+import RECORD_SAVED from '@salesforce/label/c.MyComponent_RecordSaved';
+// SAVE_FAILED and the other names in capitals are custom labels of your own too, imported the same way
+
+// Simple toasts
+this.showSuccessToast(RECORD_SAVED);
+this.showErrorToast(SAVE_FAILED);
+this.showWarningToast(PLEASE_REVIEW);
+this.showInfoToast(WORKING);
+
+// Custom notification: (title, message, variant, messageData, mode)
+this.customNotification(NOTICE_TITLE, NOTICE_MESSAGE, 'success', [], 'dismissible');
+
+// Factory for complex notifications: (variant, mode) returns (message, title, messageData)
+const notify = this.customNotificationFactory('error', 'sticky');
+notify(NOTICE_MESSAGE, NOTICE_TITLE);
+```
+
+#### Navigation Methods
+
+```javascript
+// Navigate to record
+this.redirectToRecordPage(recordId);
+
+// Generate URL without navigating
+const url = await this.generateRecordPageURL(recordId);
+```
+
+#### Lightning Message Service Methods
+
+```javascript
+// Subscribe to channel
+this.addMessageChannelSubscription(CHANNEL, (message) =>
+{
+	this.consoleLog('Received:', message);
+});
+
+// Publish message
+this.publishLightningMessage(CHANNEL, {data: 'payload'});
+
+// Clean up (call in disconnectedCallback)
+this.clearSubscriptions();
+```
+
+#### Controller Methods
+
+```javascript
+// Call Apex method (getAccountData is imported from '@salesforce/apex/AccountController.getAccountData')
+// On failure it logs, shows an error toast and returns undefined; pass {isThrow: true} as a third argument to make it throw instead
+const result = await this.callControllerMethod(getAccountData, {
+	accountId: this.recordId
+});
+
+// Handle wire response: returns the data, or undefined after logging and showing the error
+@wire(getRecord, {recordId: '$recordId', fields: FIELDS})
+wiredRecord(result)
+{
+	this.account = this.handleWireResponse(result);
+}
+```
+
+**Return a small result class from a controller method rather than a raw record where you can**, the way the framework's
+own controllers do. A result class carries exactly the fields the component uses, all of them part of the public API, so
+it cannot lose one to this platform change:
+
+- From Spring '27 the platform strips non-public system fields from custom-object records returned by Aura actions, the
+  calls that carry a Lightning web component's `@AuraEnabled` requests as well.
+- The change is the Remove Non-Public Fields from Custom Object Data in Aura Action Responses release update, available
+  since Summer '26. It asks you to review every Lightning component that processes custom-object data.
+- A component that reads such a field from a returned record can show missing data or fail with a JavaScript error.
+
+#### Flow Navigation Methods
+
+```javascript
+// Navigate forward
+this.dispatchFlowNextEvent();
+
+// Navigate back
+this.dispatchFlowBackEvent();
+
+// Finish flow
+this.dispatchFlowFinishEvent();
+```
+
+#### Utility Methods
+
+```javascript
+// Dispatch custom event
+this.dispatchCustomEvent('recordselected', {recordId: '001xx'});
+
+// Logging (uses utilityLogger internally)
+this.consoleLog('Debug message');
+this.consoleError(error, 'MyComponent.handleSave'); // the error object comes first
+```
+
+#### Properties
+
+```javascript
+this.isLoading  // Boolean for spinner control
+this.messageContext  // LMS context (injected by framework)
+this.activeMessageSubscriptions  // Array of active LMS subscriptions
+```
 
 ---
 
@@ -385,7 +472,13 @@ These are small, ready-made functions for the chores that come up in nearly ever
 
 ### utilityLogger - Client-Side Logging
 
-You want a record of what happened on the screen, kept and searchable, not a `console.log` that vanishes on refresh. `utilityLogger` writes client-side logs that are saved to Apex, timed for performance, and tied to the matching server-side logs so a single user action reads as one story. It links those entries with a correlation ID: one tracking ID that follows a single user action across the client and server (the same idea is described in the [Logging guide](Logging%20-%20Guide.md)).
+`utilityLogger` gives you a record of what happened on the screen, kept and searchable, not a `console.log` that vanishes on refresh. Its client-side logs are:
+
+- saved to Apex;
+- timed for performance;
+- tied to the matching server-side logs, so a single user action reads as one story.
+
+It links those entries with a correlation ID: one tracking ID that follows a single user action across the client and server (the same idea is described in the [Logging guide](Logging%20-%20Guide.md)).
 
 **Import:**
 
@@ -495,7 +588,12 @@ You don't have to send logs to the server yourself. The framework flushes them t
 - when you log an `error()` (sent immediately), and
 - when the in-memory buffer reaches 20 entries.
 
-On the server side, the framework sets the matching correlation context through [`LOG_Builder`](reference/apex/LOG_Builder.md), so your LWC logs land in `LogEntry__c` already linked to the related Apex logs. The context object you pass is kept on the entry (`ContextData__c`), and when you log an `Error` its JavaScript stack trace is kept too (`StackTrace__c`), so the [Log Console](Logging%20-%20Guide.md#the-log-console) detail drawer shows exactly what the client saw. The benefit: when you investigate a problem later, the client and server halves of the same action are already stitched together.
+On the server side, the framework sets the matching correlation context through [`LOG_Builder`](reference/apex/LOG_Builder.md), so your LWC logs land in `LogEntry__c` already linked to the related Apex logs. Each entry keeps:
+
+- the context object you pass (`ContextData__c`);
+- the JavaScript stack trace, when you log an `Error` (`StackTrace__c`).
+
+So the [Log Console](Logging%20-%20Guide.md#the-log-console) detail drawer shows exactly what the client saw. When you investigate a problem later, the client and server halves of the same action are already stitched together.
 
 ---
 
@@ -686,7 +784,7 @@ const reduced = reduceErrors(error);
 ```
 
 In most cases you don't need to call `reduceErrors` yourself. Pass the raw error
-straight into `showErrorToast` and the notification module cleans it up for you:
+straight into `showErrorToast` and the notification module cleans it up for you (a string you pass is shown unchanged):
 
 ```javascript
 catch (error)
@@ -841,7 +939,10 @@ for (const item of arrayGenerator(items, 1, 3))
 
 ### featureFlag - Feature Flag Bridge
 
-You want your component to ask "is this feature turned on for this user?" and get the same answer your Apex code would get. A feature flag is an on/off switch you can change without a deployment. This bridge checks a `FeatureFlag__mdt` flag for the running user through the cacheable Apex method `CTRL_FeatureFlag.isEnabled`, so the client sees exactly the same result as Apex (`UTIL_FeatureFlag.isEnabled`). One source of truth, two places asking.
+This bridge lets your component ask "is this feature turned on for this user?" and get the same answer your Apex code would get. A feature flag is an on/off switch you can change without a deployment.
+
+- It checks a `FeatureFlag__mdt` flag for the running user through a cacheable Apex method in the package.
+- That method asks `UTIL_FeatureFlag.isEnabled`, so the client sees exactly the same result as Apex. One source of truth, two places asking.
 
 **Import:**
 
@@ -874,7 +975,9 @@ export default class MyComponent extends ComponentBuilder('notification')
 
 #### LDS Cache Staleness: Not for Client-Side Authorization
 
-There is one thing to know before you rely on this. The bridge calls `CTRL_FeatureFlag.isEnabled`, which is marked `@AuraEnabled(cacheable=true)`. Salesforce's Lightning Data Service (LDS) caches the answer per user session and per parameter, so one user can never see another user's result. The catch is staleness: a cached answer can lag behind a permission change made mid-session. Here is the sequence that goes wrong.
+A cached answer can lag behind a permission change made mid-session. Know this before you rely on the bridge.
+
+The bridge's Apex method is marked `@AuraEnabled(cacheable=true)`. Salesforce's Lightning Data Service (LDS) caches the answer per user session and per parameter, so one user can never see another user's result. Here is the sequence that goes wrong.
 
 - An admin assigns or revokes a permission set that changes whether the flag applies to a user.
 - The user's browser keeps serving the value it already cached for `isFlagEnabled`. It refreshes only when the page reloads or the wire adapter is called with different parameters, and the flag name never changes, so the wire adapter never fires again on its own.
@@ -884,279 +987,15 @@ There is one thing to know before you rely on this. The bridge calls `CTRL_Featu
 If a real authorization decision has to depend on a flag, check the flag inside the Apex controller method
 that does the protected work, not on the client.
 
-One distinction keeps that rule from being read too widely. It governs a cacheable Apex call behind a wire adapter,
-which is what the bridge uses. The platform's built-in state managers that expose list- or query-shaped data, such as
-related list records, have their own answer to stale data in Winter '27 and later: call `refresh()` on the state
-manager once its status is `loaded`, and it fetches the latest data from the server without reconfiguring the manager
-or reloading the page. That action belongs to state managers only; a cacheable Apex result still refreshes as
-described above.
+That rule governs a cacheable Apex call behind a wire adapter, which is what the bridge uses. It does not cover the platform's state managers:
 
----
+The platform's built-in state managers that expose list- or query-shaped data, such as related list records, have their
+own answer to stale data in Winter '27 and later:
 
-## Base Component Architecture
+- call `refresh()` on the state manager once its status is `loaded`;
+- it fetches the latest data from the server without reconfiguring the manager or reloading the page.
 
-Most components need the same handful of capabilities: showing a toast, calling Apex, navigating to a record, talking to sibling components, driving a Flow. Writing that wiring by hand in every component is repetitive and drifts out of sync over time. KernDX solves this by letting you pick the capabilities you want and handing you a base class that already includes them. You list the features; you extend the result. (Separately, the helper functions from the previous section, logging, string formatting, arrays, are imported wherever you need them.)
-
-### ComponentBuilder Pattern
-
-`ComponentBuilder` is the factory that does this. You call it with the feature modules you want, and it returns a base class with those mixed in.
-
-**Import:**
-
-```javascript
-import {ComponentBuilder} from 'kern/componentBuilder';
-```
-
-**Basic Usage:**
-
-```javascript
-import {ComponentBuilder} from 'kern/componentBuilder';
-import getAccounts from '@salesforce/apex/AccountController.getAccounts';
-
-// Include specific modules
-export default class MyComponent extends ComponentBuilder('notification', 'controller')
-{
-	// Component now has notification and controller methods available
-
-	async handleClick()
-	{
-		try
-		{
-			// isThrow makes a failed call throw, so the catch below runs; silent skips the generic error toast
-			const result = await this.callControllerMethod(getAccounts, {}, {isThrow: true, silent: true});
-			this.showSuccessToast('Accounts loaded');
-		}
-		catch (error)
-		{
-			this.showErrorToast('Failed to load accounts');
-		}
-	}
-}
-```
-
-**Include All Modules:**
-
-```javascript
-import {ComponentBuilder} from 'kern/componentBuilder';
-
-export default class FullFeaturedComponent extends ComponentBuilder('all')
-{
-	// All modules available: notification, navigation, lightning-message, controller, flow-navigation
-}
-```
-
-### What modules can I include?
-
-| Module              | Functionality Included                                                                                                                                                                                    |
-|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `notification`      | [Toast](https://developer.salesforce.com/docs/platform/lwc/guide/use-toast.html) notifications: `showSuccessToast()`, `showErrorToast()`, `showWarningToast()`, `showInfoToast()`, `customNotification()` |
-| `navigation`        | Page [navigation](https://developer.salesforce.com/docs/platform/lwc/guide/use-navigate.html): `redirectToRecordPage()`, `generateRecordPageURL()`                                                        |
-| `lightning-message` | [LMS](https://developer.salesforce.com/docs/platform/lwc/guide/use-message-channel.html): `addMessageChannelSubscription()`, `publishLightningMessage()`, `clearSubscriptions()`                          |
-| `controller`        | [Apex calls](https://developer.salesforce.com/docs/platform/lwc/guide/apex.html): `callControllerMethod()`, `handleWireResponse()`                                                                        |
-| `flow-navigation`   | [Flow events](https://developer.salesforce.com/docs/platform/lwc/guide/use-flow.html): `dispatchFlowNextEvent()`, `dispatchFlowBackEvent()`, `dispatchFlowFinishEvent()`                                  |
-| `all`               | All of the above                                                                                                                                                                                          |
-
-### How Modules Work
-
-> **Note:** This section explains what happens under the hood, so the behaviour isn't a mystery. You only ever call `ComponentBuilder`. The `baseComponent` and `componentExtender` names shown below are the internal wiring it uses; you don't import them yourself.
-
-Here is the mechanism in plain terms. When you list modules in `ComponentBuilder`, each one adds its methods straight onto your component instance as the component is created. So by the time your code runs, the methods are simply there to call.
-
-#### Module Architecture
-
-```text
-+---------------------------------------------------------------------------+
-|  ComponentBuilder('notification', 'controller')                           |
-|                         |                                                 |
-|                         v                                                 |
-|  +---------------------------------------------------------------------+ |
-|  | Creates new class extending baseComponent                           | |
-|  |                                                                     | |
-|  |  constructor() {                                                    | |
-|  |    componentExtender(this, 'notification', 'controller')            | |
-|  |  }                                                                  | |
-|  +---------------------------------------------------------------------+ |
-|                         |                                                 |
-|                         v                                                 |
-|  +---------------------------------------------------------------------+ |
-|  | componentExtender calls each module's initialiser:                  | |
-|  |                                                                     | |
-|  |  initialiseNotificationModule(this)                                 | |
-|  |    -> this.showSuccessToast = function() {...}                      | |
-|  |    -> this.showErrorToast = function() {...}                        | |
-|  |    -> this.customNotification = function() {...}                    | |
-|  |                                                                     | |
-|  |  initialiseControllerModule(this)                                   | |
-|  |    -> this.callControllerMethod = function() {...}                  | |
-|  |    -> this.handleWireResponse = function() {...}                    | |
-|  +---------------------------------------------------------------------+ |
-|                         |                                                 |
-|                         v                                                 |
-|  Your component now has: showSuccessToast(), showErrorToast(),            |
-|  customNotification(), callControllerMethod(), handleWireResponse()       |
-+---------------------------------------------------------------------------+
-```
-
-#### Module Files
-
-Each module is a separate JavaScript file that exports an initialiser function:
-
-| File                              | Export                                        | Purpose                                                                           |
-|-----------------------------------|-----------------------------------------------|-----------------------------------------------------------------------------------|
-| `kern/moduleNotification`            | `initialiseNotificationModule(component)`     | Adds toast methods                                                                |
-| `kern/moduleNavigation`              | `initialiseNavigationModule(component)`       | Adds navigation methods                                                           |
-| `kern/moduleLightningMessageService` | `initialiseLightningMessageModule(component)` | Adds LMS methods                                                                  |
-| `kern/moduleController`              | `initialiseControllerModule(component)`       | Adds Apex call methods                                                            |
-| `kern/moduleFlowNavigation`          | `initialiseFlowNavigationModule(component)`   | Adds Flow event methods                                                           |
-| `kern/componentExtender` (internal)  | `componentExtender(component, ...modules)`    | Orchestrates module loading (used by `ComponentBuilder`; do not import directly) |
-
-#### Why This Pattern?
-
-Why build it this way rather than one giant base class? Four reasons, each with a benefit for you:
-
-1. **You load only what you use.** Include just the features a component needs, so it carries no dead weight.
-2. **No deep inheritance chain to reason about.** Unlike traditional mixins, the methods are added straight onto the instance.
-3. **Each piece is easy to test.** Every module can be tested on its own.
-4. **It isn't locked to one base class.** The pattern works with any LWC base class.
-
-#### When to Use Which Modules
-
-| Scenario                              | Recommended Modules               |
-|---------------------------------------|-----------------------------------|
-| Simple form with save confirmation    | `notification`                    |
-| Record page with navigation           | `notification`, `navigation`      |
-| Component communicating with siblings | `lightning-message`               |
-| Data loading from Apex                | `controller`, `notification`      |
-| Flow screen component                 | `notification`, `flow-navigation` |
-| Full-featured component               | `all`                             |
-
-#### Extending at Runtime (Advanced: Internal API)
-
-> **For a rare edge case only:** almost always you list your modules up front in `ComponentBuilder(...)` and you are done. The pattern below is for the unusual case where a module has to be added later, after the component is already built, based on a runtime condition.
-
-The sample below imports `componentExtender`, the internal piece that `ComponentBuilder` is built on. It is exposed, but it is internal: it is not meant to be imported directly, and it may change without notice. Prefer listing the module up front in `ComponentBuilder(...)`, even if some instances never use it. The sample only shows what happens inside the framework:
-
-```javascript
-// Internal: shown for explanation only, not for use in your own components
-import {componentExtender} from 'kern/componentExtender';
-
-connectedCallback()
-{
-	// Add navigation module if condition is met
-	if (this.enableNavigation)
-	{
-		componentExtender(this, 'navigation');
-	}
-}
-```
-
-#### Performance Consideration
-
-`'all'` is convenient, but it sets up all 5 modules whether you use them or not. When a component is performance-sensitive, for example one rendered many times in a list, list only the modules you actually use instead.
-
-### BaseComponent API Reference
-
-Once your component extends `ComponentBuilder`, these methods and properties are available to call. This is the reference for what you get.
-
-#### Notification Methods
-
-```javascript
-// Simple toasts
-this.showSuccessToast('Record saved');
-this.showErrorToast('Operation failed');
-this.showWarningToast('Please review');
-this.showInfoToast('Processing...');
-
-// Custom notification: (title, message, variant, messageData, mode)
-this.customNotification('Custom Title', 'Custom message', 'success', [], 'dismissible');
-
-// Factory for complex notifications: (variant, mode) returns (message, title, messageData)
-const notify = this.customNotificationFactory('error', 'sticky');
-notify('Message', 'Title');
-```
-
-#### Navigation Methods
-
-```javascript
-// Navigate to record
-this.redirectToRecordPage(recordId);
-
-// Generate URL without navigating
-const url = await this.generateRecordPageURL(recordId);
-```
-
-#### Lightning Message Service Methods
-
-```javascript
-// Subscribe to channel
-this.addMessageChannelSubscription(CHANNEL, (message) =>
-{
-	this.consoleLog('Received:', message);
-});
-
-// Publish message
-this.publishLightningMessage(CHANNEL, {data: 'payload'});
-
-// Clean up (call in disconnectedCallback)
-this.clearSubscriptions();
-```
-
-#### Controller Methods
-
-```javascript
-// Call Apex method (getAccountData is imported from '@salesforce/apex/AccountController.getAccountData')
-// On failure it logs, shows an error toast and returns undefined; pass {isThrow: true} as a third argument to make it throw instead
-const result = await this.callControllerMethod(getAccountData, {
-	accountId: this.recordId
-});
-
-// Handle wire response: returns the data, or undefined after logging and showing the error
-@wire(getRecord, {recordId: '$recordId', fields: FIELDS})
-wiredRecord(result)
-{
-	this.account = this.handleWireResponse(result);
-}
-```
-
-Return a small result class from a controller method rather than a raw record where you can, the way the framework's
-own controllers do. From Spring '27 the platform strips non-public system fields from custom-object records returned by
-Aura actions, the calls that carry a Lightning web component's `@AuraEnabled` requests as well (the Remove Non-Public
-Fields from Custom Object Data in Aura Action Responses release update, available since Summer '26, which asks you to
-review every Lightning component that processes custom-object data). A component that reads such a field from a
-returned record can show missing data or fail with a JavaScript error. A result class carries exactly the fields the
-component uses, all of them part of the public API, so it cannot lose one to that update.
-
-#### Flow Navigation Methods
-
-```javascript
-// Navigate forward
-this.dispatchFlowNextEvent();
-
-// Navigate back
-this.dispatchFlowBackEvent();
-
-// Finish flow
-this.dispatchFlowFinishEvent();
-```
-
-#### Utility Methods
-
-```javascript
-// Dispatch custom event
-this.dispatchCustomEvent('recordselected', {recordId: '001xx'});
-
-// Logging (uses utilityLogger internally)
-this.consoleLog('Debug message');
-this.consoleError(error, 'MyComponent.handleSave'); // the error object comes first
-```
-
-#### Properties
-
-```javascript
-this.isLoading  // Boolean for spinner control
-this.messageContext  // LMS context (injected by framework)
-this.activeMessageSubscriptions  // Array of active LMS subscriptions
-```
+That action belongs to state managers only; a cacheable Apex result still refreshes as described above.
 
 ---
 
@@ -1177,14 +1016,14 @@ Add via Flow Builder as a screen component.
 
 ```html
 <template>
-    <c-flow-footer
+    <kern-flow-footer
         is-child-component
         hide-back-button={hideBack}
         disable-next={isNextDisabled}
         next-title="Continue"
         previous-title="Go Back"
         onnavigationevent={handleNavigation}>
-    </c-flow-footer>
+    </kern-flow-footer>
 </template>
 ```
 
@@ -1203,17 +1042,7 @@ handleNavigation(event)
 }
 ```
 
-**Properties:**
-
-| Property                   | Type    | Default | Description                          |
-|----------------------------|---------|---------|--------------------------------------|
-| `hideBackButton`           | Boolean | false   | Hide the Back button                 |
-| `disableNext`              | Boolean | false   | Disable the Next button              |
-| `nextTitle`                | String  | 'Next'  | Label for Next button                |
-| `previousTitle`            | String  | 'Back'  | Label for Back button                |
-| `overrideNextToFinish`     | Boolean | false   | Change Next to Finish event          |
-| `overridePreviousToFinish` | Boolean | false   | Change Back to Finish event          |
-| `isChildComponent`         | Boolean | false   | Set true when embedded in parent LWC |
+Properties: see [flowFooter](#flowfooter) in the Appendix.
 
 ---
 
@@ -1223,18 +1052,13 @@ When you need to show JSON on a screen in a way people can actually read, this d
 
 **Targets:** `lightning__FlowScreen`
 
-**Properties:**
-
-| Property   | Type   | Description          |
-|------------|--------|----------------------|
-| `jsonText` | String | JSON data to display |
+Properties: see [jsonViewer](#jsonviewer) in the Appendix.
 
 **Features:**
 
 - Colour-coded syntax highlighting
 - Keys, strings, numbers, booleans, null each have distinct colours
 - Handles invalid JSON gracefully with error message
-- Collapsible sections for nested objects
 
 ---
 
@@ -1248,6 +1072,8 @@ When you need to watch real-time events flowing through your org, to debug an in
 
 **Targets:** `lightning__AppPage`, `lightning__RecordPage`, `lightning__HomePage`
 
+Properties: none; see [streamingMonitor](#streamingmonitor) in the Appendix.
+
 **Features:**
 
 - Subscribe/unsubscribe to event channels
@@ -1257,15 +1083,7 @@ When you need to watch real-time events flowing through your org, to debug an in
 - View org limits and event usage metrics
 - Register new Platform Events
 
-**Views:**
-
-- **Monitor** - Real-time event stream with filtering
-- **Subscribe All** - Bulk subscribe to all channels of a type
-- **Subscribe** - Subscribe to specific channels
-- **Publish** - Publish test events
-- **Register** - Create new Platform Event definitions
-- **Org Limits** - View current org limit consumption
-- **Event Usage Metrics** - Historical event usage charts
+The component's views are listed in its [Appendix entry](#streamingmonitor).
 
 ---
 
@@ -1275,25 +1093,20 @@ A search box that returns records, where you control how the search runs. You po
 
 **Targets:** `lightning__FlowScreen`, `lightning__AppPage`, `lightning__HomePage`, `lightning__RecordPage`
 
-**Properties:**
+Properties: see [searchLookup](#searchlookup) in the Appendix.
 
-| Property                     | Type   | Required | Description                                                             |
-|------------------------------|--------|----------|-------------------------------------------------------------------------|
-| `controllerName`             | String | Yes      | Apex controller implementing [`IF_Search`](reference/apex/IF_Search.md) |
-| `name`                       | String | No       | Component name for identification                                       |
-| `fieldLabel`                 | String | No       | Label displayed above search input                                      |
-| `resultUniqueId`             | String | No       | Field for unique result ID (default: 'Id')                              |
-| `controllerSearchParameters` | Object | No       | Additional search parameters                                            |
-| `preselectedRecord`          | Object | No       | Record to pre-populate                                                  |
-
-**Controller Interface:**
+**Controller Interface:** the framework creates your controller from its class name, so the class must be `global`, or
+`public` with a Type Resolver that finds it (see
+[Type Resolution](DTOs%20-%20Guide.md#type-resolution-critical-requirement-in-your-org)).
 
 ```apex
 public with sharing class MySearchController implements IF_Search
 {
 	public Object search(Object searchTerm, Map<String, Object> searchParameters)
 	{
-		// Return search results
+		List<Object> results = new List<Object>();
+		// Add what your search finds to results
+		return results;
 	}
 }
 ```
@@ -1306,6 +1119,8 @@ A read-only view for a `ScheduledJob__c` record page. It shows every field, turn
 
 **Targets:** `lightning__RecordPage` (ScheduledJob__c only)
 
+Properties: none; see [scheduledJobDetail](#scheduledjobdetail) in the Appendix.
+
 **Features:**
 
 - Displays scheduler name, class name, active status, description, cron expression with human-readable description
@@ -1314,7 +1129,7 @@ A read-only view for a `ScheduledJob__c` record page. It shows every field, turn
 
 **Related Components:** Editing is handled by `scheduledJobEditor` (action override via `scheduledJobEditorOverride` Aura wrapper)
 and `scheduledJobEditorModal` for inline editing. The editor embeds `cronExpressionEditor`
-(see [Programmatic Components](#cronexpressioneditor)) and renders dynamic parameter forms via `CTRL_ScheduledJob`.
+(see [Programmatic Components](#cronexpressioneditor)) and renders dynamic parameter forms through the editor's Apex controller in the package.
 
 ---
 
@@ -1324,25 +1139,30 @@ After installing KernDX, a few things need to be set up correctly (caches, reten
 
 **Targets:** `lightning__AppPage`, `lightning__HomePage`
 
+Properties: none; see [healthCheck](#healthcheck) in the Appendix.
+
 **Checks:**
 
 1. **Org Cache**: Platform Cache partition allocated (Fail if missing)
 2. **Session Cache**: Session partition allocated (Warn if missing)
 3. **Class Type Resolver**: `ClassTypeResolver__mdt` record configured with a valid resolver class (Warn if missing, with Setup action)
 4. **Data Retention**: Scheduled purge jobs (`SCHED_PurgeRecords`) configured for framework data objects: Log Entry, API Call, API Issue, Async Chain Execution (Warn if any
-   unconfigured; item disappears from the card once all four are configured). The warning counts every user's records for each object,
-   whoever opens the page: the check is about how much data your whole org holds, and a count shows no record's content.
-   Only a user the `BypassApiRecordDeleteGuard` feature flag is on for can delete API calls and API issues. A built-in rule turns it
-   on for holders of the Delete API Records permission, which the Kern Administrator permission set carries. So the warning tells you
-   to schedule their purge as such a user. If a purge of either is already set up but runs as a user the flag is off for, the check
-   warns and names it, because that purge deletes nothing; reschedule it as a user who holds the Delete API Records permission. If
-   the flag record is deactivated, nobody can delete them, so the check warns that every purge of them deletes nothing.
+   unconfigured; item disappears from the card once all four are configured).
+    - The warning counts every user's records for each object, whoever opens the page: the check is about how much data your whole org holds, and a count shows no
+      record's content.
+    - Only a user the `BypassApiRecordDeleteGuard` feature flag is on for can delete API calls and API issues. A built-in rule turns it on for holders of the Delete API
+      Records permission, which the Kern Administrator permission set carries. So the warning tells you to schedule their purge as such a user.
+    - If a purge of either is already set up but runs as a user the flag is off for, the check warns and names it, because that purge deletes nothing. Reschedule it as a
+      user who holds the Delete API Records permission.
+    - If the flag record is deactivated, nobody can delete them, so the check warns that every purge of them deletes nothing.
 5. **Masking Configuration**: masking posture across the org's configured targets. Warns on dead configuration (an active target pointing at an inactive or missing rule) or when almost
    nothing is masked yet; the warning's action opens the [Data Masking Advisor](Data%20Masking%20-%20Guide.md#the-data-masking-advisor)
 6. **Masking Coverage (Custom Objects)**: how much of your own custom data carries masking (Warn when sensitive custom objects are left unmasked; the action opens the Data Masking Advisor)
 7. **Chain Abort Capability**: whether the Chain Monitor's abort action is enabled and granted to at least one user (Warn when the flag is deactivated, when any profile beyond System Administrator holds the abort permission, usually the footprint of an All Users install, or when nobody holds the Kern Async Chain Abort permission set)
 8. **Chain Watchdog**: whether the stalled-chain recovery job (`SCHED_ChainWatchdog`) is scheduled (Warn when it is not, with a one-click **Schedule Chain Watchdog** action that creates the hourly job with the recommended defaults, plus a **Customize schedule →** link for full control)
-9. **Job Runner**: whether the job runner (the set of scheduled jobs that checks for due Scheduled Job records) is active, complete and checking on time (Fail when its set of jobs is incomplete, when it has stopped checking, or when the user who turned it on is no longer active; Warn when its last check is late; passes when no job runner is set up)
+9. **Job Runner**: whether the job runner (the set of scheduled jobs that checks for due Scheduled Job records) is active, complete and checking on time. Passes when no job runner is set up.
+    - Fail when its set of jobs is incomplete, when it has stopped checking, or when the user who turned it on is no longer active.
+    - Warn when its last check is late.
 10. **Jobs Waiting for the Job Runner**: whether jobs are set to run on the job runner while no job runner is active (Fail when any are, because they will never run)
 11. **Job Runner Capacity**: how many of the org's 100 scheduled-job slots are in use, and whether the job runner's last check started every job that was due (Warn from 80 slots in use or when a due job was left waiting; Fail from 90 slots)
 12. **Selected API Mocking**: every active API Setting with Mocking Enabled ticked, and whether those services answer mock data for you (Warn while any active API Setting has the box ticked, or while Mock All APIs or Mock All Inbound APIs is on for you; no action button)
@@ -1359,16 +1179,21 @@ After installing KernDX, a few things need to be set up correctly (caches, reten
       age measured on `CreatedDate`, or on `CompletedAt__c` for async chain executions; created active). Confirming creates all four `ScheduledJob__c` records in a single
       transaction.
     - **Customize each job →** expands the Data Retention row into a full-width block with a "customizing N jobs" headline, a back-to-apply link, a help paragraph, and a sub-row
-      per unconfigured framework object. Each sub-row shows record count (singular/plural correct, locale-formatted), the retention in days, and a **Set up** button that opens
-      `scheduledJobEditorModal` prefilled with the object's defaults and the Class Name field read-only. After saving a sub-row, the list auto-refreshes and drops the configured
-      object.
+      per unconfigured framework object.
+        - Each sub-row shows record count (singular/plural correct, locale-formatted), the retention in days, and a **Set up** button.
+        - **Set up** opens `scheduledJobEditorModal` prefilled with the object's defaults and the Class Name field read-only.
+        - After saving a sub-row, the list auto-refreshes and drops the configured object.
 - Namespace-agnostic: `schedulerClassName` is populated server-side from `SCHED_PurgeRecords.class.getName()`, so the experience works identically across managed-package installs and any
   rebranded builds.
 - Refresh button to re-run checks after configuration changes
 
-**Controller:** `CTRL_HealthCheck` returns `List<DTO_HealthCheckResult>` with `name`, `status`, `detail`, `priority` (drives in-section sort), optional `actionLabel`, and
-optional `List<DTO_ObjectRecordCount> recordCounts` (object label + count). The retention-specific payload comes from `getRetentionProposals()` → `List<DTO_RetentionProposal>` (nested
-inside `CTRL_HealthCheck`); `applyRetentionRecommendations(proposalsJson)` commits the one-click flow.
+**Controller:** the component's Apex controller in the package returns one result per check, with:
+
+- `name`, `status`, `detail` and `priority` (drives in-section sort);
+- an optional `actionLabel`;
+- optional `recordCounts` (object label + count).
+
+Another method returns the retention proposals (one per framework object with no active purge job), and another commits the one-click flow.
 
 ---
 
@@ -1382,16 +1207,7 @@ You want a record form whose fields are controlled by configuration, not hard-co
 
 **Targets:** `lightning__FlowScreen`, `lightning__AppPage`, `lightning__HomePage`, `lightning__RecordPage`
 
-**Properties:**
-
-| Property          | Type    | Required | Description                   |
-|-------------------|---------|----------|-------------------------------|
-| `objectApiName`   | String  | Yes      | API name of the SObject       |
-| `fieldSetApiName` | String  | Yes      | API name of the FieldSet      |
-| `recordId`        | String  | No       | Record ID for edit/clone mode |
-| `formHeading`     | String  | No       | Heading displayed above form  |
-| `isSaveMode`      | Boolean | No       | Show Save button              |
-| `isUpdateMode`    | Boolean | No       | Enable update mode            |
+Properties: see [createForm](#createform) in the Appendix.
 
 **Supported Field Types:**
 
@@ -1423,26 +1239,154 @@ import {
 
 A lookup field for finding records of any object by searching one of its fields. Use it inside your own components when you need users to pick a record.
 
-**Properties:**
-
-| Property         | Type   | Description                       |
-|------------------|--------|-----------------------------------|
-| `objectApiName`  | String | API name of the SObject to search |
-| `displayFields`  | Array  | Fields to display in results      |
-| `iconName`       | String | Icon to display                   |
-| `elementName`    | String | Name sent back in the event, so you can tell lookups apart |
-
-The full list of properties is in the [sObjectLookup reference](#sobjectlookup). When the user picks a record, the component fires `valueselect`; the event detail carries `selectedId`, `elementName` and `isRequired`.
+Properties: see [sObjectLookup](#sobjectlookup) in the Appendix. When the user picks a record, the component fires `valueselect`; the event detail carries `selectedId`, `elementName` and `isRequired`.
 
 **Usage:**
 
 ```html
-<c-s-object-lookup
+<kern-s-object-lookup
     object-api-name="Account"
     display-fields={displayFields}
     onvalueselect={handleRecordSelect}>
-</c-s-object-lookup>
+</kern-s-object-lookup>
 ```
+
+---
+
+## What are the parts?
+
+The pieces of this part of KernDX are: helper functions for common operations (logging, string handling, arrays), a base class you extend to build your own components, and a library of pre-built components for common patterns. [How does it work?](#how-does-it-work) describes each group.
+
+> **What components are for, and what they are not for:** Components handle the screen: what the user sees and clicks. They should not hold business logic. Your Apex controllers and trigger actions own that. So keep components thin: call a server method with `callControllerMethod()` and display what comes back.
+
+> **What's in this part of KernDX:** components made up of helper-function modules, the base-component architecture, Flow screen components, page components, form components,
+> data masking advisor components, log console components, and admin components.
+>
+> - Every one is covered by Jest tests at 100% coverage, so you can build on this layer without worrying that an upgrade will quietly break it.
+> - The current component and test counts are in [Strategic Guide - Metrics](Strategic%20Guide%20-%20Metrics.md#lwc-components); the other framework figures are in
+>   [Metrics](Strategic%20Guide%20-%20Metrics.md).
+
+### Component Categories
+
+```text
++-------------------------------------------------------------------------+
+|                         KERN LWC ARCHITECTURE                           |
++-------------------------------------------------------------------------+
+|                                                                         |
+|  COMPONENTS YOU CAN USE                                                 |
+|  ======================                                                 |
+|                                                                         |
+|  +-------------------+  +-------------------+  +-------------------+    |
+|  |  UTILITY MODULES  |  |  FLOW COMPONENTS  |  |  PAGE COMPONENTS  |    |
+|  +-------------------+  +-------------------+  +-------------------+    |
+|  | utilityLogger     |  | flowFooter        |  | streamingMonitor  |    |
+|  | utilityString     |  | jsonViewer        |  | searchLookup      |    |
+|  | utilityArray      |  |                   |  |                   |    |
+|  | utilitySystem     |  +-------------------+  +-------------------+    |
+|  | utilityRandom     |                                                  |
+|  | utilityGenerator  |  +-------------------+  +-------------------+    |
+|  | utilityStreaming  |  | FORM COMPONENTS   |  | SCHEDULING        |    |
+|  +-------------------+  +-------------------+  +-------------------+    |
+|                         | createForm        |  | scheduledJob      |    |
+|                         | sObjectLookup     |  |   Detail          |    |
+|                         | searchLookup      |  | cronExpression    |    |
+|                         +-------------------+  |   Editor          |    |
+|                                                 +-------------------+    |
+|                                                                         |
++-------------------------------------------------------------------------+
+|                                                                         |
+|  BASE ARCHITECTURE (for building custom components)                     |
+|  ==================================================                     |
+|                                                                         |
+|  +-------------------+     +-------------------+                        |
+|  | ComponentBuilder  |---->| baseComponent     |                        |
+|  +-------------------+     +-------------------+                        |
+|          |                         |                                    |
+|          v                         v                                    |
+|  +-------------------+     +-------------------+                        |
+|  | componentExtender |     | Module Mixins:    |                        |
+|  +-------------------+     | - moduleController|                        |
+|                            | - moduleNavigation|                        |
+|                            | - moduleNotification                       |
+|                            | - moduleLightningMessageService            |
+|                            | - moduleFlowNavigation                     |
+|                            +-------------------+                        |
+|                                                                         |
++-------------------------------------------------------------------------+
+```
+
+> **What you actually use:** `ComponentBuilder` is the one entry point you call. The `baseComponent`, `componentExtender`, and `module*` pieces shown in the diagram are the wiring behind it: KernDX assembles them for you. Always build a component with `extends ComponentBuilder('module1', 'module2')` and let the framework handle the rest.
+
+---
+
+## How does it work?
+
+### Architecture Diagram
+
+```text
++---------------------------------------------------------------------------+
+|                       LWC FRAMEWORK ARCHITECTURE                          |
++---------------------------------------------------------------------------+
+|                                                                           |
+|  UTILITY MODULES (Stateless Services)                                     |
+|  ====================================                                     |
+|  +---------------+ +---------------+ +---------------+ +---------------+  |
+|  | utilityLogger | | utilityString | | utilityArray  | | utilitySystem |  |
+|  | - log levels  | | - templates   | | - keyBy()     | | - clipboard   |  |
+|  | - correlation | | - case conv.  | | - extractById | | - reduceErrors|  |
+|  | - server sync | | - currency    | | - filterById  | | - sort        |  |
+|  +---------------+ +---------------+ +---------------+ +---------------+  |
+|  +---------------+ +---------------+                                      |
+|  | utilityRandom | | utilityGen    |                                      |
+|  | - UUID        | | - counters    |                                      |
+|  | - strings     | | - arrays      |                                      |
+|  +---------------+ +---------------+                                      |
+|                                                                           |
++---------------------------------------------------------------------------+
+|                                                                           |
+|  COMPONENT BUILDER (Base Class Factory)                                   |
+|  ======================================                                   |
+|                                                                           |
+|  ComponentBuilder('notification', 'controller', ...)                      |
+|        |                                                                  |
+|        v                                                                  |
+|  +-------------------------------------------------------------------+   |
+|  |  Base Component (auto-generated from selected modules)            |   |
+|  |  +-------------+ +------------+ +----------+ +----------------+   |   |
+|  |  | notification | | controller | | navigation| | lightning-msg |   |   |
+|  |  | showToast()  | | callCtrl() | | redirect() | | subscribe()  |   |   |
+|  |  +-------------+ +------------+ +----------+ +----------------+   |   |
+|  +-------------------------------------------------------------------+   |
+|        |                                                                  |
+|        v                                                                  |
+|  Your Custom Components (extend ComponentBuilder result)                  |
+|                                                                           |
++---------------------------------------------------------------------------+
+|                                                                           |
+|  PRE-BUILT COMPONENTS                                                     |
+|  ====================                                                     |
+|  Flow:  flowFooter, jsonViewer                                            |
+|  Page:  streamingMonitor, searchLookup, scheduledJobDetail                |
+|  Form:  createForm, sObjectLookup                                         |
+|                                                                           |
++---------------------------------------------------------------------------+
+```
+
+This part of KernDX is organised into three groups, each solving a different need.
+
+1. **Helper functions for everyday tasks.** When you need to format a string, sort an array, generate a UUID, or write a client log, you import a small function instead of writing it yourself.
+    - These are plain JavaScript modules: `utilityLogger`, `utilityString`, `utilityArray`, `utilitySystem`, `utilityRandom`. `utilityGenerator` and `utilityStreaming` are internal to the package.
+    - They have no memory of past calls: you call a function, you get a result.
+    - They are not components, so you bring them into a component with a normal ES module import.
+
+2. **A base class for building your own components.** Rather than re-wiring toasts, Apex calls, and navigation in every component, you extend one base class that already has them.
+    - `ComponentBuilder(...)` is a factory: you list the features you want (notification, navigation, controller, lightning-message, flow-navigation) and it hands back a base class with exactly those mixed in.
+    - Your component extends that result instead of extending `LightningElement` directly. The [Base Component Architecture](#base-component-architecture) section explains the full system.
+
+3. **Pre-built components you can use as-is.** For common patterns there is already a finished component: Flow screen components (`flowFooter`, `jsonViewer`), page components (`streamingMonitor`, `searchLookup`, `scheduledJobDetail`), and form components (`createForm`, `sObjectLookup`). So a common screen often needs no new code at all.
+
+All components use Allman bracing, tabs for indentation, single quotes, and follow the conventions defined in
+[`docs/Code Conventions - Guide.md`](./Code%20Conventions%20-%20Guide.md). Every component requires a `.js-meta.xml` file with `apiVersion` 68.0.
 
 ---
 
@@ -1482,7 +1426,10 @@ KernDX's Streaming Monitor is adapted from Philippe Ozil's [Streaming Monitor](h
 
 ### Chain Monitor Components
 
-When you run multi-step background jobs (chains), you want to see how each step went without writing SOQL by hand. The Chain Monitor is a live view of `AsyncChainExecution__c` records with operator actions for the runs that need help: abort, retry, restart, clear stalled, and an org-wide suspend and resume control, each behind its own opt-in (see [the Async Processing Guide](Async%20Processing%20-%20Guide.md#re-driving-a-failed-chain)). It appears two ways: as a full-page, split-panel monitor reached from Kern Home, and as a step-by-step timeline embedded on the record page.
+The Chain Monitor is a live view of `AsyncChainExecution__c` records, so you see how each step of a multi-step background job (a chain) went without writing SOQL by hand.
+
+- **Operator actions** for the runs that need help: abort, retry, restart, clear stalled, and an org-wide suspend and resume control, each behind its own opt-in (see [the Async Processing Guide](Async%20Processing%20-%20Guide.md#re-driving-a-failed-chain)).
+- **Two ways in:** a full-page, split-panel monitor reached from Kern Home, and a step-by-step timeline embedded on the record page.
 
 **Component tree:**
 
@@ -1505,9 +1452,11 @@ chainStepTimeline (standalone on AsyncChainExecution__c record page)
   subscribe fails, the failure is logged and the monitor still works through imperative Apex calls on user
   interactions.
 - **Server-computed availability:** every operator action's availability is resolved in Apex and returned as a
-  code on the response object. A button whose check refuses renders disabled with the reason in its tooltip; a
-  button that does not apply to the chain's state is hidden. Button state is only a hint: Apex re-checks every
-  condition when the action is confirmed, and every refusal surfaces as a labelled error toast.
+  code on the response object.
+    - A button whose check refuses renders disabled with the reason in its tooltip; a button that does not apply to
+      the chain's state is hidden.
+    - Button state is only a hint: Apex re-checks every condition when the action is confirmed, and every refusal
+      surfaces as a labelled error toast.
 - **Modal wording comes ready-made:** `chainAbortModal` and `chainActionConfirmModal` extend `LightningModal` and
   take ready-made title, body, and button strings, so all wording lives in Custom Labels at the call site.
 - **Smart row selection:** `chainMonitorList` auto-selects the first row on load, keeps the selection
@@ -1520,10 +1469,14 @@ chainStepTimeline (standalone on AsyncChainExecution__c record page)
 - **View logs cross-link:** `chainMonitorDetail` includes a **View logs** button that opens the Log Console
   pre-filtered to the run's correlation ID, so you jump from a failed step straight to everything that run logged.
 - **Launched under:** the detail panel always shows a Launched under row, and the list adds a Launched under column
-  while it is kept to one action. Each reads one of four ways: the launching chain's name and number (a step of it
-  launched this run) as a link that selects it, the action itself, a restart of a named run as a link, or that the run
-  started the action; in the detail panel, when the reading is "this action", the action's own tracking ID sits beside
-  the words with a copy button.
+  while it is kept to one action. Each reads one of four ways:
+    - the launching chain's name and number (a step of it launched this run), as a link that selects it;
+    - the action itself;
+    - a restart of a named run, as a link;
+    - that the run started the action.
+
+  In the detail panel, when the reading is "this action", the action's own tracking ID sits beside the words with a
+  copy button.
 - **Action scope:** the container reads `c__rootCorrelationId` from the page state (the Log Console's link) and hands it
   to `chainMonitorList` as `actionRootCorrelationId`; the list shows the action as a removable pill with **Show the
   action's logs**, which returns to the Log Console with `c__rootCorrelationId` and a click stamp only, never a date
@@ -1557,7 +1510,7 @@ logConsoleContext (shared service module — readable execution-context names)
 
 - **Two list views, one container:** `logConsole` owns the filter state and switches between a **Problem summary**
   view (distinct problems with occurrence counts) and an **Individual entries** view (the flat rows), both read
-  through `CTRL_LogConsole`.
+  through the console's Apex controller in the package.
 - **Debounced search and paging:** the search box waits briefly after you stop typing before querying, and both
   tables come a page at a time, with a position line under the list, Previous and Next, page numbers while there
   are few enough to use, and a page size of 25, 50 or 100.
@@ -1591,7 +1544,7 @@ These exist to show how the framework is used and to give you a working example 
 
 ## Testing
 
-You write [Jest](https://developer.salesforce.com/docs/platform/lwc/guide/testing.html) tests for your components the same way you would for any LWC. The difference is that your component depends on KernDX modules, so this section shows how to set up Jest and how to stand in for (mock) those modules in a test.
+You write [Jest](https://developer.salesforce.com/docs/platform/lwc/guide/testing.html) tests for your components the same way you would for any LWC. The difference is that your component depends on KernDX modules, so a test also needs [stand-ins (mocks) for those modules](#mocking-kerndx-modules).
 
 ### Jest Test Setup
 
@@ -1691,8 +1644,12 @@ jest.mock('kern/componentBuilder', () => ({
 
 #### Testing Utility Modules
 
+The package ships `utilityString`, so your code imports it from `kern/utilityString`. Your project does not hold the
+package's source, so Jest can load that path only when `moduleNameMapper` in `jest.config.js` maps it to a copy. The
+same shape tests a utility module of your own.
+
 ```javascript
-import {formatTemplateString} from 'c/utilityString';
+import {formatTemplateString} from 'kern/utilityString';
 
 describe('utilityString', () =>
 {
@@ -1746,7 +1703,7 @@ describe('c-my-component', () =>
 
 ## What to avoid
 
-These are common mistakes (a tempting but risky habit, sometimes called an anti-pattern) and what to do instead.
+Common mistakes (a tempting but risky habit, sometimes called an anti-pattern) and what to do instead:
 
 | Anti-Pattern                                                 | Why It's Wrong                                                             | Instead                                                                                              |
 |--------------------------------------------------------------|----------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------|
@@ -1759,8 +1716,6 @@ These are common mistakes (a tempting but risky habit, sometimes called an anti-
 ---
 
 ## Recommended habits
-
-A short checklist of habits that keep your components consistent and easy to maintain. Each one is shown with a small before/after.
 
 ### Use ComponentBuilder for New Components
 
@@ -1803,10 +1758,8 @@ catch (error)
 }
 ```
 
-The `notification` module's `showErrorToast` accepts either a string (passed
-through unchanged) or an Apex / UI API error object (auto-normalised through
-`kern/utilitySystem.reduceErrors`). Import `reduceErrors` directly only when you
-need the normalised string outside the toast pipeline.
+The `notification` module's `showErrorToast` accepts either a string or an Apex / UI API error object, which it
+normalises through `kern/utilitySystem.reduceErrors`. When to call `reduceErrors` yourself: see [Reduce Errors](#reduce-errors).
 
 ### Clean Up Subscriptions
 
@@ -1848,8 +1801,6 @@ require `@param {type} name` annotations.
 
 ## Troubleshooting
 
-If something isn't working, start here. The table covers the most common symptoms and their fixes; the tips below help you dig deeper.
-
 ### Common Issues
 
 | Issue                     | Solution                                                                                                                                               |
@@ -1870,7 +1821,8 @@ If something isn't working, start here. The table covers the most common symptom
    ```
 
 2. **Check correlation in Apex logs:**
-    - Query [`LogEntry__c`](reference/objects/LogEntry__c.md) with matching `CorrelationId__c`
+    - Find the [`LogEntry__c`](reference/objects/LogEntry__c.md) entries with the matching `CorrelationId__c` in the
+      [Log Console](Logging%20-%20Guide.md#the-log-console); its detail drawer lays out the whole correlated run as a timeline
 
 3. **Verify component exposure:**
     - Check `.js-meta.xml` for `isExposed` and `targets`
@@ -1890,7 +1842,9 @@ If something isn't working, start here. The table covers the most common symptom
 
 ## Appendix: Droppable Components Quick Reference
 
-This is the full list of components you can place directly on pages, Flows, or record pages without writing any code. Each entry lists where you can use it and the properties it accepts, so you can pick the right one and configure it at a glance.
+The first two groups below are the components you place on pages, Flows, or record pages in a builder, with where
+you can use each one and the properties it accepts, so you can pick the right one and configure it at a glance. The
+third group, Programmatic Components, is different: you use those from the code of your own components.
 
 ### Flow Screen Components
 
@@ -1911,6 +1865,9 @@ Components available in Flow Builder's component palette.
 | `overrideNextToFinish`     | Boolean | No       | false   | Next dispatches Finish event |
 | `overridePreviousToFinish` | Boolean | No       | false   | Back dispatches Finish event |
 
+When you embed `flowFooter` in your own component, set `isChildComponent` (`is-child-component` in your markup) from
+code; it is not offered in Flow Builder. The footer then sends a `navigationevent` to your component instead of moving the Flow itself.
+
 ---
 
 #### jsonViewer
@@ -1921,13 +1878,12 @@ Components available in Flow Builder's component palette.
 
 | Property   | Type   | Required | Default | Description          |
 |------------|--------|----------|---------|----------------------|
-| `jsonText` | String | Yes      | -       | JSON data to display |
+| `jsonText` | String | No       | -       | JSON data to display |
 
 **Features:**
 
 - Colour-coded keys, strings, numbers, booleans, null
 - Handles malformed JSON with error message
-- Scrollable for large payloads
 
 ---
 
@@ -1937,7 +1893,7 @@ Components available in Lightning App Builder.
 
 #### streamingMonitor
 
-**Purpose:** Real-time Platform Event, CDC, and streaming event monitor
+**Purpose:** Real-time monitor for Platform Events, CDC, PushTopic and Generic events
 
 **Where to Use:** App Pages, Record Pages, Home Pages
 
@@ -1953,6 +1909,17 @@ Components available in Lightning App Builder.
 - Publish test events
 - View org limits consumption
 - Event usage metrics dashboard
+- Register new Platform Events
+
+**Views:**
+
+- **Monitor** - Real-time event stream with filtering
+- **Subscribe All** - Bulk subscribe to all channels of a type
+- **Subscribe** - Subscribe to specific channels
+- **Publish** - Publish test events
+- **Register** - Create new Platform Event definitions
+- **Org Limits** - View current org limit consumption
+- **Event Usage Metrics** - Historical event usage charts
 
 ---
 
@@ -1962,23 +1929,35 @@ Components available in Lightning App Builder.
 
 **Where to Use:** Flow Screens, App Pages, Home Pages, Record Pages
 
-| Property                     | Type   | Required | Default | Description                                                        |
-|------------------------------|--------|----------|---------|--------------------------------------------------------------------|
-| `controllerName`             | String | Yes      | -       | Controller implementing [`IF_Search`](reference/apex/IF_Search.md) |
-| `name`                       | String | No       | -       | Component name identifier                                          |
-| `fieldLabel`                 | String | No       | -       | Label above search input                                           |
-| `resultUniqueId`             | String | No       | 'Id'    | Unique ID field in results                                         |
-| `controllerSearchParameters` | Object | No       | -       | Additional search params                                           |
-| `preselectedRecord`          | Object | No       | -       | Pre-populated record                                               |
+The same properties are offered on every target (Flow Screen, App, Home and Record pages).
 
-**Controller Interface:**
+| Property                     | Type   | Required | Default    | Description                                                             |
+|------------------------------|--------|----------|------------|-------------------------------------------------------------------------|
+| `controllerName`             | String | Yes      | -          | Apex controller implementing [`IF_Search`](reference/apex/IF_Search.md) |
+| `name`                       | String | Yes      | -          | Unique name of this lookup on the page                                  |
+| `fieldLabel`                 | String | Yes      | -          | Label above search input                                                |
+| `resultUniqueId`             | String | No       | 'Id'       | Unique ID field in results                                              |
+| `addedElementClass`          | String | No       | 'slds-box' | SLDS classes added to the outermost element                             |
+| `controllerSearchParameters` | String | No       | -          | Extra search parameters, passed to your controller (see below)          |
+
+`controllerSearchParameters` is one line of `name=value` pairs split by `;`, for example
+`objectName=Account;maximumNumberOfResults=10`.
+
+To show a record already chosen when the lookup opens, set `preselectedRecord` from your own component's code (it is
+not offered in the builders).
+
+**Controller Interface:** the framework creates your controller from its class name, so the class must be `global`, or
+`public` with a Type Resolver that finds it (see
+[Type Resolution](DTOs%20-%20Guide.md#type-resolution-critical-requirement-in-your-org)).
 
 ```apex
 public with sharing class MyController implements IF_Search
 {
 	public Object search(Object searchTerm, Map<String, Object> searchParameters)
 	{
-		// Return search results
+		List<Object> results = new List<Object>();
+		// Add what your search finds to results
+		return results;
 	}
 }
 ```
@@ -1991,14 +1970,18 @@ public with sharing class MyController implements IF_Search
 
 **Where to Use:** Flow Screens, App Pages, Home Pages, Record Pages
 
-| Property          | Type    | Required | Default | Description                |
-|-------------------|---------|----------|---------|----------------------------|
-| `objectApiName`   | String  | Yes      | -       | SObject API name           |
-| `fieldSetApiName` | String  | Yes      | -       | FieldSet API name          |
-| `recordId`        | String  | No       | -       | Record ID (for edit/clone) |
-| `formHeading`     | String  | No       | -       | Heading above form         |
-| `isSaveMode`      | Boolean | No       | false   | Show Save button           |
-| `isUpdateMode`    | Boolean | No       | false   | Enable update mode         |
+| Property          | Type    | Required | Default | Description                | Offered on                     |
+|-------------------|---------|----------|---------|----------------------------|--------------------------------|
+| `objectApiName`   | String  | No       | -       | SObject API name           | Flow Screen, App, Home         |
+| `fieldSetApiName` | String  | No       | -       | FieldSet API name          | Flow Screen, App, Home, Record |
+| `recordId`        | String  | No       | -       | Record ID (for edit/clone) | Flow Screen                    |
+| `formHeading`     | String  | No       | -       | Heading above form         | Flow Screen, App, Home, Record |
+| `isSaveMode`      | Boolean | No       | false   | Show Save button           | Flow Screen, App, Home, Record |
+| `isUpdateMode`    | Boolean | No       | false   | Enable update mode         | Flow Screen                    |
+
+The builders mark no property as required, but the form needs a field set to show any fields: placed without
+`fieldSetApiName`, it shows an error toast. On a Record Page you set only `formHeading`,
+`isSaveMode` and `fieldSetApiName`; the page supplies the record, and the form takes the object from it.
 
 **Supported Field Types:**
 
@@ -2042,7 +2025,9 @@ public with sharing class MyController implements IF_Search
 
 - 12 checks: Org Cache, Session Cache, Class Type Resolver, Data Retention, Masking Configuration, Masking Coverage (Custom Objects), Chain Abort Capability, Chain Watchdog, Job Runner, Jobs Waiting for the Job Runner, Job Runner Capacity, Selected API Mocking
 - Two-section layout: Action required (fail items) rendered above Review recommended (warn items); all-pass state collapses to a slim green banner
-- Validates resolver classes extend `BaseClassResolver`, and warns if a class exists but is incompatible
+- Checks that the configured resolver class can be found and is a resolver (it implements
+  `UTIL_TypeResolver.INT_ClassTypeResolver`, as `UTIL_TypeResolver.BaseClassResolver` does), and warns if a class
+  exists but is not one
 - Setup button on resolver warnings opens a code generator modal
 - Data Retention renders Apply Recommended Retention (one-click modal creating all four purge jobs) plus a Customize each job → link that expands into per-object sub-rows, each
   with a Set up button that opens `scheduledJobEditorModal` prefilled with the object's defaults and a read-only Class Name
@@ -2061,28 +2046,30 @@ You can't drag these onto a page in Lightning App Builder. Instead, you use them
 **Usage:**
 
 ```html
-<c-s-object-lookup
+<kern-s-object-lookup
     object-api-name="Account"
     display-fields={accountFields}
     field-label-name="Account"
     placeholder="Search accounts..."
     onvalueselect={handleAccountSelect}>
-</c-s-object-lookup>
+</kern-s-object-lookup>
 ```
 
-| Property          | Type     | Required | Default  | Description                                |
-|-------------------|----------|----------|----------|--------------------------------------------|
-| `objectApiName`   | String   | Yes      | -        | SObject API name to search                 |
-| `displayFields`   | String[] | No       | ['Name'] | Fields to display in results               |
-| `fieldLabelName`  | String   | No       | 'Name'   | Label above search input                   |
-| `placeholder`     | String   | No       | 'Search' | Placeholder text                           |
-| `iconName`        | String   | No       | (auto)   | SLDS icon name (auto-detected from object) |
-| `isRequired`      | Boolean  | No       | false    | Mark field as required                     |
-| `disableElement`  | Boolean  | No       | false    | Disable the lookup                         |
-| `readOnly`        | Boolean  | No       | false    | Make lookup read-only                      |
-| `displayFormat`   | String   | No       | -        | Custom display format for results          |
-| `idField`         | String   | No       | 'Id'     | Field to use as unique identifier          |
-| `elementName`     | String   | No       | -        | Component name for event identification    |
+| Property              | Type     | Required | Default  | Description                                                                      |
+|-----------------------|----------|----------|----------|----------------------------------------------------------------------------------|
+| `objectApiName`       | String   | Yes      | -        | SObject API name to search (the lookup has nothing to search without it) |
+| `displayFields`       | String[] | No       | ['Name'] | Fields to display in results                                                     |
+| `fieldLabelName`      | String   | No       | 'Name'   | Label above search input                                                         |
+| `placeholder`         | String   | No       | 'Search' | Placeholder text                                                                 |
+| `iconName`            | String   | No       | -        | SLDS icon for a custom object; a standard object always gets its own icon        |
+| `isRequired`          | Boolean  | No       | false    | Mark field as required                                                           |
+| `disableElement`      | Boolean  | No       | false    | Disable the lookup                                                               |
+| `readOnly`            | Boolean  | No       | false    | Make lookup read-only                                                            |
+| `displayFormat`       | String   | No       | -        | Custom display format for results                                                |
+| `idField`             | String   | No       | 'Id'     | Field to use as unique identifier                                                |
+| `elementName`         | String   | No       | -        | Component name for event identification                                          |
+| `outerElementClasses` | String   | No       | ''       | CSS classes added to the outermost element                                       |
+| `defaultRecordId`     | String   | No       | -        | Record Id to show as already chosen, for example the saved value on an edit form |
 
 **Events:**
 
@@ -2098,7 +2085,7 @@ You can't drag these onto a page in Lightning App Builder. Instead, you use them
 **Usage:**
 
 ```html
-<c-paginated-table
+<kern-paginated-table
     rows={data}
     columns={columns}
     title="My Records"
@@ -2107,7 +2094,7 @@ You can't drag these onto a page in Lightning App Builder. Instead, you use them
     max-rows-selected="10"
     onrowselection={handleSelection}
     onpagechange={handlePageChange}>
-</c-paginated-table>
+</kern-paginated-table>
 ```
 
 | Property          | Type   | Required | Default | Description                                                                                                                                                 |
@@ -2140,11 +2127,11 @@ You can't drag these onto a page in Lightning App Builder. Instead, you use them
 **Usage:**
 
 ```html
-<c-custom-data-table
+<kern-custom-data-table
     data={data}
     columns={columnsWithCustomTypes}
     key-field="Id">
-</c-custom-data-table>
+</kern-custom-data-table>
 ```
 
 | Property | Type  | Required | Default | Description                                                                                                                                                        |
@@ -2175,15 +2162,18 @@ const columns = [
 
 **Your Own Column Types:**
 
-The `types` property adds your column types to one map that every `customDataTable` in the app shares, until the page reloads.
-The platform datatable copies that map when it creates a table, before your properties reach the table.
-So a table never sees the types it passes in `types` itself. They reach only tables created after it, on any page, until the page reloads.
+A table never sees the types it passes in `types` itself. They reach only tables created after it, on any page, until the page reloads:
+
+- The `types` property adds your column types to one map that every `customDataTable` in the app shares, until the page reloads.
+- The platform datatable copies that map when it creates a table, before your properties reach the table.
 
 To give a table its own column types every time, create a small component that extends `customDataTable`
 and declares its own `static customTypes` map.
-Your component has only its JavaScript file, its meta file and the cell templates; it has no HTML file of its own, because the datatable supplies the table template.
-Each entry in the map is one column type, keyed by the name
-you use as `type` in a column definition. Each entry has:
+
+- Your component has only its JavaScript file, its meta file and the cell templates.
+- It has no HTML file of its own, because the datatable supplies the table template.
+
+Each entry in the map is one column type, keyed by the name you use as `type` in a column definition. Each entry has:
 
 - `template`: the HTML template that draws the cell, imported from your component's folder.
 - `typeAttributes`: the names of the values your column definition passes to the template.
@@ -2288,8 +2278,9 @@ and Friday at 9:30 AM").
 | scheduledJobDetail   |      -      |    -     |     Yes     |     -     |     -     |
 | healthCheck          |      -      |   Yes    |      -      |    Yes    |     -     |
 | chainMonitor         |      -      |   Yes    |      -      |     -     |     -     |
-| chainStepTimeline    |      -      |    -     |     Yes     |     -     |     -     |
+| chainStepTimeline    |      -      |   Yes    |     Yes     |     -     |     -     |
 | logConsole           |      -      |   Yes    |      -      |     -     |     -     |
+| validationErrors     |     Yes     |   Yes    |     Yes     |    Yes    |     -     |
 
 > **Code Only:** These components are exposed for use within custom LWC code but cannot be placed directly via Lightning App Builder.
 

@@ -12,13 +12,28 @@
  * @date November 2025, October 2026
  */
 @IsTest(seeAllData=false)
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.CyclomaticComplexity,PMD.NcssCount')
 public class UTIL_FeatureFlag_TEST
 {
 	/**
 	 * @description Unique Federation Identifier used to locate the test user across test methods.
 	 */
 	private static final String TEST_FEDERATION_ID = 'e09587c0-1f50-4f21-90cf-a8bbafc24491';
+
+	/**
+	 * @description Starts a test group's label, so the label always differs from the group's API name.
+	 */
+	private static final String GROUP_LABEL_PREFIX = 'Beta testers ';
+
+	/**
+	 * @description The Type value of a queue. Queues are stored as groups, but a Public Group strategy never uses one.
+	 */
+	private static final String GROUP_TYPE_QUEUE = 'Queue';
+
+	/**
+	 * @description The number of groups a duplicate warning reports. The lookup stops reading at two groups.
+	 */
+	private static final Integer EXPECTED_DUPLICATE_GROUP_COUNT = 2;
 
 	/**
 	 * @description Flag to verify that the custom strategy class was instantiated and executed.
@@ -533,71 +548,361 @@ public class UTIL_FeatureFlag_TEST
 	}
 
 	/**
-	 * @description Verifies the flag is enabled when the user is a member of the targeted Public Group.
+	 * @description Verifies the flag is enabled when the target is the API name of a public group the user is in, and the
+	 * group's label is different. The strategy target is the API name, so the label must not be needed for a match.
+	 *
+	 * @see UTIL_FeatureFlag.checkPublicGroup
+	 * @see UTIL_FeatureFlag.findTargetPublicGroup
+	 */
+	@IsTest
+	private static void shouldMatchThePublicGroupByApiName()
+	{
+		User runAsUser = createPublicGroupMember();
+
+		Assert.isTrue(isFlagEnabledFor(runAsUser), 'Expected the flag to be on for a member of the group named by its API name');
+	}
+
+	/**
+	 * @description Verifies that a match by API name logs no warning. Only a label match, a target that names more than one
+	 * group, or a target that names no group is worth a warning.
+	 *
+	 * @see UTIL_FeatureFlag.findTargetPublicGroup
+	 */
+	@IsTest
+	private static void shouldLogNoWarningWhenTheApiNameMatches()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		User runAsUser = createPublicGroupMember();
+
+		Assert.isTrue(isFlagEnabledFor(runAsUser), 'Expected the flag to be on for a member of the group named by its API name');
+
+		Assert.isTrue(new SEL_LogEntry().findAllByMethod(UTIL_FeatureFlag.METHOD_CHECK_PUBLIC_GROUP).isEmpty(), 'Expected no warning for a match by API name');
+	}
+
+	/**
+	 * @description Verifies that the API name wins over another group's label. One group has the target as its API name and
+	 * does not hold the user. A second group has the target as its label and holds the user. The first group is used, so the
+	 * flag stays off.
+	 *
+	 * @see UTIL_FeatureFlag.findTargetPublicGroup
+	 */
+	@IsTest
+	private static void shouldNotMatchAnotherGroupWhoseLabelEqualsTheApiNameOfTheTarget()
+	{
+		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		String target = UTIL_Random.randomName();
+		insertGroup(SEL_Group.TYPE_REGULAR, target, GROUP_LABEL_PREFIX + target);
+		addMember(insertGroup(SEL_Group.TYPE_REGULAR, UTIL_Random.randomName(), target), runAsUser.Id);
+		usePublicGroupStrategy(target);
+
+		Assert.isFalse(isFlagEnabledFor(runAsUser), 'Expected the group with the API name to be used, not the group with that label');
+	}
+
+	/**
+	 * @description Verifies that a target that is the label of exactly one public group still works, and that a warning
+	 * naming the target is logged, because the target should be the API name.
+	 *
+	 * @see UTIL_FeatureFlag.findTargetPublicGroup
+	 */
+	@IsTest
+	private static void shouldFallBackToTheLabelAndWarn()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		String label = GROUP_LABEL_PREFIX + UTIL_Random.randomName();
+		addMember(insertGroup(SEL_Group.TYPE_REGULAR, UTIL_Random.randomName(), label), runAsUser.Id);
+		usePublicGroupStrategy(label);
+
+		Assert.isTrue(isFlagEnabledFor(runAsUser), 'Expected the flag to be on for a member of the only group with that label');
+
+		LogEntry__c warning = findPublicGroupWarning(UTIL_FeatureFlag.PUBLIC_GROUP_LABEL_KEY, label);
+		Assert.areEqual(LoggingLevel.WARN.name(), warning.LogLevel__c, 'Expected the label match to be logged as a warning');
+		Assert.isTrue(warning.Message__c.contains(label), 'Expected the warning to name the target');
+	}
+
+	/**
+	 * @description Verifies that a label shared by two public groups gives no match, even though the user is in both. The
+	 * framework never picks one of the groups. A warning names the target and the number of groups.
+	 *
+	 * @see UTIL_FeatureFlag.findTheOnlyGroup
+	 */
+	@IsTest
+	private static void shouldGiveNoMatchAndWarnWhenALabelFindsTwoGroups()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		String label = GROUP_LABEL_PREFIX + UTIL_Random.randomName();
+		addMember(insertGroup(SEL_Group.TYPE_REGULAR, UTIL_Random.randomName(), label), runAsUser.Id);
+		addMember(insertGroup(SEL_Group.TYPE_REGULAR, UTIL_Random.randomName(), label), runAsUser.Id);
+		usePublicGroupStrategy(label);
+
+		Assert.isFalse(isFlagEnabledFor(runAsUser), 'Expected the flag to be off when two groups have the label');
+
+		LogEntry__c warning = findPublicGroupWarning(UTIL_FeatureFlag.PUBLIC_GROUP_DUPLICATE_KEY, label);
+		Assert.areEqual(String.format(UTIL_FeatureFlag.PUBLIC_GROUP_DUPLICATE_MESSAGE, new List<Object> {label, EXPECTED_DUPLICATE_GROUP_COUNT}), warning.Message__c,
+				'Expected the warning to name the target and the number of groups');
+	}
+
+	/**
+	 * @description Verifies that checking the same flag twice in one transaction logs the same warning once. One log
+	 * entry is saved, and its count shows one event was sent, not two.
+	 *
+	 * @see UTIL_FeatureFlag.logPublicGroupWarning
+	 */
+	@IsTest
+	private static void shouldLogTheSameWarningOncePerTransaction()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		String target = UTIL_Random.randomName();
+		usePublicGroupStrategy(target);
+
+		System.runAs(runAsUser)
+		{
+			Test.startTest();
+			UTIL_FeatureFlag.isEnabled(SEL_FeatureFlag.TEST_FEATURE_FLAG);
+			UTIL_FeatureFlag.isEnabled(SEL_FeatureFlag.TEST_FEATURE_FLAG);
+			Test.stopTest();
+		}
+
+		String detailKey = TRG_PersistLogEntry.buildDetailKey(UTIL_FeatureFlag.PUBLIC_GROUP_NOT_FOUND_KEY + target);
+		String countKeyStart = TRG_PersistLogEntry.buildRollupKey(UTIL_FeatureFlag.PUBLIC_GROUP_NOT_FOUND_KEY + target, Datetime.now())
+				.substringBeforeLast(UTIL_String.COLON) + UTIL_String.COLON;
+		Integer detailRows = 0;
+		Integer eventCount = 0;
+
+		for(LogEntry__c entry : new SEL_LogEntry().findAllByMethod(UTIL_FeatureFlag.METHOD_CHECK_PUBLIC_GROUP))
+		{
+			if(entry.Fingerprint__c == detailKey)
+			{
+				detailRows++;
+			}
+			else if(entry.Fingerprint__c?.startsWith(countKeyStart) == true)
+			{
+				eventCount = entry.OccurrenceCount__c?.intValue();
+			}
+		}
+
+		Assert.areEqual(1, detailRows, 'Expected one stored log entry for the warning');
+		Assert.areEqual(1, eventCount, 'Expected one event for the warning, not one for each check');
+	}
+
+	/**
+	 * @description Verifies that a warning about the masking flag does not start a loop. Sending any log event checks the
+	 * masking flag. Here its Public Group strategy names no group, so the check warns, and sending the warning checks the
+	 * same flag again. The check must end and save one warning.
+	 *
+	 * @see UTIL_FeatureFlag.logPublicGroupWarning
+	 */
+	@IsTest
+	private static void shouldNotLoopWhenTheWarningChecksTheSameFlag()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		String target = UTIL_Random.randomName();
+		usePublicGroupStrategy(target);
+		SEL_FeatureFlag.activeFlags.put(UTIL_FrameworkMasker.FLAG_MASKING_FRAMEWORK_ENABLED, SEL_FeatureFlag.activeFlags.get(SEL_FeatureFlag.TEST_FEATURE_FLAG));
+
+		Test.startTest();
+		Boolean isEnabled = UTIL_FeatureFlag.isEnabled(UTIL_FrameworkMasker.FLAG_MASKING_FRAMEWORK_ENABLED);
+		Test.stopTest();
+
+		Assert.isFalse(isEnabled, 'Expected the check to end with the flag off when no group is found');
+		findPublicGroupWarning(UTIL_FeatureFlag.PUBLIC_GROUP_NOT_FOUND_KEY, target);
+	}
+
+	/**
+	 * @description Verifies the flag is disabled when the target is neither the API name nor the label of any public group,
+	 * and that a warning names the target.
+	 *
+	 * @see UTIL_FeatureFlag.findTargetPublicGroup
+	 */
+	@IsTest
+	private static void shouldGiveNoMatchAndWarnWhenTheTargetFindsNoGroup()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		String target = UTIL_Random.randomName();
+		usePublicGroupStrategy(target);
+
+		Assert.isFalse(isFlagEnabledFor(runAsUser), 'Expected the flag to be off when no group matches');
+
+		LogEntry__c warning = findPublicGroupWarning(UTIL_FeatureFlag.PUBLIC_GROUP_NOT_FOUND_KEY, target);
+		Assert.isTrue(warning.Message__c.contains(target), 'Expected the warning to name the target');
+	}
+
+	/**
+	 * @description Verifies that a queue is never used, even when its API name is the target and the user is a member.
+	 * Queues are stored as groups too, but only public groups count for this strategy.
+	 *
+	 * @see SEL_Group.findPublicGroupsByDeveloperName
+	 */
+	@IsTest
+	private static void shouldIgnoreAQueueOfTheSameName()
+	{
+		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		String target = UTIL_Random.randomName();
+		addMember(insertGroup(GROUP_TYPE_QUEUE, target, target), runAsUser.Id);
+		usePublicGroupStrategy(target);
+
+		Assert.isFalse(isFlagEnabledFor(runAsUser), 'Expected the flag to be off when only a queue has the name');
+	}
+
+	/**
+	 * @description Verifies the flag is disabled when the target names a public group that does not hold the user.
 	 *
 	 * @see UTIL_FeatureFlag.checkPublicGroup
 	 */
 	@IsTest
-	private static void userInPublicGroupEnablesFlag()
+	private static void shouldNotMatchAUserOutsideTheGroup()
 	{
-		User runAsUser = createPublicGroupMember();
+		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		String target = UTIL_Random.randomName();
+		insertGroup(SEL_Group.TYPE_REGULAR, target, GROUP_LABEL_PREFIX + target);
+		usePublicGroupStrategy(target);
 
-		System.runAs(runAsUser)
-		{
-			assertFlagValue(true);
-		}
+		Assert.isFalse(isFlagEnabledFor(runAsUser), 'Expected the flag to be off for a user outside the group');
 	}
 
 	/**
-	 * @description Creates a Public Group and adds the test user as a member.
+	 * @description Verifies that when no group is found and the strategy has no expected value, the strategy does not decide
+	 * the flag. The flag then takes its ResultOnNoMatch__c value, here true.
+	 *
+	 * @see UTIL_FeatureFlag.checkPublicGroup
+	 * @see UTIL_FeatureFlag.getStrategyResult
+	 */
+	@IsTest
+	private static void shouldUseResultOnNoMatchWhenNoGroupResolves()
+	{
+		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		usePublicGroupStrategy(UTIL_Random.randomName());
+		SEL_FeatureFlag.activeFlags.get(SEL_FeatureFlag.TEST_FEATURE_FLAG).ResultOnNoMatch__c = true;
+
+		Assert.isTrue(isFlagEnabledFor(runAsUser), 'Expected the flag to take its no-match result when no group is found');
+	}
+
+	/**
+	 * @description Verifies that a blank target finds no group and logs no warning, so the flag stays off.
+	 *
+	 * @see UTIL_FeatureFlag.findTargetPublicGroup
+	 */
+	@IsTest
+	private static void shouldFindNoGroupAndLogNothingForABlankTarget()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		usePublicGroupStrategy(null);
+
+		Assert.isFalse(isFlagEnabledFor(runAsUser), 'Expected the flag to be off for a blank target');
+
+		Assert.isTrue(new SEL_LogEntry().findAllByMethod(UTIL_FeatureFlag.METHOD_CHECK_PUBLIC_GROUP).isEmpty(), 'Expected no warning for a blank target');
+	}
+
+	/**
+	 * @description Creates a public group whose label differs from its API name, adds the test user as a member, and points
+	 * the test flag's strategy at the group's API name.
 	 *
 	 * @return The test user
 	 */
 	private static User createPublicGroupMember()
 	{
 		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
-
-		String groupName = UTIL_Random.randomName();
-
-		Map<String, Object> overrides = new Map<String, Object>
-		{
-				'Group.Type' => 'Regular',
-				'Group.Name' => groupName,
-				GroupMember.UserOrGroupId.getDescribe().name => runAsUser.Id
-		};
-
-		TST_Builder.of(GroupMember.SObjectType)
-				.withOverrides(overrides)
-				.build();
-
-		FeatureFlagStrategy__mdt strategy = SEL_FeatureFlag.activeFlags.get(SEL_FeatureFlag.TEST_FEATURE_FLAG).FeatureFlagStrategies__r.iterator().next();
-		strategy.Type__c = SEL_FeatureFlagStrategy.TYPE_PUBLIC_GROUP;
-		strategy.Target__c = groupName;
-		strategy.ExpectedValue__c = null;
-
+		String apiName = UTIL_Random.randomName();
+		addMember(insertGroup(SEL_Group.TYPE_REGULAR, apiName, GROUP_LABEL_PREFIX + apiName), runAsUser.Id);
+		usePublicGroupStrategy(apiName);
 		return runAsUser;
 	}
 
 	/**
-	 * @description Verifies the flag is disabled when the user is not in the targeted Public Group.
+	 * @description Inserts a group with the given type, API name and label.
 	 *
-	 * @see UTIL_FeatureFlag.checkPublicGroup
+	 * @param groupType The Type of the group, such as Regular for a public group or Queue.
+	 * @param apiName The group's API name (DeveloperName).
+	 * @param label The group's label (Name).
+	 *
+	 * @return The inserted group
 	 */
-	@IsTest
-	private static void userNotInPublicGroupDisablesFlag()
+	private static Group insertGroup(String groupType, String apiName, String label)
 	{
-		User runAsUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
+		return (Group)TST_Builder.of(Group.SObjectType)
+				.withOverride(Group.Type, groupType)
+				.withOverride(Group.DeveloperName, apiName)
+				.withOverride(Group.Name, label)
+				.build();
+	}
 
+	/**
+	 * @description Adds a user to a group as a direct member.
+	 *
+	 * @param targetGroup The group to add the user to.
+	 * @param userId The user to add.
+	 */
+	private static void addMember(Group targetGroup, Id userId)
+	{
+		TST_Builder.of(GroupMember.SObjectType)
+				.withOverride(GroupMember.GroupId, targetGroup.Id)
+				.withOverride(GroupMember.UserOrGroupId, userId)
+				.build();
+	}
+
+	/**
+	 * @description Makes the test flag's strategy a Public Group strategy with the given target and no expected value.
+	 *
+	 * @param target The strategy target.
+	 */
+	private static void usePublicGroupStrategy(String target)
+	{
 		FeatureFlagStrategy__mdt strategy = SEL_FeatureFlag.activeFlags.get(SEL_FeatureFlag.TEST_FEATURE_FLAG).FeatureFlagStrategies__r.iterator().next();
-
 		strategy.Type__c = SEL_FeatureFlagStrategy.TYPE_PUBLIC_GROUP;
-		strategy.Target__c = UTIL_Random.randomName();
+		strategy.Target__c = target;
 		strategy.ExpectedValue__c = null;
+	}
+
+	/**
+	 * @description Checks the test flag as the given user, between Test.startTest() and Test.stopTest(). Test.stopTest()
+	 * delivers any log events, so a test can read the saved log entries afterwards.
+	 *
+	 * @param runAsUser The user to check the flag as.
+	 *
+	 * @return True when the flag is on for the user
+	 */
+	private static Boolean isFlagEnabledFor(User runAsUser)
+	{
+		Boolean isEnabled;
 
 		System.runAs(runAsUser)
 		{
-			assertFlagValue(false);
+			Test.startTest();
+			isEnabled = UTIL_FeatureFlag.isEnabled(SEL_FeatureFlag.TEST_FEATURE_FLAG);
+			Test.stopTest();
 		}
+
+		return isEnabled;
+	}
+
+	/**
+	 * @description Reads the detail log entry of a Public Group strategy warning. Each warning saves two entries, a detail
+	 * and a rollup that counts it. This returns the detail. Call it after Test.stopTest(), which delivers the log events.
+	 * The test fails when no detail entry for the warning was saved.
+	 *
+	 * @param fingerprintPrefix The kind of warning, which starts the fingerprint.
+	 * @param target The strategy target the warning is about.
+	 *
+	 * @return The saved detail entry of the warning
+	 */
+	private static LogEntry__c findPublicGroupWarning(String fingerprintPrefix, String target)
+	{
+		String detailKey = TRG_PersistLogEntry.buildDetailKey(fingerprintPrefix + target);
+
+		for(LogEntry__c entry : new SEL_LogEntry().findAllByMethod(UTIL_FeatureFlag.METHOD_CHECK_PUBLIC_GROUP))
+		{
+			if(entry.Fingerprint__c == detailKey)
+			{
+				return entry;
+			}
+		}
+
+		Assert.fail('Expected a saved Public Group warning with the fingerprint ' + detailKey);
+		return null;
 	}
 
 	/**
@@ -970,24 +1275,7 @@ public class UTIL_FeatureFlag_TEST
 	@IsTest
 	private static void publicGroupStrategyEvaluatesForSpecificUser()
 	{
-		User testUser = new SEL_User().findByFederationId(TEST_FEDERATION_ID);
-		String groupName = UTIL_Random.randomName();
-
-		Map<String, Object> overrides = new Map<String, Object>
-		{
-				'Group.Type' => 'Regular',
-				'Group.Name' => groupName,
-				GroupMember.UserOrGroupId.getDescribe().name => testUser.Id
-		};
-
-		TST_Builder.of(GroupMember.SObjectType)
-				.withOverrides(overrides)
-				.build();
-
-		FeatureFlagStrategy__mdt strategy = SEL_FeatureFlag.activeFlags.get(SEL_FeatureFlag.TEST_FEATURE_FLAG).FeatureFlagStrategies__r.iterator().next();
-		strategy.Type__c = SEL_FeatureFlagStrategy.TYPE_PUBLIC_GROUP;
-		strategy.Target__c = groupName;
-		strategy.ExpectedValue__c = null;
+		User testUser = createPublicGroupMember();
 
 		Test.startTest();
 

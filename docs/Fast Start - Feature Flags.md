@@ -6,70 +6,51 @@ navOrder: 38
 
 **Framework:** KernDX | **Total time:** ~25 minutes
 
-**What this is:** A way to switch features on and off in a live org by editing a configuration record, with no deployment and no code change. You can flip a feature for everyone, or target it by user, profile, permission, or group. **Why it exists:** Shipping a risky change behind a flag lets you turn it on for a few people first, watch how it behaves, and roll it back instantly if something goes wrong. **Who should follow this:** developers building features they want to release gradually, plus admins and tech leads who manage rollouts. **When to use it:** any time you want to release code one audience at a time, or keep a master off-switch ready for an incident.
-
-**When the built-in option is enough:** if you only need to gate behaviour on a single Custom Permission or a Custom Setting, plain Apex (`FeatureManagement.checkPermission`, or reading the setting directly) does that without a framework. Use feature flags when you want one named switch you can re-target across permission, profile, group, and setting strategies, toggle without a deploy, and check the same way from Apex, Flow, and LWC.
+- **What this is:** A way to switch features on and off in a live org by editing a configuration record, with no
+  deployment and no code change. You can flip a feature for everyone, or target it by user, profile, permission, or
+  group.
+- **Why it exists:** Shipping a risky change behind a flag lets you turn it on for a few people first, watch how it
+  behaves, and roll it back instantly if something goes wrong.
+- **Who should follow this:** developers building features they want to release gradually, plus admins and tech leads
+  who manage rollouts.
+- **When to use it:** any time you want to release code one audience at a time, or keep a master off-switch ready for
+  an incident.
+- **What you'll build:** A pricing service that switches between legacy and new calculation logic based on a
+  feature flag.
+- **Success looks like:** Toggling a Custom Metadata record flips your code from one execution path to another, with
+  no deployment needed.
+- **In one line:** `if(kern.UTIL_FeatureFlag.isEnabled('NewPricing'))`, where one metadata record controls the
+  behaviour and is toggled without deployment.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** A pricing service that switches between legacy and new calculation logic based on a
-feature flag.
+## Quick Navigation
 
-**Success looks like:** Toggling a Custom Metadata record flips your code from one execution path to another, with
-no deployment needed.
-
-**In one line:** `if(kern.UTIL_FeatureFlag.isEnabled('NewPricing'))`, where one metadata record controls the
-behaviour and is toggled without deployment.
+| I need to...                                            | Go to...                                                                                                |
+|---------------------------------------------------------|---------------------------------------------------------------------------------------------------------|
+| See a flag answer with no setup                         | [Tier 1: See It Work](#tier-1-see-it-work-2-minutes)                                                    |
+| Create a flag and pull it into my project               | [Step 1: Create the flag and try again](#step-1-create-the-flag-and-try-again)                          |
+| Branch my own class on a flag                           | [Step 2: Create the service class](#step-2-create-the-service-class)                                    |
+| Test both paths                                         | [Step 4: Write and run the test](#step-4-write-and-run-the-test)                                        |
+| Know which flags the framework ships, and roll one back | [Framework-shipped flags you inherit automatically](#framework-shipped-flags-you-inherit-automatically) |
+| Turn a flag on for some users only                      | [Step 5: Add a custom permission strategy](#step-5-add-a-custom-permission-strategy)                    |
+| Check a flag for another user                           | [Check flags for specific users](#check-flags-for-specific-users)                                       |
+| Check a flag in a Flow                                  | [Use in Flows](#use-in-flows)                                                                           |
+| Check a flag in a Lightning component                   | [Use in LWC](#use-in-lwc)                                                                               |
+| Write my own targeting rule                             | [Step 6: Add a custom strategy handler](#step-6-add-a-custom-strategy-handler)                          |
+| Remove the example from my org                          | [Clean up](#clean-up)                                                                                   |
+| Fix an error from a step                                | [Common Issues](#common-issues)                                                                         |
 
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [Tier 1: See It Work (~2 minutes)](#tier-1-see-it-work-2-minutes)
-    - [Check a feature flag](#check-a-feature-flag)
-    - [Use a flag in conditional logic](#use-a-flag-in-conditional-logic)
-    - [Step 1: Create the flag and try again](#step-1-create-the-flag-and-try-again)
-3. [Tier 2: Build Your Own (~15-20 minutes)](#tier-2-build-your-own-15-20-minutes)
-    - [Step 2: Create the service class](#step-2-create-the-service-class)
-    - [Step 3: Try the service](#step-3-try-the-service)
-    - [Step 4: Write and run the test](#step-4-write-and-run-the-test)
-4. [Tier 3: Production Patterns (~5-10 minutes)](#tier-3-production-patterns-5-10-minutes)
-    - [Framework-shipped flags you inherit automatically](#framework-shipped-flags-you-inherit-automatically)
-    - [Strategy-based targeting](#strategy-based-targeting)
-    - [Step 5: Add a custom permission strategy](#step-5-add-a-custom-permission-strategy)
-    - [Evaluation logic](#evaluation-logic)
-    - [Check flags for specific users](#check-flags-for-specific-users)
-    - [Use in Flows](#use-in-flows)
-    - [Use in LWC](#use-in-lwc)
-    - [Package-bundled API control flags](#package-bundled-api-control-flags)
-    - [Custom strategy handler](#custom-strategy-handler)
-    - [Step 6: Add a custom strategy handler](#step-6-add-a-custom-strategy-handler)
-    - [Clean up](#clean-up)
-5. [Common Issues](#common-issues)
-    - [Step 1: Create the flag and try again](#step-1-create-the-flag-and-try-again-1)
-    - [Step 2: Create the service class](#step-2-create-the-service-class-1)
-    - [Step 4: Write and run the test](#step-4-write-and-run-the-test-1)
-    - [Step 5: Add a custom permission strategy](#step-5-add-a-custom-permission-strategy-1)
-    - [Step 6: Add a custom strategy handler](#step-6-add-a-custom-strategy-handler-1)
-    - [Clean up](#clean-up-1)
-6. [What You Now Know](#what-you-now-know)
-7. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
@@ -380,13 +361,13 @@ private class FastStart_FeatureFlag_DEMO_TEST
 > `@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')` suppresses a code analysis rule (the scanner that checks code without running it). In production
 > tests, wrap your test logic in `System.runAs(testUser)`.
 
-> **Test isolation:** The "disabled" test relies on the flag **not existing** in the org. If you created a
-> `FastStart_NewPricing` flag via the UI or CLI, make sure it is inactive or deleted before running tests.
-> Custom Metadata records are visible in every test, so use `kern.TST_Factory.newFeatureFlag()` to activate flags in test context.
-
 > **Seeding flags in tests:** `kern.TST_Factory.newFeatureFlag('YourFlag')` seeds an active flag for the test
 > in memory, so no Custom Metadata record is created in the org. To test the disabled path, simply don't seed the flag: an
 > unseeded flag is treated as off.
+>
+> **Test isolation:** the "disabled" test therefore relies on the flag **not existing** in the org. Custom Metadata
+> records are visible in every test, so if you created a `FastStart_NewPricing` flag via the UI or CLI, make sure it
+> is inactive or deleted before running tests ([Common Issues, Step 4](#step-4-write-and-run-the-test-1)).
 
 **3. In the terminal**, send the test class to your org:
 
@@ -423,7 +404,14 @@ Something went wrong? See [Common Issues, Step 4](#step-4-write-and-run-the-test
 ### Framework-shipped flags you inherit automatically
 
 KernDX ships a small set of framework-owned `FeatureFlag__mdt` records that you don't create or maintain yourself.
-The framework reads them directly from Apex to control how it behaves across your org. Several of them act as a kill-switch: a master off-switch you can flip in an incident without a deployment. Two of them also choose whether queries and saves run with the current user's read/write permissions and record sharing enforced (USER_MODE) or skip the object and field permission checks only (SYSTEM_MODE, which leaves record sharing following the calling class). In the table below, CRUD means object create/read/update/delete permissions and FLS means field-level security.
+The framework reads them directly from Apex to control how it behaves across your org.
+
+- Several of them act as a kill-switch: a master off-switch you can flip in an incident without a deployment.
+- Two of them also choose whether queries and saves run with the current user's read/write permissions and record
+  sharing enforced (USER_MODE) or skip the object and field permission checks only (SYSTEM_MODE, which leaves record
+  sharing following the calling class).
+
+In the table below, CRUD means object create/read/update/delete permissions and FLS means field-level security.
 
 | Flag                                                                  | Purpose                                                                                                                                                                                            | Default | Emergency Rollback                                                       |
 |-----------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|---------|--------------------------------------------------------------------------|
@@ -431,17 +419,23 @@ The framework reads them directly from Apex to control how it behaves across you
 | `UserModeDml_Enabled`                                                 | Controls the default `AccessLevel` on `DML_Builder.newTransaction()` operations. Same true/false semantics as above.                                                                               | `true`  | Same metadata flip path.                                                 |
 | `MaskingFramework_Enabled`                                            | Kill-switch for the data-masking framework (`MaskingTarget__mdt` / `MaskingRule__mdt`). `true` → rules are applied before `LogEntryEvent__e` publishes; `false` → pipeline skips masking entirely. | `true`  | Same metadata flip path.                                                 |
 | `AsyncChain`                                                          | Kill-switch for `UTIL_AsyncChain` orchestration. `true` → chains run; `false` → running chains stop at their next step boundary and new chains stop at once. Resolved from the `AsyncChainRuntimeSwitch__c` hierarchy setting, not from the flag record. | `true`  | Setup → Custom Settings → Async Chain Runtime Switch → Manage → untick `ChainsEnabled__c`. |
-| `DisableAllInboundAPIs` / `DisableAllOutboundAPIs` / `DisableAllAPIs` | Runtime kill-switches for the web-service framework.                                                                                                                                               | `false` | These switches are off by default, so in an incident you turn them on. For `DisableAllInboundAPIs` or `DisableAllOutboundAPIs`, tick `IsEnabledByDefault__c` (leave `IsActive__c` ticked). For `DisableAllAPIs`, go to Setup, Custom Settings, API Runtime Switch, Manage, and tick `DisableAllApis__c` (see the note below). Untick the box again to restore. |
-| `MockAllAPIs` / `MockAllInboundAPIs`                                  | Test-mode toggles used by `API_MockFactory`.                                                                                                                                                       | `false` | Same metadata flip path.                                                 |
+| `DisableAllInboundAPIs` / `DisableAllOutboundAPIs` / `DisableAllAPIs` | Runtime kill-switches for the web-service framework: `DisableAllInboundAPIs` disables inbound API processing, `DisableAllOutboundAPIs` disables outbound API calls, and `DisableAllAPIs` is the kill switch for all API calls. | `false` | These switches are off by default, so in an incident you turn them on. For `DisableAllInboundAPIs` or `DisableAllOutboundAPIs`, tick `IsEnabledByDefault__c` (leave `IsActive__c` ticked). For `DisableAllAPIs`, go to Setup, Custom Settings, API Runtime Switch, Manage, and tick `DisableAllApis__c` (see the note below). Untick the box again to restore. |
+| `MockAllAPIs` / `MockAllInboundAPIs`                                  | Test-mode toggles used by `API_MockFactory`: `MockAllAPIs` returns mock responses for all APIs, `MockAllInboundAPIs` for inbound APIs.                                                             | `false` | Same metadata flip path.                                                 |
 | `MockSelectedAPIs`                                                    | Test-mode toggle for chosen services. For the users this flag is on for, each service whose API Setting has Mocking Enabled ticked answers with mock data, outgoing and incoming.                    | `false` | Same metadata flip path: untick `IsEnabledByDefault__c`, or switch off the strategy records you added. |
 
 > On `AsyncChain` and `DisableAllAPIs` the answer comes from a shipped strategy record rather than from the flag itself, so editing `IsEnabledByDefault__c` on those two changes nothing.
 > Flip them through their hierarchy custom settings instead: `AsyncChainRuntimeSwitch__c.ChainsEnabled__c` and `ApiRuntimeSwitch__c.DisableAllApis__c`.
-> One field on the flag record still counts: with no hierarchy setting record the strategy finds no match, so the answer falls back to `ResultOnNoMatch__c`. On `AsyncChain` that means `ResultOnNoMatch__c = false` leaves chains off until someone creates the setting, with no obvious cause to point at.
+>
+> One field on the flag record still counts: with no hierarchy setting record the strategy finds no match, so the
+> answer falls back to `ResultOnNoMatch__c`. On `AsyncChain` that means `ResultOnNoMatch__c = false` leaves chains off
+> until someone creates the setting, with no obvious cause to point at.
 
-> The package also ships a `TestFeatureFlag` record (`protected=true`) used by the framework's own test classes. It isn't meant for your org to use. Your org also sees
-> `AsyncChainAbort_Enabled`, `AsyncChainRedrive_Enabled` and `AsyncChainKillSwitch_Enabled`, which gate the Chain Monitor's operator actions, and `BypassAudit_Enabled`, which controls
-> the record the framework keeps whenever a safety check is turned off. The [Feature Flags Guide](Feature%20Flags%20-%20Guide.md#framework-owned-flags) carries the full list.
+> The package also ships a `TestFeatureFlag` record (`protected=true`) used by the framework's own test classes. It isn't meant for your org to use.
+>
+> Your org also sees `AsyncChainAbort_Enabled`, `AsyncChainRedrive_Enabled` and `AsyncChainKillSwitch_Enabled`, which
+> gate the Chain Monitor's operator actions, and `BypassAudit_Enabled`, which controls the record the framework keeps
+> whenever a safety check is turned off. The [Feature Flags Guide](Feature%20Flags%20-%20Guide.md#framework-owned-flags)
+> carries the full list.
 
 See [Security Guide, Safe by Default](Security%20-%20Guide.md#safe-by-default) for how
 `UserModeQueries_Enabled` and `UserModeDml_Enabled` interact with `.withSystemMode()`, `.withUserMode()`, and
@@ -463,13 +457,27 @@ Custom Permission strategy to the `NewPricingEngine` flag you created in Step 1.
 
 Despite its name, the `Permission Set Group` strategy matches a permission set *or* a permission set group, whichever the user is assigned. Use a permission set's API name or a permission set group's developer name as the target.
 
-> **SOQL cost:** the first `isEnabled(...)` call in a transaction runs one query (SOQL) that loads every active flag and its strategies. Later calls reuse that result. After that, the cost
-> depends on the strategy. A strategy that checks a profile, public group, permission set, or Custom Permission without a namespace runs one query on every call. A Custom Setting or Custom
-> Metadata target is read once and kept for the transaction. Three cases need no framework query: a namespaced or `core.` Custom Permission check for the running user, a strategy with a blank target or a custom handler (only
-> your handler runs), and the no-strategy `IsEnabledByDefault__c` fast path. One query per call is fine for everyday synchronous code, but it adds up
-> inside record loops, batches, and scheduled jobs. If you call flags in tight loops, or read several flags off the same Custom
-> Setting, see [Feature Flags - Guide, Performance and SOQL Cost](Feature%20Flags%20-%20Guide.md#performance-and-soql-cost) for the per-strategy
-> cost table, the pattern for reading a flag once and reusing the result, and a `getInstance()`-based custom handler that avoids the query for Custom Setting strategies.
+For the `Public Group` strategy, enter the group's API name, which Setup shows as **Group Name**. A label still works if exactly one public group
+has it, but the log then shows a warning asking for the API name.
+
+> **SOQL cost:** the first `isEnabled(...)` call in a transaction runs one query (SOQL) that loads every active flag
+> and its strategies. Later calls reuse that result. After that, the cost depends on the strategy:
+>
+> - A strategy that checks a profile, permission set, or Custom Permission without a namespace runs one query on every
+>   call.
+> - A public group check runs about four on every call, because it also reads the group's members.
+> - A Custom Setting or Custom Metadata target is read once and kept for the transaction.
+> - Three cases need no framework query: a namespaced or `core.` Custom Permission check for the running user, a
+>   strategy with a blank target or a custom handler (only your handler runs), and the no-strategy
+>   `IsEnabledByDefault__c` fast path.
+>
+> One query per call is fine for everyday synchronous code, but it adds up inside record loops, batches, and scheduled
+> jobs. If you call flags in tight loops, or read several flags off the same Custom Setting, see
+> [Feature Flags - Guide, Performance and SOQL Cost](Feature%20Flags%20-%20Guide.md#performance-and-soql-cost) for:
+>
+> - the per-strategy cost table;
+> - the pattern for reading a flag once and reusing the result;
+> - a `getInstance()`-based custom handler that avoids the query for Custom Setting strategies.
 
 ### Step 5: Add a custom permission strategy
 
@@ -698,9 +706,12 @@ permission set, or add Apex class access for `kern.FLOW_CheckFeatureFlag` to a p
 
 ### Use in LWC
 
-You can check the same flags from a Lightning component, so the screen shows or hides parts of the page to match what your Apex code does. Import `kern/featureFlag`
-and call `isFlagEnabled(flagName)` to read the same result your Apex code sees. The module ships inside the managed package, so you import it from `kern/`, not `c/`;
-the same rule applies to every KernDX module (see [The namespace gotcha](Fast%20Start%20-%20LWC.md#the-namespace-gotcha) in the LWC Fast Start).
+You can check the same flags from a Lightning component, so the screen shows or hides parts of the page to match what
+your Apex code does. Import `kern/featureFlag` and call `isFlagEnabled(flagName)` to read the same result your Apex
+code sees.
+
+The module ships inside the managed package, so you import it from `kern/`, not `c/`; the same rule applies to every
+KernDX module (see [The namespace gotcha](Fast%20Start%20-%20LWC.md#the-namespace-gotcha) in the LWC Fast Start).
 
 **In your editor**, in your component's JavaScript file:
 
@@ -726,32 +737,31 @@ export default class MyComponent extends ComponentBuilder('notification')
 }
 ```
 
-The user who opens a page that uses this module needs access to the Apex class behind it. Without it, the page fails with "You do not have access to the Apex class
-named 'CTRL_FeatureFlag'". Users with the System Administrator profile or the **Kern Administrator** permission set already have that access. For everyone else,
-assign the **Kern Component Access** permission set, which grants the classes behind the package's components and modules (this one included) and nothing more, or
-add Apex class access for `kern.CTRL_FeatureFlag` (the name Setup shows under Apex Class Access) to a permission set they already have.
+The user who opens a page that uses this module needs access to the Apex class behind it. Without it, the page fails
+with "You do not have access to the Apex class named 'CTRL_FeatureFlag'".
 
-Behind the scenes this calls `CTRL_FeatureFlag.isEnabled` (`@AuraEnabled(cacheable=true)`), so a component sees the same per-user
-result your Apex sees. One caution: because the result is cached on the client, it can be briefly out of date after you assign or
-remove a permission set that changes a flag for the running user. The cache refreshes on a page reload, but not when
-a `@wire` simply re-fires. So use this to shape the user experience (showing or hiding a panel or section), not to decide whether someone is
-allowed to do something. Treat real authorisation in Apex. See [LWC Guide, Feature Flag Bridge](LWC%20-%20Guide.md) for the full caveats.
+- Users with the System Administrator profile or the **Kern Administrator** permission set already have that access.
+- For everyone else, assign the **Kern Component Access** permission set, which grants the classes behind the package's
+  components and modules (this one included) and nothing more, or add Apex class access for `kern.CTRL_FeatureFlag`
+  (the name Setup shows under Apex Class Access) to a permission set they already have.
+
+Behind the scenes this calls `CTRL_FeatureFlag.isEnabled` (`@AuraEnabled(cacheable=true)`), so a component sees the
+same per-user result your Apex sees.
+
+One caution: because the result is cached on the client, it can be briefly out of date after you assign or remove a
+permission set that changes a flag for the running user. The cache refreshes on a page reload, but not when a `@wire`
+simply re-fires.
+
+So use this to shape the user experience (showing or hiding a panel or section), not to decide whether someone is
+allowed to do something. Treat real authorisation in Apex. See [LWC Guide, Feature Flag Bridge](LWC%20-%20Guide.md) for
+the full caveats.
 
 ### Package-bundled API control flags
 
-KernDX ships with API control flags, all disabled by default. They are part of the [framework-shipped flags](#framework-shipped-flags-you-inherit-automatically) listed
-earlier, and they specifically control the web services framework:
-
-| Flag                     | Purpose                                |
-|--------------------------|----------------------------------------|
-| `DisableAllAPIs`         | Kill switch for all API calls          |
-| `DisableAllInboundAPIs`  | Disable inbound API processing         |
-| `DisableAllOutboundAPIs` | Disable outbound API calls             |
-| `MockAllAPIs`            | Return mock responses for all APIs     |
-| `MockAllInboundAPIs`     | Return mock responses for inbound APIs |
-| `MockSelectedAPIs`       | Return mock responses only for the APIs whose API Setting has Mocking Enabled ticked, inbound and outbound |
-
-These work with the web services framework automatically, with no code needed.
+KernDX ships six API control flags, all disabled by default: `DisableAllAPIs`, `DisableAllInboundAPIs`,
+`DisableAllOutboundAPIs`, `MockAllAPIs`, `MockAllInboundAPIs` and `MockSelectedAPIs`. They are part of the
+[framework-shipped flags](#framework-shipped-flags-you-inherit-automatically) listed earlier, where each one's purpose
+is given. They control the web services framework automatically, with no code needed.
 
 **In Salesforce**, check their state from the Execute Anonymous window:
 
@@ -785,8 +795,10 @@ The built-in strategy types (permission, profile, group, and so on) cover most r
 > `UTIL_*` classes use the `INT_*` prefix. This is a deliberate codebase convention, so don't rename it.
 
 > **Why `global`?** Declaring the class `global` lets the framework find and create it at runtime with no extra setup.
-> If you prefer `public with sharing`, you'll need a Type Resolver class, which is how the framework finds the Apex classes in your namespace: you tell it where to look. The Kern home page health check
-> provides that code, or see [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
+>
+> If you prefer `public with sharing`, you'll need a Type Resolver class, which is how the framework finds the Apex
+> classes in your namespace: you tell it where to look. The Kern home page health check provides that code, or see
+> [Type Resolution](Utilities%20-%20Guide.md#type-resolution-util_typeresolver).
 
 ### Step 6: Add a custom strategy handler
 
@@ -896,11 +908,14 @@ User locale: en_US
 NewPricingEngine enabled: false
 ```
 
-The region strategy targets `de_DE` (the German locale), so it won't match an `en_US` user. **One catch:** if
-you still have the `NewPricingEngine` permission set assigned from Step 5.5, the Order-1 Custom Permission strategy
-matches first and the flag returns `true`. To let the region strategy decide, open Setup, then Permission Sets, then
-**New Pricing Engine**, then **Manage Assignments**, and remove your assignment. If you then change your locale to
-German (Setup, then Personal Information, then Locale), the flag returns `true`.
+The region strategy targets `de_DE` (the German locale), so it won't match an `en_US` user.
+
+**One catch:** if you still have the `NewPricingEngine` permission set assigned from Step 5.5, the Order-1 Custom
+Permission strategy matches first and the flag returns `true`.
+
+- To let the region strategy decide, open Setup, then Permission Sets, then **New Pricing Engine**, then **Manage
+  Assignments**, and remove your assignment.
+- If you then change your locale to German (Setup, then Personal Information, then Locale), the flag returns `true`.
 
 Something went wrong? See [Common Issues, Step 6](#step-6-add-a-custom-strategy-handler-1).
 
@@ -929,9 +944,11 @@ sf project delete source -o YourOrgAlias -m "CustomMetadata:kern__FeatureFlag.Ne
 
 You should see `Status: Succeeded`, then a `Deleted Source` table listing the flag and the custom permission.
 
-The commands delete the files from your project too. Two things the commands do not touch: if you created a
-`FastStart_NewPricing` flag in Setup for Step 3, delete it there (open Setup, then Custom Metadata Types, then **Feature
-Flag**, then **Manage Feature Flags**, then **Del** beside it); and if you changed your locale to German, change it back.
+The commands delete the files from your project too. Two things the commands do not touch:
+
+- If you created a `FastStart_NewPricing` flag in Setup for Step 3, delete it there (open Setup, then Custom Metadata
+  Types, then **Feature Flag**, then **Manage Feature Flags**, then **Del** beside it).
+- If you changed your locale to German, change it back.
 
 Something went wrong? See [Common Issues](#clean-up-1).
 
@@ -947,10 +964,12 @@ in, the wrong folder)? Those are answered once, in
 
 #### The block still prints `Using LEGACY pricing engine`
 
-The flag record is missing, or it is switched off, so `isEnabled()` returns `false`. Open Setup, then Custom Metadata
-Types, then **Feature Flag**, then **Manage Feature Flags**, and open the record. Check that its Feature Flag Name
-(`DeveloperName`) is `NewPricingEngine`, then check **Is Active** (`kern__IsActive__c`) and **Is Enabled By Default**
-(`kern__IsEnabledByDefault__c`) and save. If there is no record, create it as Step 1 shows.
+The flag record is missing, or it is switched off, so `isEnabled()` returns `false`.
+
+1. Open Setup, then Custom Metadata Types, then **Feature Flag**, then **Manage Feature Flags**, and open the record.
+   If there is no record, create it as Step 1 shows.
+2. Check that its Feature Flag Name (`DeveloperName`) is `NewPricingEngine`.
+3. Check **Is Active** (`kern__IsActive__c`) and **Is Enabled By Default** (`kern__IsEnabledByDefault__c`) and save.
 
 ### Step 2: Create the service class
 
@@ -965,29 +984,33 @@ the one that holds `sfdx-project.json`, and run the command again.
 #### `shouldApplyLegacySurchargeWhenFlagDisabled` fails
 
 The test expects the flag to be off, but a `FastStart_NewPricing` flag record exists in your org (for example, from the
-"See it in the org" note in Step 3), so the flag reads `true`. Custom Metadata records are visible in every test.
+"See it in the org" note in Step 3), so the flag reads `true`: Custom Metadata records are visible in every test.
+
 Delete or deactivate the flag in Setup, and use `kern.TST_Factory.newFeatureFlag()` only for the enabled path.
 
 ### Step 5: Add a custom permission strategy
 
 #### The check after assignment still reads `false`
 
-One link in the chain from the custom permission to you is missing, or the strategy is switched off. Make sure the
-permission set's Custom Permissions list includes **New Pricing Engine Access**, and that the `Permsets Assigned` table
-in Step 5.5 named your username. Then open the strategy record, check **Is Active** (`kern__IsActive__c`), make sure
-**Target** (`kern__Target__c`) reads `NewPricingEngineAccess`, and save.
+One link in the chain from the custom permission to you is missing, or the strategy is switched off.
+
+1. Make sure the permission set's Custom Permissions list includes **New Pricing Engine Access**, and that the
+   `Permsets Assigned` table in Step 5.5 named your username.
+2. Open the strategy record, check **Is Active** (`kern__IsActive__c`), make sure **Target** (`kern__Target__c`) reads
+   `NewPricingEngineAccess`, and save.
 
 ### Step 6: Add a custom strategy handler
 
 #### The flag stays `false` for a user your handler should match
 
 Nothing fails on screen: the framework records the error in its log and skips the strategy, because it cannot create
-your handler class. The class is `public`, or its name in **Custom Handler Class** is wrong. The framework
-creates the handler by name at runtime, which reaches a `global` class in your org, or a `public with sharing` class
-once a Type Resolver class is added (as the note above the step says). Declare the class `global`, or add a Type
-Resolver class. Check the name is spelled exactly
-`MY_RegionStrategy`, or use the fully qualified name if your code lives in a namespace (for example,
-`mypkg.MY_RegionStrategy`).
+your handler class. The class is `public`, or its name in **Custom Handler Class** is wrong.
+
+- **The class is `public`:** the framework creates the handler by name at runtime, which reaches a `global` class in
+  your org, or a `public with sharing` class once a Type Resolver class is added (as the note above the step says).
+  Declare the class `global`, or add a Type Resolver class.
+- **The name is wrong:** check it is spelled exactly `MY_RegionStrategy`, or use the fully qualified name if your code
+  lives in a namespace (for example, `mypkg.MY_RegionStrategy`).
 
 ### Clean up
 
