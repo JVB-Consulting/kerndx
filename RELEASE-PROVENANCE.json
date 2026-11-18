@@ -1,17 +1,17 @@
 {
-  "apex_class_count": 201,
-  "artifact_tree_sha256": "cee1e7d18146ec80486d39febf538383b68d4dfeb441f1c5849f94586563c0d8",
+  "apex_class_count": 204,
+  "artifact_tree_sha256": "1095f7b913c8fc4f8cccc5e4d06c57fd2bf12d7498998cefd369bc278e10238f",
   "build_node_version": "22.22.3",
-  "build_timestamp": "2026-10-31T00:31:27.516Z",
-  "file_count": 6684,
-  "manifest_sha": "014561faff01ff9dfb8bfd543a9e4d6c9289cdb847a939a6b05f2a1d95ea93e0",
-  "package_version": "1.11.0-1",
+  "build_timestamp": "2026-11-18T00:07:26.455Z",
+  "file_count": 4557,
+  "manifest_sha": "0589aeaa12bc77dd35f0a268b6ea1c524a972c432e3cdd9093b2d73c3475fb4c",
+  "package_version": "1.12.0-3",
   "schema_compatibility_policy": {
     "breaking_changes_require_migration": true,
     "supported_major": 1
   },
   "schema_version": 1,
-  "source_commit": "51141dbdbef70bf117b57ca172cc1056b856d770",
-  "subscriber_package_version_id": "04tfj000000gMFRAA2",
-  "total_bytes": 98026958
+  "source_commit": "0165e40f7ef856597d1baa162b7a5c3da7bf1cca",
+  "subscriber_package_version_id": "04tfj000000lFlBAAU",
+  "total_bytes": 64193905
 }
