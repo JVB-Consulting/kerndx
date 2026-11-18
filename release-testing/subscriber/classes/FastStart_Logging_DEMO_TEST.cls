@@ -12,11 +12,13 @@
  *
  * @see FastStart_Logging_DEMO
  *
+ * @see SEL_LogEntries
+ *
  * @author your.name@company.com
  *
  * @group Fast Start Demos
  *
- * @date May 2026
+ * @date May 2026, November 2026
  */
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
 @IsTest(seeAllData=false isParallel=true)
@@ -57,15 +59,10 @@ private class FastStart_Logging_DEMO_TEST
 
 		Id currentUserId = UserInfo.getUserId();
 		String processOrdersAt = 'FastStart_Logging_DEMO.processOrders';
-		List<kern__LogEntry__c> entries =
-		[
-				SELECT kern__Message__c,
-						kern__LogLevel__c,
-						kern__CorrelationId__c
-				FROM kern__LogEntry__c
-				WHERE kern__UserId__c = :currentUserId
-				AND kern__ClassMethod__c = :processOrdersAt
-		];
+		List<kern__LogEntry__c> entries = new SEL_LogEntries().query
+				.condition(kern__LogEntry__c.kern__UserId__c).equals(currentUserId)
+				.andCondition(kern__LogEntry__c.kern__ClassMethod__c).equals(processOrdersAt)
+				.toList();
 
 		Assert.isFalse(entries.isEmpty(), 'Expected log entries to be persisted after event delivery');
 
@@ -98,15 +95,11 @@ private class FastStart_Logging_DEMO_TEST
 
 		Id currentUserId = UserInfo.getUserId();
 		String criticalAlertAt = 'FastStart_Logging_DEMO.criticalAlert';
-		List<kern__LogEntry__c> entries =
-		[
-				SELECT kern__Message__c,
-						kern__LogLevel__c
-				FROM kern__LogEntry__c
-				WHERE kern__UserId__c = :currentUserId
-				AND kern__ClassMethod__c = :criticalAlertAt
-				AND kern__LogLevel__c = :LOG_LEVEL_ERROR
-		];
+		List<kern__LogEntry__c> entries = new SEL_LogEntries().query
+				.condition(kern__LogEntry__c.kern__UserId__c).equals(currentUserId)
+				.andCondition(kern__LogEntry__c.kern__ClassMethod__c).equals(criticalAlertAt)
+				.andCondition(kern__LogEntry__c.kern__LogLevel__c).equals(LOG_LEVEL_ERROR)
+				.toList();
 
 		Assert.isFalse(entries.isEmpty(), 'Expected one ERROR entry from criticalAlert()');
 		Assert.areEqual(ALERT_MESSAGE, entries[0].kern__Message__c, 'Message should match the alert text');

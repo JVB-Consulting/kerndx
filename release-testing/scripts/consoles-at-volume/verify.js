@@ -44,8 +44,10 @@ const ANY_BACKSTOP_REFUSAL = 'Chain run % refused by the backstop';
 // redriveWhenProvablyDead and markStalledFromWatchdog). A sweep that dies on a limit it cannot catch logs nothing; its rows
 // stay Stalled, which the started-step and dead-job claims catch.
 const WATCHDOG_FAILURE_STARTS = ['Watchdog re-drive failed', 'Watchdog stall DML failed'];
-// One sweep looks at fifty rows at most and every started-step row costs it three queries, so a sweep ends about thirty
-// of them. Verify waits one sweep interval for every twenty-five rows on top of the dead-job wait.
+// One sweep looks at fifty rows at most and every started-step row costs it three queries. Before each row the sweep
+// checks that four queries are left (three for the row and one to spare) and leaves the rows it does not reach
+// untouched, so it ends about thirty of them. Verify waits one sweep interval for every twenty-five rows on top of the
+// dead-job wait.
 const STARTED_ROWS_PER_SWEEP_FLOOR = 25;
 const SWEEP_INTERVAL_MILLISECONDS = 5 * 60_000;
 // The three budgets the verify line reports for the busiest sweep, as UTIL_Limits names them in a log entry's limits.

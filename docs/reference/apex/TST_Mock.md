@@ -5,7 +5,7 @@ pageClass: reference
 description: "Central registry and fluent builder for mock SObjects. Wraps QRY_Builder.setMock() with lifecycle management, providing a single point of control for registering, retrieving, and clearing mock records"
 author: "Jason Van Beukering"
 group: "Testing"
-date: "February 2026, October 2026"
+date: "February 2026, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -48,7 +48,7 @@ Foobar__c result = (Foobar__c)new SEL_Foobar().findById(mock.Id);
 | global static void [register](#register)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Registers a single mock record for the specified SObject type. |
 | global static void [registerAggregateRows](#registeraggregaterows)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)>> rows) | Registers rows that every aggregate query on this object type returns until cleared. |
 | global static void [registerAggregateRows](#registeraggregaterows)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> row) | Registers one row that every aggregate query on this object type returns until cleared. |
-| global static void [registerNext](#registernext)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Sets the answer to the NEXT query the framework runs against the given SObject type: that one query, or count, returns exactly these records, and the answer is then used up. |
+| global static void [registerNext](#registernext)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm)> records) | Sets the answer to the NEXT query the framework runs against the given SObject type: that one query, or count, is answered from these records, and the answer is then used up. |
 | global static void [registerNext](#registernext)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) record) | Sets one record as the answer to the NEXT query the framework runs against the given SObject type. |
 | global static void [registerNextAggregateRows](#registernextaggregaterows)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm)<[Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)>> rows) | Registers rows that answer the next aggregate query on this object type once; answers are used in the order you added them, before any registered rows. |
 | global static void [registerNextAggregateRows](#registernextaggregaterows)([SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) objectType, [Map](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_map.htm)<[String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm), [Object](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_System_Object.htm)> row) | Registers one row that answers the next aggregate query on this object type once. |
@@ -308,23 +308,24 @@ global static void registerNext(SObjectType objectType, List<SObject> records)
 ```
 
 Sets the answer to the NEXT query the framework runs against the given SObject type: that one
-query, or count, returns exactly these records, and the answer is then used up. Call it once for each query
+query, or count, is answered from these records, and the answer is then used up. Call it once for each query
 you want to answer; the answers are used in the order you added them. When all of them are used up, the type
 goes back to the records registered with register, or to the database when none are registered. A test can
 therefore make the first read find nothing and the second read find the row. That is what a caller sees
 when another transaction saved the row in between. Nothing needs cleaning up afterwards.
 
 An empty list means the next query finds nothing. A queued answer is filtered, sorted, limited and paged in
-memory in the same way as a registered record. An exception registered with throwsException is thrown
-first, on every query until it is cleared, and the queued answers stay waiting. get returns registered
-records only, never queued answers. clear() and clear(SObjectType) remove queued answers.
+memory in the same way as a registered record. A count gives the number of queued records that match the
+query's conditions. A limit or offset on the query does not change a count. An exception registered with
+throwsException is thrown first, on every query until it is cleared, and the queued answers stay waiting. get
+returns registered records only, never queued answers. clear() and clear(SObjectType) remove queued answers.
 
 **Parameters**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject type to set the next answer for. |
-| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The records the next query returns. May be empty; may not be null. |
+| `records` | [List](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_list.htm) | The records the next query is answered from. May be empty; may not be null. |
 
 **Throws**
 
@@ -357,7 +358,7 @@ type. See the list overload for how queued answers are used.
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `objectType` | [SObjectType](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_class_Schema_SObjectType.htm) | The SObject type to set the next answer for. |
-| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The record the next query returns. May not be null. |
+| `record` | [SObject](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_sobject.htm) | The record the next query is answered from. May not be null. |
 
 **Throws**
 

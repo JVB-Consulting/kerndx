@@ -8,7 +8,7 @@
  *
  * @group Services
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
 @IsTest(isParallel=false)
 private class SVC_ContactDirectory_TEST
@@ -77,10 +77,7 @@ private class SVC_ContactDirectory_TEST
 	 */
 	private static User buildMinimumAccessUser()
 	{
-		Profile minimumAccess = (Profile)kern.QRY_Builder.selectFrom(Profile.SObjectType)
-				.fields(new List<SObjectField> {Profile.Id})
-				.condition(Profile.Name).equals('Minimum Access - Salesforce')
-				.getFirst();
+		Profile minimumAccess = new kern.SEL_Profile().findByName('Minimum Access - Salesforce');
 
 		return (User)kern.TST_Builder.of(User.SObjectType)
 				.withOverride(User.ProfileId, minimumAccess.Id)

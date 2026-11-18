@@ -5,7 +5,8 @@
   "hasSampleData": false,
   "features": [
     "API",
-    "AuthorApex"
+    "AuthorApex",
+    "ApexUserModeWithPermset"
   ],
   "settings": {
     "emailAdministrationSettings": {

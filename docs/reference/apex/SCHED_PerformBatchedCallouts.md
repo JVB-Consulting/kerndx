@@ -5,7 +5,7 @@ pageClass: reference
 description: "The SCHED_PerformBatchedCallouts class is a scheduled job responsible for processing batched API calls that are queued for outbound processing. This class retrieves a list of queued API calls, updates"
 author: "Jason Van Beukering"
 group: "Web Services"
-date: "February 2026, October 2026"
+date: "February 2026, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -51,6 +51,12 @@ global void execute(SchedulableContext context)
 Executes the scheduled job, retrieving a list of API calls that are batched and ready for outbound
 processing, updating their status to indicate they are queued, and committing the updated records to the database.
 This method allows for controlled and consistent processing of API callouts on a scheduled basis.
+
+The save ignores record sharing, so the job moves every Batched call, whoever scheduled it. It writes only the
+status of each call and leaves every other field as it is.
+
+A call whose save is refused anyway (for example by a validation rule) stays at Batched and gets its own error log
+entry, and one warning log entry says how many calls were not moved to Queued.
 
 **Parameters**
 

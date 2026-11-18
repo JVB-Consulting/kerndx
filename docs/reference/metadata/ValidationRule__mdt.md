@@ -145,7 +145,7 @@ Optional. API name of the field where the error message should be displayed. If 
 global String ErrorMessage__c
 ```
 
-Message shown when the rule fails. Merge fields such as {!PropertyName} or {!newRecord.Name} are filled from your context class. If you write your own context class, put @JsonAccess(serializable='always') on it, or its merge fields stay blank. Custom Labels are not resolved. To show a label, add a property to the context class that returns System.Label.YourLabel.
+Message shown when the rule fails. Merge fields such as {!PropertyName} or {!newRecord.Name} are filled from your context class. If you write your own context class, put @JsonAccess(serializable='always') on it, or its merge fields stay blank. To show a Custom Label, write {!$Label.MyLabel}. For a label from a managed package with the namespace ns, write {!$Label.ns__MyLabel}. The label is filled from your org's custom labels, in the language of the user who saves the record. A label needs no property on your context class. A label that does not exist stays in the message as written.
 
 **Field Attributes:**
 

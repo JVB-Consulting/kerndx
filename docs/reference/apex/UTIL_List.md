@@ -5,7 +5,7 @@ pageClass: reference
 description: "Various list utilities for manipulating lists of objects and SObjects. This class provides methods for converting, transforming, sorting, and partitioning lists, as well as utility methods for checkin"
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "February 2026, October 2026"
+date: "February 2026, November 2026"
 since: "1.0"
 category: apex
 ---
