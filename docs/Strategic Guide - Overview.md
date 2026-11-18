@@ -269,7 +269,7 @@ In the first row, `nebula-logger` and KernDX are level on the logging area as a 
 
 **4. Where the picture is more nuanced: single pieces inside areas KernDX covers broadly.**
 
-- **[TAF](https://github.com/mitchspano/apex-trigger-actions-framework)** (a Trigger Framework specialist) ties KernDX on two Trigger pieces (running a Flow as a trigger
+- **[TAF](https://github.com/mitchspano/trigger-actions-framework)** (a Trigger Framework specialist) ties KernDX on two Trigger pieces (running a Flow as a trigger
   action, and switching individual trigger actions on or off by custom permission) and on two Domain Patterns pieces. There are no pieces where TAF goes further on its own. The decisive KernDX difference: KernDX writes its bypass audit signal to the event bus, where TAF's
   signal is SDLC-only.
 - **RFLIB** (multi-area) ties KernDX on two Trigger pieces, recursion control and the order trigger handlers run in, and on five pieces elsewhere: aggregate queries,
@@ -298,9 +298,12 @@ In the first row, `nebula-logger` and KernDX are level on the logging area as a 
 **5. Deliberate design trade-offs (per the principle of solving what almost everyone needs).** Three places where KernDX deliberately chose differently from a top-tier specialist
 library:
 
-- **Data masking model.** KernDX masks per-object, opt-in, with a master off-switch and room for your own custom rules (a combined regex/Luhn/literal/JSON-key engine, 3 failure
-  actions, caller-scope support). `nebula-logger` instead applies default-on regex matching across log emissions. KernDX ships a broader runtime-masking surface; if you
-  specifically need masking applied to every log call before it's written, adopt `nebula-logger` for that.
+- **Data masking model.** KernDX masks its own records by default: card numbers and secrets in its log events, API calls, API issues and chain runs, and access tokens in API
+  calls and issues. For your own objects you switch masking on object by object, with a master off-switch and room for your own rules (a combined regex/Luhn/literal/JSON-key
+  engine, 3 failure actions, caller-scope support).
+
+  `nebula-logger` applies default-on regex matching to its own log entries, and its default rules include US social security numbers. KernDX ships a broader runtime-masking
+  surface. If you want your logs to mask more than card numbers and secrets with no setup, adopt `nebula-logger` for that.
 - **Mocking model.** KernDX ships DML-free query interception via `TST_Mock`, using the same `of/withOverride/build` shape as `TST_Builder`. `fflib-mocks` ships Mockito-style
   behaviour verification. The two are structurally different, intercepting the query layer vs verifying *how* methods were called. If you need both, run them in parallel.
 - **Adopting it in your own namespace.** To adopt KernDX you extend `TRG_Base` / `SEL_Base` / `DML_Builder` / `LOG_Builder` / `ComponentBuilder`. Drop-in libraries don't ask you
@@ -316,7 +319,7 @@ canonical implementation of the Application factory pattern. If you already run 
 
 #### How the frameworks we compared break down
 
-The 26 Apex frameworks this guide surveyed (KernDX and 25 others) fall into three groups: multi-capability frameworks (KernDX, `fflib` + `at4dx`, `apex-libra`, `rflib`, [`sf-bedrock`](https://github.com/force-creators/sf-bedrock), [ApexKit](https://github.com/codefriar/ApexKit), and [`revenant`](https://github.com/madmax983/revenant)); single-capability libraries (the Apex Fluently family, 8 libraries, plus `nebula-logger`, `taf`, and [`nebula-triggers`](https://github.com/aidan-harding/nebula-core)); and single-purpose tools (`fflib-mocks`, [`mask-sobject`](https://github.com/tprouvot/mask-sobject), [`promise`](https://github.com/codefriar/promise), [`apex-chainable`](https://github.com/rsoesemann/apex-chainable), [`apex-promisify`](https://github.com/oguzalp/apex-promisify), [`apex-async-linkable`](https://github.com/scolladon/apex-async-linkable), and [`apex-dml-mocking`](https://github.com/jamessimone/apex-dml-mocking)). The per-area findings above point to the
+The 26 Apex frameworks this guide surveyed (KernDX and 25 others) fall into three groups: multi-capability frameworks (KernDX, `fflib` + `at4dx`, `apex-libra`, `rflib`, [`sf-bedrock`](https://github.com/force-creators/sf-bedrock), [ApexKit](https://github.com/codefriar/ApexKit), and [`revenant`](https://github.com/madmax983/revenant)); single-capability libraries (the Apex Fluently family, 8 libraries, plus `nebula-logger`, `taf`, and [`nebula-triggers`](https://github.com/Nebula-Consulting/nebula-core)); and single-purpose tools (`fflib-mocks`, [`mask-sobject`](https://github.com/tprouvot/mask-sobject), [`promise`](https://github.com/codefriar/promise), [`apex-chainable`](https://github.com/rsoesemann/apex-chainable), [`apex-promisify`](https://github.com/oguzalp/apex-promisify), [`apex-async-linkable`](https://github.com/scolladon/apex-async-linkable), and [`apex-dml-mocking`](https://github.com/jamessimone/apex-dml-mocking)). The per-area findings above point to the
 specific comparisons. For a capability-by-capability comparison with head-to-head trade-offs and pick-by-capability guidance, see
 [Choosing a Framework](Strategic%20Guide%20-%20Choosing%20a%20Framework.md).
 
@@ -333,15 +336,18 @@ KernDX was designed for managed-package development.
 ##### Enterprise org implementations
 
 **Recommendation:** Adopt KernDX as-is. Decisive features: field-level security enforced on reads AND writes by default; every bypass made through the builders, every trigger bypass and every validation-rule bypass writes an audit log you can monitor, across
-triggers, queries, and DML. If you'd rather use drop-in, single-purpose libraries with a longer public track record, see the per-framework comparisons for `taf`, `apex-fluently-soql`,
-and `nebula-logger`.
+triggers, queries, and DML. If a longer public track record weighs most for you, see the per-framework comparisons for `taf`, `apex-fluently-soql`, and `nebula-logger`. Weigh it
+against what separate libraries ask of you: you connect them yourself, upgrade and security-review each one, and unless a library ships as a managed package its Apex counts against your 6 MB limit.
 
 ##### Small teams (< 5 developers)
 
 **Recommendation:** Adopt KernDX incrementally, starting with `TRG_*` + `QRY_Builder` + `TST_Builder`. KernDX covers all three of these broadly. Adopting one module costs about as much
-as adopting a drop-in library, and the framework's cross-layer guarantees (a shared context, default-on FLS/CRUD, a bypass audit across the builders, trigger bypasses and validation-rule bypasses) add up as you adopt more modules. If
-you'd rather mix single-purpose drop-in libraries, you can combine `taf` + `apex-fluently-soql`; neither ships a broader implementation in the same areas, though `apex-fluently-soql`
-has a longer activity track record than KernDX.
+as adopting a drop-in library, and the framework's cross-layer guarantees (a shared context, default-on FLS/CRUD, a bypass audit across the builders, trigger bypasses and validation-rule bypasses) add up as you adopt more modules.
+
+You can also combine `taf` + `apex-fluently-soql`. Neither ships a broader implementation in the same areas, though `apex-fluently-soql` has a longer activity track record than
+KernDX. Weigh both sides: neither is a managed package (`taf` is an unlocked package, `apex-fluently-soql` is source you own, cover and maintain), so their
+Apex counts against your 6 MB limit, and you connect them yourself. KernDX's modules already work together, share one upgrade path, and as a managed
+package their unused code does not count against your 6 MB Apex limit.
 
 ##### Integration-heavy projects
 
@@ -350,15 +356,14 @@ mock-library piece. KernDX ships a circuit breaker (after an external system kee
 retry with backoff, named-credential resolution, idempotency keys (each outbound call can carry an explicit key the receiving system uses to spot a repeat, and on the inbound side,
 if the exact same request arrives twice, the framework returns the first result again instead of re-running it, and
 rejects a repeat that reuses the key with a *different* body, rather than silently masking the change), and an `ApiStep` that bridges an async chain to an outbound call, wired through
-`UTIL_AsyncChain`, with that step itself able to opt into a bounded number of retries with a widening delay. If you use HTTP paths other than `API_Outbound`, you can add
-`apex-fluently-httpmock` for the mock surface; if you're already on KernDX, you get the matching mock
-via `API_MockFactory`.
+`UTIL_AsyncChain`, with that step itself able to opt into a bounded number of retries with a widening delay. If some callouts use plain `Http` rather than `API_Outbound` or the KernDX HTTP client, `API_MockFactory`
+does not mock them; you can add `apex-fluently-httpmock` for those tests.
 
 ##### AppExchange applications
 
 **Recommendation:** Adopt KernDX when building a managed package. Decisive features: an enforced coverage gate, plus a ready-to-use implementation of every core capability, both speed
-up the security-review path. If you need the smallest possible dependency footprint for the simplest possible security review, don't adopt any framework at all; KernDX adds framework
-surface that introduces a single managed-package dependency.
+up the security-review path. If you need the smallest possible dependency footprint for the simplest possible security review, don't adopt any framework at all: KernDX adds one
+managed-package dependency, and a source library adds its classes to your package, where the review covers them too.
 
 #### Should you migrate off `fflib`?
 
@@ -371,7 +376,7 @@ Break-Even Point = Migration Cost ÷ (Quarterly Maintenance Savings + Quarterly 
 
 **Migrate if:** you're actively developing (>10 commits/quarter), your team is changing, and break-even is under 4 quarters.
 **Do NOT migrate if:** the codebase is in maintenance mode, break-even is over 6 quarters, or the team is already proficient.
-**Freeze-and-contain:** stop expanding `fflib`; adopt modular libraries for new work; refactor opportunistically.
+**Freeze-and-contain:** stop expanding `fflib`; adopt KernDX one feature at a time for new work; refactor opportunistically.
 
 `fflib` activity at the snapshot date: 1 tagged release, 42 commits in the last 12 months (a figure lifted by one 2026 batch that merged long-dormant pull requests rather than by a
 new release cadence), roughly 2,294 days since the last release. `fflib` remains the canonical implementation of

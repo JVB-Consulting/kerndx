@@ -67,7 +67,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
 | Metric                        | Count |
 |-------------------------------|------:|
-| Global classes (top-level)    |   108 |
+| Global classes (top-level)    |   109 |
 | Global interfaces (top-level) |     4 |
 | Global inner classes          |   ~94 |
 | Global inner interfaces       |   ~26 |
@@ -161,7 +161,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | API reference pages (events)                  |     2 |                                                                                                                             |
 | API reference pages (total)                   |   282 | sum of all reference categories                                                                                             |
 | Total documentation files (developer-focused) |    47 | 21 developer guides + 17 Fast Start guides + 9 Strategic Guide documents (excluding `reference/`)                           |
-| Security Guide (lines)                        | 2,361 | bespoke threat-model guide; counted from `docs/Security - Guide.md`                                                         |
+| Security Guide (lines)                        | 2,511 | bespoke threat-model guide; counted from `docs/Security - Guide.md`                                                         |
 
 > The headline figure quoted in companion docs is 38 developer documents (21 guides + 17 Fast Starts), matching the per-category totals above.
 
