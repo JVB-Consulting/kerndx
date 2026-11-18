@@ -49,6 +49,16 @@ This file covers the latest KernDX release. The three most recent earlier releas
 - [Glossary](https://docs.jvb-consulting.io/strategic-guide-glossary): plain-language definitions of the framework's terms
 - [Metrics](https://docs.jvb-consulting.io/strategic-guide-metrics): the measured facts and figures for the current release
 
+## Evaluating KernDX
+
+- [Strategic Guide: Overview](https://docs.jvb-consulting.io/strategic-guide-overview): what KernDX is, what makes it different, and a one-page summary for decision makers
+- [Strategic Guide: Choosing a Framework](https://docs.jvb-consulting.io/strategic-guide-choosing-a-framework): KernDX compared with other Salesforce Apex frameworks, capability by capability, with a pick for each
+- [Strategic Guide: Adoption](https://docs.jvb-consulting.io/strategic-guide-adoption): whether to adopt KernDX, and how to roll it out in an existing org
+- [Strategic Guide: Risks](https://docs.jvb-consulting.io/strategic-guide-risks): the downsides and limits of adopting KernDX, where it is the wrong fit, and how each risk is reduced
+- [Strategic Guide: Architecture and Philosophy](https://docs.jvb-consulting.io/strategic-guide-architecture-philosophy): the design ideas behind KernDX and how it fits Salesforce Well-Architected
+- [Strategic Guide: Operations](https://docs.jvb-consulting.io/strategic-guide-operations): how the installed package ships, updates and performs, and how to leave it if you need to
+- [Strategic Guide: Personas](https://docs.jvb-consulting.io/strategic-guide-personas): the decision points for each role, from developer to security officer
+
 ## Optional
 
 - [Triggers Guide](https://docs.jvb-consulting.io/triggers-guide)
@@ -71,11 +81,4 @@ This file covers the latest KernDX release. The three most recent earlier releas
 - [E2E Testing Guide](https://docs.jvb-consulting.io/e2e-testing-guide)
 - [Code Scanning Guide](https://docs.jvb-consulting.io/code-scanning-guide)
 - [Documentation Site Guide](https://docs.jvb-consulting.io/documentation-site-guide)
-- [Strategic Guide: Overview](https://docs.jvb-consulting.io/strategic-guide-overview)
-- [Strategic Guide: Choosing a Framework](https://docs.jvb-consulting.io/strategic-guide-choosing-a-framework)
-- [Strategic Guide: Adoption](https://docs.jvb-consulting.io/strategic-guide-adoption)
-- [Strategic Guide: Architecture and Philosophy](https://docs.jvb-consulting.io/strategic-guide-architecture-philosophy)
-- [Strategic Guide: Operations](https://docs.jvb-consulting.io/strategic-guide-operations)
-- [Strategic Guide: Personas](https://docs.jvb-consulting.io/strategic-guide-personas)
-- [Strategic Guide: Risks](https://docs.jvb-consulting.io/strategic-guide-risks)
 - [Fast Starts index](https://docs.jvb-consulting.io/fast-starts)

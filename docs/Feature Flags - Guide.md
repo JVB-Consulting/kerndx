@@ -56,7 +56,7 @@ A flag that does not exist, or is not active, reads as off, so the existing beha
 | Turn a flag off in a test when my org ships it on                    | [Testing the Disabled Path](#testing-the-disabled-path)                       |
 | Understand why a flag returned the value it did                      | [Evaluation Order](#evaluation-order)                                         |
 | Find out why a flag is always `false`                                | [Common Pitfalls](#common-pitfalls)                                           |
-| See why KernDX is worth using                                        | [Why KernDX](/)                                                               |
+| See why KernDX is worth using                                        | [Why KernDX: the feature flags example](/#feature-flags)                      |
 
 ---
 

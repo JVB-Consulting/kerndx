@@ -52,7 +52,7 @@ values stay as they were. The saved message can list the names in a different or
 | Mask very large payloads within the CPU and memory limits       | [Performance](#performance)                                                  |
 | Understand the limits of masking                                | [What Masking Is Not](#what-masking-is-not)                                  |
 | See the masking story from a security angle                     | [Security - Guide](Security%20-%20Guide.md#data-masking)                     |
-| See why KernDX is worth using                                   | [Why KernDX](/)                                                              |
+| See why KernDX is worth using                                   | [Why KernDX: the data masking example](/#data-masking)                       |
 
 ---
 

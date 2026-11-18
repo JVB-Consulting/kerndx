@@ -224,13 +224,13 @@ Auto-generated API reference documentation for all Apex classes, custom objects,
 
 | Document                                                                                | Description                                                                                                                       |
 |-----------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
-| [Overview](Strategic%20Guide%20-%20Overview.md)                                         | Executive tear sheet, key findings, recommendations, navigation hub                                                               |
+| [Overview](Strategic%20Guide%20-%20Overview.md)                                         | One-page summary, key findings, recommendations, navigation hub                                                               |
 | [Architecture & Philosophy](Strategic%20Guide%20-%20Architecture%20%26%20Philosophy.md) | Design principles, capabilities, Well-Architected + Security Benchmark for Salesforce alignment                                   |
-| [Adoption](Strategic%20Guide%20-%20Adoption.md)                                         | Enterprise delivery, TCO model, decision matrices, build-vs-buy economics                                                         |
+| [Adoption](Strategic%20Guide%20-%20Adoption.md)                                         | Enterprise delivery, total cost of ownership (TCO) model, decision matrices, build-vs-buy economics                                                         |
 | [Choosing a Framework](Strategic%20Guide%20-%20Choosing%20a%20Framework.md)             | Capability-by-capability comparison against the established Apex frameworks, pick-by-capability guidance, head-to-head trade-offs |
-| [Operations](Strategic%20Guide%20-%20Operations.md)                                     | Day-2 ownership, packaging, exit strategy, observability                                                                          |
+| [Operations](Strategic%20Guide%20-%20Operations.md)                                     | Running it after go-live, packaging, exit strategy, seeing what your code did in production                                                                          |
 | [Risks](Strategic%20Guide%20-%20Risks.md)                                               | Risk register and mitigations for adoption decisions                                                                              |
-| [Personas](Strategic%20Guide%20-%20Personas.md)                                         | Stakeholder-specific decision views (CTO, architect, developer, PM, ISV)                                                          |
+| [Personas](Strategic%20Guide%20-%20Personas.md)                                         | Stakeholder-specific decision views (chief technology officer, architect, developer, product manager, package developer at an independent software vendor (ISV))                                                          |
 | [Glossary](Strategic%20Guide%20-%20Glossary.md)                                         | Term definitions with links to relevant sections                                                                                  |
 | [Metrics](Strategic%20Guide%20-%20Metrics.md)                                           | Canonical framework metrics: class counts, test coverage, metadata totals                                                        |
 
@@ -270,7 +270,7 @@ Auto-generated API reference documentation for all Apex classes, custom objects,
 | Build Lightning Web Components                         | [LWC - Guide](LWC%20-%20Guide.md)                                                           |
 | Use string, date, number, or collection utilities      | [Utilities - Guide](Utilities%20-%20Guide.md)                                               |
 | Evaluate KernDX vs fflib trade-offs                    | [Choosing a Framework](Strategic%20Guide%20-%20Choosing%20a%20Framework.md)                 |
-| Set up KernDX in a subscriber org                      | [Installation](Installation.md)                                                             |
+| Set up KernDX in your org                              | [Installation](Installation.md)                                                             |
 | Configure AI-assisted KernDX development               | [AI Agent Instructions](AI%20Agent%20Instructions.md)                                       |
 | Write browser-based E2E tests                          | [Fast Start - E2E Testing](Fast%20Start%20-%20E2E%20Testing.md)                             |
 | Enforce framework conventions in CI/CD                 | [Fast Start - Code Scanning](Fast%20Start%20-%20Code%20Scanning.md)                         |

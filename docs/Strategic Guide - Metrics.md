@@ -2,14 +2,14 @@
 navOrder: 34
 ---
 
-# Strategic Guide — Metrics
+# Strategic Guide - Metrics
 
 > This is the single source of truth for the numbers that describe KernDX: how much code it contains, how many tests run, how big the public API is, and how it compares on size and activity. Every other guide links here instead of repeating a figure, so there is only one place to keep current. If you are looking up a statistic to cite, this is the page. Update this file when the codebase changes.
 
 Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 
-**Last verified:** 2026-11-17 (counts recomputed from the source tree for the 1.12 release, including 80 Jest test files and 3,596 Jest test cases; package-version rows re-verified the same day against `sfdx-project.json` at 1.12.0-3)
-**Source:** Counts derive from the `force-app/` source tree and from `git log` at the snapshot date. Update this file when the codebase changes.
+**Last verified:** 2026-11-17 (counts recomputed from the source tree for the 1.12 release, including 80 Jest test files and 3,597 Jest test cases, each test declaration counted once; package-version rows re-verified the same day against `sfdx-project.json` at 1.12.0-3)
+**Source:** Counts derive from the `force-app/` source tree and from `git log` on the **Last verified** date above. Update this file when the codebase changes.
 
 ---
 
@@ -61,6 +61,8 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Apex character limit   | 10,000,000 |
 | Percent of limit used  |     12.10% |
 
+> The org measured here is the development org, which is a scratch org, and Salesforce gives scratch orgs a 10 MB limit ([Apex governor limits](https://developer.salesforce.com/docs/atlas.en-us.apexcode.meta/apexcode/apex_gov_limits.htm): "For scratch orgs, the limit is 10MB."). Against the standard 6 MB limit, the same code would use about 20%.
+>
 > You can see this figure yourself in Setup → System Overview. The count includes every Apex class and trigger defined in the org, excluding comments and test classes (those annotated `@IsTest`). Managed package code does not count towards this limit, which is why installing KernDX as a managed package leaves your org's own Apex headroom untouched.
 
 ## Global API Surface
@@ -97,7 +99,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | `AsynchronousJobSetting__mdt`    |       1 | `JobRunnerCheckLimit`, for the scheduled job runner; you add your own for other jobs                         |
 | `FieldSetGroup__mdt`             |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
 | `PostTriggerAction__mdt`         |       0 | Extensibility-only: no pre-built records, you add your own                                                  |
-| **Total pre-built CMDT records** |  **79** | excluding the two `Test*` fixture records                                                                    |
+| **Total pre-built custom metadata (CMDT) records** |  **79** | excluding the two `Test*` fixture records                                                                    |
 
 ### Code-Level (extend or implement)
 
@@ -132,7 +134,7 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 |------------------------|-----------------------------:|-------------------------------------------------------------------|
 | LWC components (total) |                           78 | `force-app/main/default/lwc/**/`                                  |
 | Jest test files        |                           80 | counted from `force-app/main/default/lwc/**/*.test.js`            |
-| Jest test cases        |                        3,597 | counted across all Jest test files                                |
+| Jest test cases        |                        3,597 | each test declaration counted once; a Jest run reports more, because it runs a table-driven test once per row |
 | Jest test coverage     | 95%+ statement / 95%+ branch | enforced at every release build by `scripts/evaluate-coverage.js` |
 
 ## Salesforce Metadata
@@ -175,6 +177,8 @@ Part of the [KernDX Strategic Guide](Strategic%20Guide%20-%20Overview.md).
 | Total scanner checks         |    40 |
 
 ## Release Testing
+
+These tests run in a separate org with the package installed the way you would install it (the rows call it the subscriber org: the org a package is installed into). The end-to-end (E2E) browser tests are counted under E2E Tests (Playwright) below.
 
 | Metric                                | Count |
 |---------------------------------------|------:|
@@ -237,11 +241,11 @@ The package's own Apex tests, run on a computer with no Salesforce org. The figu
 | Subscriber E2E (Playwright) |     132 cases |        ~342 |
 | **Total**                   |    **10,582** | **~13,937** |
 
-> The Tests column is recounted from source every release. The Assertions column carries forward from the 1.6 reconciliation and was not recounted this release, except the anonymous Apex row, which takes the `PASS:` count from the Subscriber Tests table above.
+> The Tests column is recounted from source every release. The Assertions column carries forward from the 1.6 reconciliation and was not recounted this release, except the anonymous Apex row, which takes the `PASS:` count from the Release Testing table above.
 
 ## Activity Snapshot
 
-These figures describe how well-supported and ready-to-install the package is, measured at the snapshot date (2026-11-17). They are kept separate from the capability counts on purpose: how long a project has been active should not be confused with how much it does, so neither number skews the other. Figures derive from `sfdx-project.json` `packageAliases`.
+These figures describe how well-supported and ready-to-install the package is, measured on 2026-11-17. They are kept separate from the capability counts on purpose: how long a project has been active should not be confused with how much it does, so neither number skews the other. Figures derive from `sfdx-project.json` `packageAliases`.
 
 | Metric                             |                Value | Source                                                                                  |
 |------------------------------------|---------------------:|-----------------------------------------------------------------------------------------|

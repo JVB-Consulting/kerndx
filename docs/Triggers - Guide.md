@@ -77,7 +77,7 @@ at it. The class is `global` so the framework can find it by name; a `public` cl
 | Move your own trigger handler class into trigger actions                | [Moving your own handler](#moving-your-own-trigger-handler-into-trigger-actions)                    |
 | Understand how the framework runs your actions                          | [How does it work?](#how-does-it-work)                                                              |
 | Understand the classes and records involved                             | [What are the moving parts?](#what-are-the-moving-parts)                                            |
-| See why KernDX is worth using                                           | [Why KernDX](/)                                                                                     |
+| See why KernDX is worth using                                           | [Why KernDX: the triggers example](/#triggers)                                                      |
 
 ---
 
@@ -817,10 +817,21 @@ flow action, use option 1 or option 2 above.
 
 ### Migrating from TAF to KernDX
 
-If you already run flows through the Trigger Action Flow (TAF) library, moving them to KernDX is low-effort: the flow
-does not change, and the migration is a metadata-only field rename on the `Trigger_Action__mdt` records. Both
-frameworks invoke a flow once per record and follow the same authoring contract: the auto-launched flow declares a
+If you run flows through the Trigger Actions Framework (TAF), the flows themselves move to KernDX unchanged. Both
+frameworks start a flow once per record and follow the same authoring contract: the auto-launched flow declares a
 `record` variable matching the trigger object.
+
+The work is in the metadata. Each TAF flow row on `Trigger_Action__mdt` becomes a new KernDX `TriggerAction__mdt`
+record, with its parent `TriggerSetting__mdt` record, its event and its run order. The object's one-line trigger file
+calls `TRG_Dispatcher` (`new kern.TRG_Dispatcher().run();`).
+
+Three things behave differently, so set them on each record:
+
+| What happens                          | In TAF                                                                                                                    | The KernDX setting that matches                                                                                                                                                                                         |
+|---------------------------------------|---------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| A flow fails                          | The save is blocked: the error is added to the record.                                                                    | `FailureAction__c = BlockDml` gives the same result. The default, `LogAndContinue`, logs the error and lets the save through.                                                                                          |
+| A record comes back through the trigger | On update, a flow action skips a record it has already seen in the same transaction, unless `Allow_Flow_Recursion__c` is set. | `AllowRecursion__c = false` is the nearest setting, not an identical one: KernDX skips the action only while an earlier run of it is still in progress, and runs it again for a later, separate save. The default is `true`. |
+| Where the row belongs                 | A `Trigger_Action__mdt` row, linked to an `sObject_Trigger_Setting__mdt` record through the field for its event, such as `Before_Update__c`. | A `TriggerAction__mdt` record with `TriggerSetting__c` (the parent `TriggerSetting__mdt` record), `Event__c` and `Order__c`.                                                                                            |
 
 ```xml
 <!-- BEFORE (TAF) -->
@@ -828,8 +839,12 @@ frameworks invoke a flow once per record and follow the same authoring contract:
 <values><field>Flow_Name__c</field><value xsi:type="xsd:string">Account_SetDefaults</value></values>
 
 <!-- AFTER (KernDX) -->
+<values><field>kern__TriggerSetting__c</field><value xsi:type="xsd:string">Account</value></values>
+<values><field>kern__Event__c</field><value xsi:type="xsd:string">Before Update</value></values>
+<values><field>kern__Order__c</field><value xsi:type="xsd:double">100.0</value></values>
 <values><field>kern__FlowName__c</field><value xsi:type="xsd:string">Account_SetDefaults</value></values>
-<values><field>kern__FailureAction__c</field><value xsi:type="xsd:string">LogAndContinue</value></values>
+<values><field>kern__FailureAction__c</field><value xsi:type="xsd:string">BlockDml</value></values>
+<values><field>kern__AllowRecursion__c</field><value xsi:type="xsd:boolean">false</value></values>
 ```
 
 Note that `kern__ApexClassName__c` is **omitted** from KernDX flow rows: the

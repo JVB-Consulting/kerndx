@@ -64,7 +64,7 @@ package which class to build when it reads JSON. Declare it `public override`.
 | Test a DTO                                                                 | [Testing](#testing)                                                                                  |
 | Fix a DTO error                                                            | [Troubleshooting](#troubleshooting)                                                                  |
 | Understand how DTOs work                                                   | [How does it work?](DTOs%20-%20Guide.md#how-does-it-work)                                            |
-| See why KernDX is worth using                                              | [Why KernDX](/)                                                                                      |
+| See why KernDX is worth using                                              | [Why KernDX: the DTOs example](/#dtos)                                                               |
 
 ---
 

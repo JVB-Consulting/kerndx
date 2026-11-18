@@ -2,7 +2,7 @@
 navOrder: 32
 ---
 
-# Strategic Guide — Operations
+# Strategic Guide - Operations
 
 > How an installed KernDX package behaves once it is live: how it ships and updates, how to leave it if you ever need to, who fixes a bug eighteen months from now,
 > and how it performs against Salesforce's runtime limits.
@@ -17,9 +17,14 @@ also: [Architecture & Philosophy](Strategic%20Guide%20-%20Architecture%20%26%20P
 
 ---
 
-This guide covers what life looks like after you install KernDX, a pre-built foundation layer for Salesforce orgs. It answers four practical questions: how the
-package is delivered and kept up to date, how you would unwind it if your org's direction changed, who fixes a deep bug long after handover, and what the framework costs you in
-Salesforce's runtime limits. Read it when you are weighing the long-term ownership and operating cost of adopting KernDX, not just its features. Architects and operations leads
+This guide covers what life looks like after you install KernDX, a pre-built foundation layer for Salesforce orgs. It answers four practical questions:
+
+- how the package is delivered and kept up to date;
+- how you would unwind it if your org's direction changed;
+- who fixes a deep bug long after handover;
+- what the framework costs you in Salesforce's runtime limits.
+
+Read it when you are weighing the long-term ownership and operating cost of adopting KernDX, not just its features. Architects and operations leads
 will get the most from it, but delivery managers and executives can read the support-model and exit sections for the business picture without touching code.
 
 ---
@@ -47,19 +52,22 @@ will get the most from it, but delivery managers and executives can read the sup
 ### Distribution Models
 
 How you get a framework into your org shapes how you live with it afterwards: how it updates, whether its code shows up in your scans, and whether it eats into your org's code
-limit. There are two broad models. You can pull source code from GitHub and deploy it yourself, the way most open-source Apex libraries (such as `fflib` or Apex Fluently) ship. Or
-you can install a managed package, which is the model KernDX uses. The table below compares the two so you can see the day-to-day consequences of each.
+limit.
 
-| Aspect                   | Source-Distributed (`fflib`, Apex Fluently)                                                                                                                                                                                                                                                                                                                                                                              | Managed Package (KernDX)                                                                                                                                                                                                                                                                                                                              |
+One model is to pull source code from GitHub and deploy it yourself, which is the only route for some Apex libraries, such as `fflib`. Another is to
+install a managed package, which is the model KernDX uses. Many libraries sit in between: most Apex Fluently libraries, `taf` and `nebula-logger` install as
+unlocked packages, and several can also be deployed as source. The table below compares the source route with KernDX's managed package so you can see the day-to-day consequences of each.
+
+| Topic                    | Deployed as source (for example `fflib`)                                                                                                                                                                                                                                                                                                                                                                                 | Managed Package (KernDX)                                                                                                                                                                                                                                                                                                                              |
 |--------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Distribution**         | Open-source, install from GitHub or source deploy                                                                                                                                                                                                                                                                                                                                                                        | Managed package (2GP): 1 install URL                                                                                                                                                                                                                                                                                                                 |
+| **Distribution**         | Deploy the source from GitHub yourself                                                                                                                                                                                                                                                                                                                                                                                   | Second-generation managed package (2GP): 1 install URL                                                                                                                                                                                                                                                                                                                |
 | **Namespace**            | None (or your org's namespace)                                                                                                                                                                                                                                                                                                                                                                                           | Package namespace (or client-specific if repackaged)                                                                                                                                                                                                                                                                                                  |
 | **Updates**              | Pull from GitHub per library; manage compatibility across 5-8 libraries                                                                                                                                                                                                                                                                                                                                                  | One package version, installed when you choose                                                                                                                                                                                                                                                                                                              |
 | **Customisation**        | Full source access, modify freely                                                                                                                                                                                                                                                                                                                                                                                        | `global` API only (unless deployed as unlocked)                                                                                                                                                                                                                                                                                                       |
 | **Isolation**            | No namespace isolation: the source lives directly in your org                                                                                                                                                                                                                                                                                                                                                                  | Namespace isolation prevents conflicts                                                                                                                                                                                                                                                                                                                |
-| **Org code limit**       | Counts against 6 MB Apex code limit                                                                                                                                                                                                                                                                                                                                                                                      | Exempt from 6 MB limit                                                                                                                                                                                                                                                                                                                                |
+| **Org code limit**       | Counts toward your org's 6 MB Apex limit                                                                                                                                                                                                                                                                                                                                                                                 | Exempt from 6 MB limit                                                                                                                                                                                                                                                                                                                                |
 | **Code quality in org**  | Library source becomes part of your own code analysis (PMD, ApexDoc)                                                                                                                                                                                                                                                                                                                                                 | Encapsulated: you never see the internal implementation                                                                                                                                                                                                                                                                                          |
-| **CI/CD test execution** | The library's tests become part of your test surface. Your day-to-day CI can be scoped to just the relevant tests, but the gates Salesforce enforces cannot: production deploys run every test in your namespace, and so do full-suite coverage checks. The result is that production deployments take materially longer, and you have less headroom against platform test-execution limits (for example, the 120-minute synchronous-test ceiling). | The package's tests run only during package version validation on the publisher's Dev Hub, so your CI/CD is unaffected at every gate. For KernDX specifically, the entire test suite (the [Apex test classes and their `@IsTest` methods](Strategic%20Guide%20-%20Metrics.md#package-codebase), plus the LWC Jest suite) stays inside the package boundary, gated at 100% per-file Apex and 95% statement and branch LWC. |
+| **CI/CD test execution** | The library's tests become part of your own test run. Your day-to-day CI can be scoped to just the relevant tests, but the gates Salesforce enforces cannot: production deploys run every test in your namespace, and so do full-suite coverage checks. The result is that production deployments take materially longer, and you have less headroom against platform test-execution limits (for example, the 120-minute synchronous-test ceiling). | The package's tests run only during package version validation on the publisher's Dev Hub, so your CI/CD is unaffected at every gate. For KernDX specifically, the entire test suite (the [Apex test classes and their `@IsTest` methods](Strategic%20Guide%20-%20Metrics.md#package-codebase), plus the Lightning Web Components (LWC) Jest suite) stays inside the package boundary, gated at 100% per-file Apex and 95% statement and branch LWC. |
 | **DevOps velocity**      | Deploy thousands of individual source files across multiple libraries                                                                                                                                                                                                                                                                                                                                                    | Promote a single version number through DevOps pipelines                                                                                                                                                                                                                                                                                              |
 | **AI context**           | 5-8 separate README files per library                                                                                                                                                                                                                                                                                                                                                                                    | 1 set of conventions (`AGENTS.md` + `docs/Code Conventions - Guide.md`) covering all modules                                                                                                                                                                                                                                                          |
 
@@ -159,13 +167,15 @@ across. The table below shows what you would need to migrate, roughly how much o
 | `MaskingRule__mdt` + `MaskingTarget__mdt`          | Data masking rules and field wirings (any SObject text field, whether standard, custom, or platform event) | 3 active rules + 14 default targets shipped (10 switched on); add one `MaskingTarget__mdt` per org-specific field or wildcard per org-specific object | Low per target |
 | `ValidationRule__mdt` + `ValidationRuleGroup__mdt` | In-Apex validation rules                                                                            | 10-50 records                                                                                                                       | Medium         |
 
-**Assessment.** *This is a directional estimate based on internal scenario modelling. It has not been benchmarked against a real-world exit.* How long the migration takes depends
+**Assessment.** *This is a rough estimate: our own estimate, not a measured case. It has not been benchmarked against a real-world exit.* How long the migration takes depends
 heavily on how you run it. Picture a team that has adopted KernDX deeply, across 20+ objects, with the full API, logging, and validation configuration in place.
 
-If that team uses modern AI coding tools (such as Claude Code, Cursor, or Agentforce Vibes) and points them at the framework-context bundle (`AGENTS.md`,
+If that team uses modern AI coding tools (such as Claude Code, Cursor, or Agentforce Vibes) and points them at the instruction files for AI coding tools (`AGENTS.md`,
 `docs/Code Conventions - Guide.md`, and [AI Agent Instructions](AI%20Agent%20Instructions.md), about 20K tokens, all available from the public repository and also delivered at
-handover for consulting-engagement orgs), most of the work runs inside the AI session. The scripted find/replace, the re-authoring of custom metadata, the deploy-and-iterate loops,
-and the automated release-testing checks all happen there, with human review and sign-off as the main thing that paces the work. The directional wall-clock on this path is
+handover for consulting-engagement orgs), most of the work runs inside the AI session.
+
+The scripted find/replace, the re-authoring of custom metadata, the deploy-and-iterate loops,
+and the automated release-testing checks all happen there, with human review and sign-off as the main thing that paces the work. The rough estimate of elapsed time on this path is
 **~1-2 days**.
 
 If that same team does the work entirely by hand, reading the documentation, re-authoring custom metadata manually, and working through deploy errors one at a time, they should
@@ -185,10 +195,10 @@ other. The table below breaks the question down by dimension so you can see exac
 |-------------------------------------|------------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | Can it be removed incrementally?    | Medium                                                                                         | Utilities (`UTIL_*`, `LOG_Builder`) can be replaced one at a time. The trigger framework (`TRG_*`) and web services (`API_*`) need a coordinated migration, because all the handlers for an object have to move together.                                                                                                                                                                                                                                                             |
 | Can services revert to native Apex? | Low complexity                                                                                 | KernDX patterns use standard Apex (selectors, builders, and small data-carrier classes that hold just the fields you move in and out). Reverting to native Apex requires removing framework method calls but not a change of approach.                                                                                                                                                                                                                                                                                                           |
-| Estimated refactor cost             | ~1-2 days agent-executed, or 1-2 weeks conventional (deeply adopted orgs); see disclaimer above | Moving the source code is mechanical work (scripted find/replace plus interface changes). The metadata migration (`TriggerAction__mdt`, `ApiSetting__mdt`, `FeatureFlag__mdt`) is what dominates the effort when a team does it by hand. With AI tooling pointed at the context bundle, that metadata transform drops to hours, and the time floor is then set by human review, sign-off, and UAT.                                                                 |
+| Estimated refactor cost             | ~1-2 days done by an AI coding tool, or 1-2 weeks by hand (deeply adopted orgs); see disclaimer above | Moving the source code is mechanical work (scripted find/replace plus interface changes). The metadata migration (`TriggerAction__mdt`, `ApiSetting__mdt`, `FeatureFlag__mdt`) is what dominates the effort when a team does it by hand. With AI coding tools pointed at the instruction files, that metadata transform drops to hours, and the time floor is then set by human review, sign-off, and user acceptance testing (UAT).                                                               |
 | Structural dependency created       | Variable                                                                                       | **High** for triggers (`TRG_Dispatcher` + `TriggerAction__mdt` + `TriggerSetting__mdt`) and web services (`API_Outbound` + `ApiCall__c` + `ApiSetting__mdt`). **Low** for utilities (`UTIL_String`, `UTIL_Cache`) and test builders (`TST_Builder`).                                                                                                                                                                                                                 |
 | Data dependency                     | Low to Medium                                                                                  | `LogEntry__c` records, `ApiCall__c` queue items, and `FeatureFlag__mdt` records are framework-specific. Historical data would need archival or migration.                                                                                                                                                                                                                                                                                                            |
-| **Overall removal complexity**      | **Medium**                                                                                     | The utility and query layers exit cleanly. The trigger and web service layers need a coordinated migration because of their metadata dependencies. Exit is feasible. For a team using modern AI coding tools pointed at the framework's context bundle, it is directionally absorbable inside a single sprint (~1-2 days wall-clock, a directional estimate per the disclaimer above). A team without those tools still faces the 1-2 week by-hand effort. |
+| **Overall removal complexity**      | **Medium**                                                                                     | The utility and query layers exit cleanly. The trigger and web service layers need a coordinated migration because of their metadata dependencies. Exit is feasible. For a team using modern AI coding tools pointed at the framework's instruction files, it fits in one sprint (~1-2 days elapsed time, a rough estimate per the disclaimer above). A team without those tools still faces the 1-2 week by-hand effort. |
 
 See [Migration Checklists](#migration-checklists) below for step-by-step recipes (KernDX → modular stack, fflib → KernDX, no-framework → KernDX).
 
@@ -221,6 +231,7 @@ Decision: MIGRATE (break-even < 4 quarters)
 
 Adjust the hours-per-class figure to match how deeply you use `fflib`. If you only use its selectors, budget roughly 4 hours per class; if you use the full Domain-Driven Design
 stack (Domain plus Service plus Unit of Work, where you register related records and save them together so they all commit or all roll back), budget roughly 16 hours per class.
+
 Every multiplier in the worked example above (8 hours per class to refactor, $150/hr developer cost, 20 hours saved per new hire, ~$20K in reduced annual maintenance) is a
 placeholder. Replace each one with your own team's historical figures before you treat the break-even result as a real input to a decision.
 
@@ -266,32 +277,47 @@ injection: KernDX does not ship an Application-layer equivalent.
 #### Migrating from KernDX to a Modular Stack
 
 If KernDX stops being the right fit, you can replace it one module at a time rather than all at once. The table below pairs each KernDX module with the specialist library you would
-swap it for, and is honest about effort: some swaps are low-effort because a close equivalent exists, while a few modules have no direct replacement and are flagged as High. Where a
-specialist library goes deeper on its one area than KernDX does, the table says so.
+swap it for, and is honest about effort: some swaps are low-effort because a close equivalent exists, while a few modules have no direct replacement and are flagged as High. Where
+another library has something KernDX does not, the table says so.
 
-<details><summary>Module-by-module swap table (replacement library, effort, and where a specialist goes deeper)</summary>
+<details><summary>Module-by-module swap table (replacement library, effort, and where another library has something KernDX does not)</summary>
 
 | KernDX Component                                   | Modular Replacement                                                                                                 |                                                                                                                                                                                            Migration Effort |
 |----------------------------------------------------|---------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-| `TRG_Dispatcher` + `TRG_Base`                      | [`taf`](https://github.com/mitchspano/trigger-actions-framework) (Apache 2.0; declarative trigger framework)   |    Medium (metadata rename plus an interface change). Both react to record-change events (Change Data Capture) and run follow-up work after the transaction commits (finalizers). KernDX additionally records an audit entry every time a trigger is switched off, which `taf` does not do on its programmatic surface. |
-| `QRY_Builder` + `SEL_Base`                         | [`apex-fluently-soql`](https://github.com/beyond-the-cloud-dev/soql-lib) (query-builder family)                     |                                                                                                                                  Medium (some API differences). Like KernDX, `apex-fluently-soql` defaults to reads that respect the current user's permissions and sharing (user-mode). |
-| `LOG_Builder`                                      | [`nebula-logger`](https://github.com/jongpie/NebulaLogger) (selectable save method, seven levels, retention engine, Big Object archiving)        |                                                                                                                                Low (similar platform-event pattern). `nebula-logger` goes further here on retention overrides and Big Object archiving; both ship a screen for browsing past log entries, where KernDX's Log Console adds grouped recurring problems and a per-operation drilldown. |
+| `TRG_Dispatcher` + `TRG_Base`                      | [`taf`](https://github.com/mitchspano/trigger-actions-framework) (Apache 2.0; declarative trigger framework)   |    Medium (metadata rename plus an interface change). Both react to record-change events (Change Data Capture) and run follow-up work after the transaction commits (finalizers). KernDX additionally records an audit entry each time code switches a trigger off, which `taf` does not do through its bypass methods. |
+| `QRY_Builder` + `SEL_Base`                         | [`apex-fluently-soql`](https://github.com/beyond-the-cloud-dev/soql-lib) (query builder)                           |                                                                                                                                  Medium (some API differences). Both run reads with the user's permissions and sharing by default (`USER_MODE`). Only KernDX records it when a call opts out, with the user and the reason; `apex-fluently-soql`'s opt-out is a per-call method that leaves no record, and it has no org-wide off-switch. |
+| `LOG_Builder`                                      | [`nebula-logger`](https://github.com/jongpie/NebulaLogger) (the choice of how each log is saved, seven log levels, a retention date per log entry or scenario, and archiving to a Big Object) | Low (similar platform-event pattern). `nebula-logger` goes further here on all four of those; both ship a screen for browsing past log entries, where KernDX's Log Console adds grouped recurring problems and a per-operation drilldown. |
 | `DML_Builder`                                      | [`apex-fluently-dml`](https://github.com/beyond-the-cloud-dev/dml-lib) (DML wrapper)                                |                                                                                                                                                                                           Low (similar API) |
-| `UTIL_HttpClient`                                  | Custom or [`apex-libra`](https://github.com/pkozuchowski/Apex-Opensource-Library) `HttpClient`                      |                                                                                                                                                    Medium (`apex-libra` is independent of Beyond The Cloud) |
-| `TST_Builder` + `TST_Mock`                         | ApexTestKit, [`apex-fluently-test`](https://github.com/beyond-the-cloud-dev/test-lib) (Beta), or custom             |                                                                                                                           Medium. Note that `apex-fluently-test` carries Beta status, whereas ApexTestKit ships a stable API. |
+| `UTIL_HttpClient`                                  | Custom or [`apex-libra`](https://github.com/pkozuchowski/Apex-Opensource-Library) `Callout` (a basic callout class) |                                                                                                                                                    Medium (`apex-libra` is independent of Beyond The Cloud) |
+| `TST_Builder` + `TST_Mock`                         | [`apex-fluently-test`](https://github.com/beyond-the-cloud-dev/test-lib) (Beta), or custom                          |                                                                                                                           Medium. Note that the `apex-fluently-test` author labels it beta. ApexTestKit, a test-data library, is not part of our comparison. |
 | `TST_Factory`                                      | Custom (no direct replacement)                                                                                      |                                                                                                                                    High (the metadata-factory pattern is specific to KernDX's integrated stack) |
 | `UTIL_FeatureFlag`                                 | [`rflib`](https://github.com/j-fischer/rflib) Feature Switches (hierarchical Global → Profile → Group → User scope) |                                                                                                                                                                                                         Low |
-| `API_Outbound` + `API_Inbound` + `API_MockFactory` | Custom implementation                                                                                               |                                                                                                    High. None of the libraries we compared ships an equivalent that combines inbound REST, idempotency (a repeated identical request returns the first result instead of re-running), and an outbound circuit breaker (after repeated failures it stops calling a failing service for a cool-off, then resumes). `revenant` ships a circuit breaker, duplicate-run protection and a place for failed work to wait for inspection, built around the steps of its own workflows: it has no HTTP client and no inbound REST surface, so it does not replace this module. |
-| `UTIL_AsyncChain` + `ApiStep` + Chain Monitor      | [`apex-chainable`](https://github.com/rsoesemann/apex-chainable) + custom monitoring UI, or [`revenant`](https://github.com/madmax983/revenant) (source-only durable workflow engine) | High. `apex-chainable` ships the chain primitive, but it is less locked down: it looks up and runs your Apex classes by name (`Type.forName(...).newInstance()`) from an auto-launched flow triggered by a platform event, with no approved-class list or signature check. It is also only the chain itself, so you rebuild the operations layer around it: the per-run key that stops a duplicate or superseded job overwriting the live run, an opt-in refusal of a duplicate start while a run is already in flight, opt-in per-step retry with a widening delay, a final log entry however a chain ends, a recorded reason on a failed run, the admin-scheduled job that recovers chains it can prove died, and the permission-gated operator stop. `revenant` is the only other library we compared that covers every aspect of this area, and its basic step-to-step chaining is as complete as KernDX's, so it is the closest single alternative, but it is a different bargain: a source deploy rather than a package install, test coverage checked against one org-wide floor in its own build rather than held for every file, and a heavier long-running-workflow shape built around steps that pause and resume. |
+| `API_Outbound` + `API_Inbound` + `API_MockFactory` | Custom implementation                                                                                               |                                                                                                    High. None of the libraries we compared ships an equivalent that combines inbound REST, idempotency (a repeated identical request returns the first result instead of re-running), and an outbound circuit breaker (after repeated failures it stops calling a failing service for a cool-off, then resumes). `revenant` ships a circuit breaker, duplicate-run protection and a place for failed work to wait for inspection, built around the steps of its own workflows: it has no HTTP client and no inbound REST support, so it does not replace this module. |
+| `UTIL_AsyncChain` + `ApiStep` + Chain Monitor      | [`apex-chainable`](https://github.com/rsoesemann/apex-chainable) + custom monitoring UI, or [`revenant`](https://github.com/madmax983/revenant) (source-only durable workflow engine) | High. Neither replaces this module like for like: `apex-chainable` ships only the chain itself, and `revenant` is a different bargain. Details for both are under the table. |
 | `MaskingRule__mdt` + `MaskingTarget__mdt`          | Custom (no direct replacement)                                                                                      |          High. [`mask-sobject`](https://github.com/tprouvot/mask-sobject) covers SObject masking but has security findings. `nebula-logger` masks log entries before they are emitted, but not arbitrary SObject DML. |
+
+The async operations row (`UTIL_AsyncChain` + `ApiStep` + Chain Monitor), in detail:
+
+- **`apex-chainable`** ships the chain itself, but it is less locked down: it looks up and runs your Apex classes by name (`Type.forName(...).newInstance()`) from an auto-launched flow triggered by a platform event, with no approved-class list or signature check.
+- **What you rebuild around `apex-chainable`:** because it is only the chain itself, you rebuild the operations layer around it:
+  - the per-run key that stops a duplicate or superseded job overwriting the live run;
+  - an opt-in refusal of a duplicate start while a run is already in flight;
+  - opt-in per-step retry with a widening delay;
+  - a final log entry however a chain ends, and a recorded reason on a failed run;
+  - the admin-scheduled job that recovers chains it can prove died, and the permission-gated operator stop.
+- **`revenant`** is the only other library we compared that does everything in this list, and its basic step-to-step chaining is as complete as KernDX's, so it is the closest single alternative. But it is a different bargain: a source deploy rather than a package install, test coverage checked against one org-wide floor in its own build rather than held for every file, and a heavier long-running-workflow shape built around steps that pause and resume.
 
 </details>
 
-**Key insight:** Two modules have no direct replacement among the libraries we compared, so plan for them carefully if exit is on your mind. They are the web-services framework
-(`API_Outbound`, `API_Inbound`, `API_MockFactory`) and the data-masking framework (`MaskingRule__mdt`). A third, the async operations module (`UTIL_AsyncChain` plus the Chain Monitor
-LWC suite, and with them the recovery, retry, duplicate-start and operator-stop machinery around a chain), has exactly one candidate: `revenant` covers every aspect of that area and
-no other library we compared does. It is still a High-effort move rather than a like-for-like swap, for the reasons in the row above. The other modules are easier to leave: the
-trigger, query, logging, DML, and feature-flag modules all have well-supported alternatives.
+**Key insight:** how hard each module is to leave.
+
+- **No direct replacement.** Two modules have no direct replacement among the libraries we compared, so plan for them carefully if exit is on your mind. They are the web-services framework
+  (`API_Outbound`, `API_Inbound`, `API_MockFactory`) and the data-masking framework (`MaskingRule__mdt`).
+- **Exactly one candidate.** A third, the async operations module (`UTIL_AsyncChain` plus the Chain Monitor
+  LWC suite, and with them the recovery, retry, duplicate-start and operator-stop machinery around a chain), has exactly one candidate: `revenant` does everything in the list under the table, and
+  no other library we compared does. It is still a High-effort move rather than a like-for-like swap, for the reasons under the table above.
+- **Easier to leave.** The
+  trigger, query, logging, DML, and feature-flag modules all have well-supported alternatives.
 
 ---
 
@@ -299,47 +325,69 @@ trigger, query, logging, DML, and feature-flag modules all have well-supported a
 
 The KernDX source is open source under the Apache License 2.0. Whether you self-install from the public repository or receive the source directly through a consulting
 engagement, you can fork it and maintain it yourself. The honest question to ask before adopting is this: when a deep infrastructure bug surfaces eighteen months from now, what does
-the support conversation actually look like? There are three engagement tiers, and you should choose one (and record the choice as an Architecture Decision Record) before you sign a
-consulting agreement, or, if you self-installed, before your first P1 production incident fires.
+the support conversation actually look like? There are three support options, and you should choose one (and record the choice as an Architecture Decision Record) before you sign a
+consulting agreement, or, if you self-installed, before your first top-priority production incident (P1) fires.
 
-**Tier 1: Self-Maintenance (default, no cost).** *How feasible self-maintenance is comes from internal scenario modelling; it has not been benchmarked against a real external
+**Option 1: Self-Maintenance (default, no cost).** *How feasible self-maintenance is comes from our own estimate, not a measured case; it has not been benchmarked against a real external
 take-over.* Here, your own team fixes framework bugs in place, using the materials in the public repository (and also delivered at handover for consulting-engagement orgs). Those
-materials are the full source under the Apache License 2.0, 21 guides, 17 Fast Starts, [API reference pages](Strategic%20Guide%20-%20Metrics.md#documentation), 100% per-file Apex test coverage that acts as a safety net against
-regressions, and an AI-context bundle (`AGENTS.md`, `docs/Code Conventions - Guide.md`, and the AI Agent Instructions reference, about 20K tokens in total) that documents the
-conventions, patterns, and design rationale. Once those context files are loaded, a developer new to the framework can diagnose a deep infrastructure bug using an AI coding tool
-such as Claude Code, Cursor, Cline, or Agentforce Vibes. Two things make this realistic: every module lives behind a single name prefix (`TRG_*`, `QRY_*`, `DML_*`, `LOG_*`,
+materials are:
+
+- the full source under the Apache License 2.0;
+- 21 guides, 17 Fast Starts, and [API reference pages](Strategic%20Guide%20-%20Metrics.md#documentation);
+- 100% per-file Apex test coverage that acts as a safety net against regressions;
+- the instruction files for AI coding tools (`AGENTS.md`, `docs/Code Conventions - Guide.md`, and the AI Agent Instructions reference, about 20K tokens in total), which document the
+  conventions, patterns, and design rationale.
+
+Once those context files are loaded, a developer new to the framework can diagnose a deep infrastructure bug using an AI coding tool
+such as Claude Code, Cursor, Cline, or Agentforce Vibes.
+
+Two things make this realistic: every module lives behind a single name prefix (`TRG_*`, `QRY_*`, `DML_*`, `LOG_*`,
 `UTIL_*`, `API_*`, `SEL_*`), and every module is tested at 100%. So most deep bugs can be traced to one class and fixed without rewriting the surrounding code.
 
-**Tier 2: Reach-Back Engagement (time & materials).** When you would rather have the original author handle a bug than spend your own team's time on it, you can retain the KernDX
+**Option 2: Reach-Back Engagement (time & materials).** When you would rather have the original author handle a bug than spend your own team's time on it, you can retain the KernDX
 consultancy on a time-and-materials basis to diagnose, patch, and test it. The patch is delivered as source against your managed-package fork or source-deployed variant, and you
-keep ownership of the fix. This tier needs no minimum retainer and implies no service-level agreement: it is genuinely on-demand.
+keep ownership of the fix. This option needs no minimum retainer and implies no service-level agreement: it is genuinely on-demand.
 
-**Tier 3: Advisory Retainer (optional, quarterly).** If you want proactive health checks, upgrade guidance, and roadmap alignment, a quarterly advisory retainer covers framework
+**Option 3: Advisory Retainer (optional, quarterly).** If you want proactive health checks, upgrade guidance, and roadmap alignment, a quarterly advisory retainer covers framework
 review, scanner-rule updates, and architecture consultations done ahead of need. This is **not** a break-fix service-level agreement. It is a longer-running knowledge-transfer
 relationship, meant to keep your team oriented as the framework evolves.
 
 **Emergency path for P1 production incidents.** When the worst happens, you can stop a misbehaving framework module without deploying any code. Every `TriggerAction__mdt` and
 `TriggerSetting__mdt` record has a `BypassExecution__c` field, and any code path behind a feature flag can be switched off through `FeatureFlag__mdt`. So for a P1 incident that
-starts inside a framework module, the first response is metadata-only: disable the handler, switch off the path with its feature flag, or deactivate a masking rule. A background job
+starts inside a framework module, the first response is metadata-only: disable the handler, switch off the path with its feature flag, or deactivate a masking rule.
+
+A background job
 chain that has run away has its own no-deploy stop: an operator can end a running chain from the Chain Monitor screen, and it stops cleanly at the next step boundary rather than
-part-way through a step. Set that one up before you need it, because nobody can use it out of the box: the stop sits behind a permission set that ships assigned to nobody, and
-whoever you assign it to also needs a permission set that can read the chain records, such as Kern Async Chain Monitor Read Only. The deeper diagnostic work then
+part-way through a step.
+
+Set that one up before you need it, because nobody can use it out of the box: the stop sits behind a permission set that ships assigned to nobody, and
+whoever you assign it to also needs a permission set that can read the chain records, such as Kern Async Chain Monitor Read Only.
+
+The deeper diagnostic work then
 happens after the bleeding has stopped, not while the incident is still live.
 
-**Day-2 governance consoles.** Running a framework is more than fixing bugs; it is the recurring ownership work of staying audit-ready and watching what production is actually
-doing. KernDX ships admin consoles for exactly that. The **Data Masking Advisor** checks how well your own custom objects are covered by masking and exports a regulated-field
-inventory (as CSV or JSON) plus a ready-to-deploy masking-config bundle. Run it before an audit and feed the export into your
-[Security Governance Evidence](Security%20-%20Guide.md#security-governance-evidence). The **Streaming Event Monitor** and **Chain Monitor** show you platform-event, Change Data
-Capture, and async-chain traffic with usage metrics for day-2 observability, so you can see what your code did in production rather than guess. The Chain Monitor does more than watch
-traffic: it flags chains whose work looks like it has stalled, and shows the recorded reason on a run that failed. Behind it, every chain that ends, however it ends, writes a final
-log entry. The monitor also carries the operator stop described above, once you have granted the permission for it.
+**Consoles for running it after go-live.** Running a framework is more than fixing bugs; it is the recurring ownership work of staying audit-ready and watching what production is actually
+doing. KernDX ships admin consoles for exactly that.
 
-The Health Check reports on KernDX configuration health: cache, masking posture, scheduled jobs, and two checks covering async-chain operations. One tells you whether the operator
-stop is ready to use. The other tells you whether the recovery job is scheduled, which is the job that checks whether a stalled chain's work is genuinely still running and
-recovers the ones it can prove died, leaving anything it cannot prove dead untouched and flagging it for a person instead. It runs a stalled step again only
-when that is safe, and otherwise ends the chain as failed so nothing is done twice. That job runs only once an admin schedules it, and the
-Health Check offers a one-click remedy to do exactly that. One thing worth knowing before you rely on it: a restarted run picks up under the framework's default settings rather than
-the settings its original builder chose.
+- The **Data Masking Advisor** checks how well your own custom objects are covered by masking and exports a regulated-field
+inventory (as CSV or JSON) plus a ready-to-deploy masking-config bundle. Run it before an audit and feed the export into your
+  [Security Governance Evidence](Security%20-%20Guide.md#security-governance-evidence).
+- The **Streaming Event Monitor** and **Chain Monitor** show you platform-event, Change Data
+  Capture, and async-chain traffic with usage metrics, so you can see what your code did in production rather than guess.
+- The **Chain Monitor** does more than watch
+  traffic: it flags chains whose work looks like it has stalled, and shows the recorded reason on a run that failed. Behind it, every chain that ends, however it ends, writes a final
+  log entry. The monitor also carries the operator stop described above, once you have granted the permission for it.
+
+The Health Check reports on KernDX configuration health: cache, masking coverage, scheduled jobs, and two checks covering async-chain operations.
+
+- **Operator stop.** One tells you whether the operator
+  stop is ready to use.
+- **Recovery job.** The other tells you whether the recovery job is scheduled. That job checks whether a stalled chain's work is genuinely still running and
+  recovers the ones it can prove died, leaving anything it cannot prove dead untouched and flagging it for a person instead. It runs a stalled step again only
+  when that is safe, and otherwise ends the chain as failed so nothing is done twice.
+- **Scheduling it.** That job runs only once an admin schedules it, and the
+  Health Check offers a one-click remedy to do exactly that. One thing worth knowing before you rely on it: a restarted run picks up under the framework's default settings rather than
+  the settings its original builder chose.
 
 **Deep infrastructure bugs: practical notes.**
 
@@ -352,7 +400,7 @@ the settings its original builder chose.
 - If you run the managed package, you receive a patched version (the author cuts a new 2GP version). If you deployed the source, you cherry-pick the specific patch commit from
   the fork. Either path is supported.
 
-Record your chosen support tier as an Architecture Decision Record when you adopt the framework. Deciding this in advance is far cheaper than deciding it at 02:00 on a Sunday.
+Record your chosen support option as an Architecture Decision Record when you adopt the framework. Deciding this in advance is far cheaper than deciding it at 02:00 on a Sunday.
 
 ---
 
@@ -364,33 +412,41 @@ A common worry is that a framework adds overhead and eats into Salesforce's stri
 
 ### Managed Package Reality
 
-**Deployment Footprint: "All-or-Nothing" Is Not What It Sounds Like:**
+**Deployment footprint: do the classes you do not use cost you anything?**
 
-A common concern is that installing KernDX deploys [every production class in the framework](Strategic%20Guide%20-%20Metrics.md#package-codebase) even if all you need is triggers. If KernDX shipped as source code you deploy yourself, that would
-indeed be wasteful. As a managed package it is not, because managed packages behave differently. The table below shows why the classes you do not use cost you nothing.
+The managed package installs [every production class in the framework](Strategic%20Guide%20-%20Metrics.md#package-codebase), even if all you use is triggers. Installed as a managed package,
+the classes you do not use cost you nothing, because managed packages behave differently from source. (If you install KernDX unmanaged instead, as plain source, its code counts toward your
+org's 6 MB Apex limit like any other source.) The table below shows the differences.
 
-| Concern                  | Managed Package (KernDX)                                                                                                                                                                                       | Source-Distributed (modular)                              |
+| Concern                  | Managed Package (KernDX)                                                                                                                                                                                       | Libraries deployed as source                              |
 |--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|-----------------------------------------------------------|
-| **Org code size limit**  | Exempt: does not count against the 6 MB Apex limit                                                                                                                                                                | Counts against the 6 MB limit                                 |
+| **Org code size limit**  | Exempt: does not count against the 6 MB Apex limit                                                                                                                                                                | Counts toward your org's 6 MB Apex limit                      |
 | **PMD / quality scans**  | Encapsulated: classes you don't use are invisible to your own scans and reports                                                                                                                                        | All source is visible in your quality tooling          |
 | **Test coverage**        | Self-contained: the [Apex test classes and their `@IsTest` methods](Strategic%20Guide%20-%20Metrics.md#package-codebase) plus the LWC Jest suite run on their own, gated at 100% per-file Apex and 95% statement and branch LWC, and they do not affect your coverage metrics | Library coverage mixes with your coverage           |
 | **Governor limits**      | Classes you don't use consume zero CPU, SOQL, DML, or heap: code that is never called is inert                                                                                                                          | Same: unused library code is inert                       |
-| **Learning requirement** | Use only what you need: `TRG_Dispatcher` works without you knowing `API_Outbound` exists                                                                                                                          | Same: install `taf` without knowing `apex-fluently-soql` |
+| **Learning requirement** | Use only what you need: `TRG_Dispatcher` works without you knowing `API_Outbound` exists                                                                                                                          | Same: use one library without knowing the others         |
 
 **What this means:** If all you need is triggers, installing KernDX and using just `TRG_Dispatcher` and `TRG_Base` works much like installing `taf`. The other classes simply sit
-inert. The real costs of installing the full package are the namespace prefix on your references and one larger upgrade cycle, not the size of the deployed code.
+inert. The real cost of installing the full package is the namespace prefix on your references, not the size of the deployed code. Upgrades come as one package version, one
+upgrade path that you test across the features you use.
 
-**Security & Compliance Posture:**
+**Security & Compliance:**
 
 - **Internal code scanning:** Every push to the public repository runs Code Analyzer's AppExchange rules and the ESLint rules. Before each release, the KernDX PMD rules
   run against the package source. See the [scanner checks](Strategic%20Guide%20-%20Metrics.md#code-quality--scanning), and the
   [Code Scanning Guide](Code%20Scanning%20-%20Guide.md) for the ruleset contents.
-- **Security posture and code quality:** Internal code-quality scans show 0 real-issue findings under the standard ruleset, and every security-category suppression carries a
-  documented compensating-control rationale. On security posture: reads and writes both enforce the running user's permissions by default (FLS = field-level security, CRUD =
-  object create/read/update/delete permissions); the data masking framework is on by default, with a single master off-switch you can flip in an incident; session encryption is
-  shipped; every bypass made through the builders, every trigger bypass and every validation-rule bypass writes a structured audit event, and so do the three lower-level save methods; and the repository ships a top-level `SECURITY.md` reporting channel. One nuance
-  remains: per-SObject masking is opt-in for custom objects, and the Data Masking Advisor surfaces the custom objects that need it. This is a matter of discoverability, not a gap
-  in runtime enforcement.
+- **Code quality:** Internal code-quality scans show 0 real-issue findings under the standard ruleset, and every security-category suppression carries a
+  documented compensating-control rationale.
+- **Security defaults:**
+  - Reads and writes both enforce the running user's permissions by default (FLS = field-level security, CRUD =
+    object create/read/update/delete permissions).
+  - The data masking framework is on by default, with a single master off-switch you can flip in an incident.
+  - Session encryption is shipped.
+  - Each opt-out made through the builders, triggers and validation rules writes a structured audit event, and so do the three lower-level save methods.
+  - The repository ships a top-level `SECURITY.md` reporting channel.
+  - One nuance
+    remains: per-SObject masking is opt-in for custom objects, and the Data Masking Advisor surfaces the custom objects that need it. This is a matter of discoverability, not a gap
+    in runtime enforcement.
 - **Licence:** Apache License 2.0, an open-source licence approved by the Open Source Initiative (OSI). There are no third-party dependencies beyond the Salesforce platform itself.
 - **Production usage:** Deployed on internal delivery engagements, and in active use at one known external client engagement. There are no named external production deployments yet.
   KernDX is NOT AppExchange-listed and has NOT been through AppExchange security review (see the note below).
@@ -487,10 +543,12 @@ watch for, component by component.
 
 | Framework Component | Limit Consideration                                                                                                       |
 |---------------------|---------------------------------------------------------------------------------------------------------------------------|
-| `QRY_Builder`       | Values are sent as bind variables (beside the query text, never inside it) or escaped (quote marks made harmless). The condition, sort and group methods accept only a field name where they expect one. So a value, or a field name passed to those methods, cannot change the query. Field names you select are not checked: pass them as tokens or constants. The one exception is a read that skips record sharing with `bypassSharing()` but keeps the user's checks (no `withSystemMode()`): there, anything in the select list that is not a field name or a path such as `Account.Name` is refused. `.withCache()` reduces query count. |
+| `QRY_Builder`       | `.withCache()` reduces query count. Values are sent as bind variables (beside the query text, never inside it) or escaped (quote marks made harmless). The condition, sort and group methods accept only a field name where they expect one. So a value, or a field name passed to those methods, cannot change the query. How the field names you select are handled is under the table. |
 | `LOG_Builder`       | Publishing `LogEntryEvent__e` draws on the hourly platform-event publishing allocation (250K/hour on Enterprise, Performance and Unlimited Editions; 50K/hour on Developer). The Apex-trigger persistence path does not consume the separate 24-hour delivery allocation; that allocation (50K/24hr on Performance and Unlimited, 25K on Enterprise, 10K on Developer, shared with record-change events / Change Data Capture) applies only to streaming subscribers, including KernDX's monitor components while they are open (see "Platform Event Allocations" in the Platform Events Developer Guide). Buffering reduces consumption. |
 | `API_Outbound`      | Callout limits (100/transaction, 120s timeout). Circuit breaker prevents wasted callouts to failing services.             |
 | `TRG_Dispatcher`    | One metadata query per transaction. Handlers share governor limits with trigger context.                                  |
+
+**Field names you select with `QRY_Builder`** are not checked: pass them as tokens or constants. The one exception is a read that skips record sharing with `bypassSharing()` but keeps the user's checks (no `withSystemMode()`): there, anything in the select list that is not a field name or a path such as `Account.Name` is refused.
 
 ### Testing Philosophy Comparison
 
@@ -498,7 +556,7 @@ There are two schools of thought on how to test Salesforce code, and `fflib` and
 from the database. KernDX defaults to integration tests that run against the real platform, which are slower but catch a wider class of problems. Neither is simply better; they
 trade speed for realism. The table compares them so you can pick the right mix for your team.
 
-| Aspect                   | `fflib`                      | KernDX                                                    |
+| Topic                    | `fflib`                      | KernDX                                                    |
 |--------------------------|------------------------------|-----------------------------------------------------------|
 | **Default Approach**     | Unit isolation (mocking)     | Platform integration (real database)                      |
 | **Query Mocking**        | Via dependency injection     | Built-in (`QRY_Builder.setMock()`, `TST_Mock.register()`) |

@@ -62,7 +62,7 @@ otherwise write and test yourself.
 | Manage feature flags                                                | [Feature Flag Management](#feature-flag-management-util_featureflag)              |
 | Run my own Apex from OmniScript, or log and send email from a Flow  | [Omnistudio Integration](#omnistudio-integration-svc_omnistudio), [Invocable Methods for Flows](#invocable-methods-for-flows) |
 | Verify my org is configured after installing                        | [Health Check](#health-check)                                                     |
-| See why KernDX is worth using | [Why KernDX](/) |
+| See why KernDX is worth using | [Why KernDX: the cache example](/#cache) |
 
 ---
 

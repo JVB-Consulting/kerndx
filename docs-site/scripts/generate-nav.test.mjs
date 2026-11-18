@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { readonly } from 'vue'
 import {
   groupForPage, generateSidebar, generateSidebars, generateSidebarAreas, expandSidebarAreas, sidebarForPath,
-  areaForPage, referenceLinksFor, withExpandedSidebar, TOP_MENU, FROZEN_TOP_MENU
+  areaForPage, referenceLinksFor, withExpandedSidebar, TOP_MENU, FROZEN_TOP_MENU, topMenuFor, activeMatchFor
 } from './generate-nav.mjs'
 import { buildSitePlan } from './prepare.mjs'
 import { parseFrontmatter } from './frontmatter.mjs'
@@ -219,12 +219,12 @@ test('strategic guides are in why', () => {
   assert.equal(areaForPage(page('Strategic Guide - Overview.md', 'strategic-guide-overview')), 'why')
   assert.equal(areaForPage(page('Strategic Guide - Risks.md', 'strategic-guide-risks')), 'why')
   const why = sidebarOf(generateSidebars(SITE), 'Strategic Guide - Risks.md')
-  assert.deepEqual(linksIn(why), ['/strategic-guide-overview', '/strategic-guide-risks'])
+  assert.deepEqual(linksIn(why), ['/strategic-guide-overview', '/strategic-guide-risks', '/'])
 })
 
 test('the home page shows the Why KernDX menu', () => {
   const sidebars = generateSidebars(SITE)
-  assert.deepEqual(linksIn(sidebarForPath(sidebars, '/index.md')), ['/strategic-guide-overview', '/strategic-guide-risks'])
+  assert.deepEqual(linksIn(sidebarForPath(sidebars, '/index.md')), ['/strategic-guide-overview', '/strategic-guide-risks', '/'])
 })
 
 test('release notes are in reference', () => {
@@ -323,6 +323,64 @@ test('frozen trees keep the four-item top menu; the latest menu has five', () =>
   assert.deepEqual(TOP_MENU.map(i => i.text), ['Why KernDX', 'Get Started', 'Fast Starts', 'Guides', 'Reference'])
   assert.deepEqual(FROZEN_TOP_MENU.map(i => i.text), ['Why KernDX', 'Get Started', 'Fast Starts', 'Reference'])
   assert.equal(TOP_MENU.find(i => i.text === 'Guides').link, '/triggers-guide')
+})
+
+// ── The top menu is lit on every page of its area ────────────────────────────
+
+// The tabs VitePress lights on a path, the way its isActive() does: the path tested against each
+// tab's activeMatch, or else its link.
+const litTabsAt = (nav, current) =>
+  nav.filter(tab => tab.activeMatch ? new RegExp(tab.activeMatch).test(current) : tab.link === current).map(tab => tab.text)
+// The tabs lit on a page: its source path with a final "index.md" or ".md" dropped.
+const litTabs = (nav, p) => litTabsAt(nav, routeOf(p).replace(/(?:(^|\/)index)?\.md$/, '$1'))
+const TAB_FOR_AREA = { why: 'Why KernDX', 'get-started': 'Get Started', 'fast-starts': 'Fast Starts', guides: 'Guides', reference: 'Reference' }
+
+test('the Why KernDX tab opens the Strategic Overview, the first page of its menu', () => {
+  const why = TOP_MENU.find(i => i.text === 'Why KernDX')
+  assert.equal(why.link, '/strategic-guide-overview')
+  assert.equal(FROZEN_TOP_MENU.find(i => i.text === 'Why KernDX').link, '/strategic-guide-overview')
+  const menu = sidebarOf(generateSidebars(SITE), 'Strategic Guide - Overview.md')
+  assert.equal(linksIn(menu)[0], why.link)
+})
+
+test('the Why KernDX menu ends with a link to the front page', () => {
+  const items = sidebarOf(generateSidebars(SITE), 'Strategic Guide - Risks.md')[0].items
+  assert.deepEqual(items.at(-1), { text: 'Front page', link: '/' })
+})
+
+test('every page lights only the tab of its own area', () => {
+  const nav = topMenuFor(generateSidebarAreas(SITE))
+  assert.deepEqual(nav.map(({ text, link }) => ({ text, link })), TOP_MENU)
+  for (const p of SITE) {
+    assert.deepEqual(litTabs(nav, p), [TAB_FOR_AREA[areaForPage(p)]], p.relPath)
+  }
+})
+
+test('no tab is lit on the front page or on a page that does not exist', () => {
+  const areas = generateSidebarAreas(SITE)
+  const nav = topMenuFor(areas)
+  assert.deepEqual(litTabs(nav, page('index.md', '')), [], 'Expected no tab lit on the front page')
+  assert.deepEqual(litTabsAt(nav, '/'), [], 'Expected no tab lit on /')
+  assert.deepEqual(litTabsAt(nav, '/no-such-page'), [], 'Expected no tab lit on the not-found page')
+  // The front page still shows the Why KernDX menu's routing, though its tab is not lit.
+  const sidebars = expandSidebarAreas(areas)
+  assert.equal(sidebarForPath(sidebars, '/index.md'), sidebarForPath(sidebars, '/strategic-guide-risks.md'))
+})
+
+test('the Glossary lights Get Started, and the catch-all Guides tab lights no other area', () => {
+  const nav = topMenuFor(generateSidebarAreas(SITE))
+  assert.deepEqual(litTabs(nav, SITE.find(p => p.relPath === 'Strategic Guide - Glossary.md')), ['Get Started'])
+  // Resilience starts like the release notes, which are in Reference, and README starts like them too.
+  assert.deepEqual(litTabs(nav, SITE.find(p => p.relPath === 'Resilience - Guide.md')), ['Guides'])
+  assert.deepEqual(litTabs(nav, SITE.find(p => p.relPath === 'README.md')), ['Get Started'])
+  assert.deepEqual(litTabs(nav, SITE.find(p => p.relPath === 'reference/apex/QRY_Builder.md')), ['Reference'])
+})
+
+test('an area with no sidebar key gets no activeMatch, and a frozen menu has none', () => {
+  const nav = topMenuFor({ menus: {}, paths: { '/strategic-guide-': 'why', '/': 'guides' } })
+  assert.equal(nav.find(tab => tab.text === 'Reference').activeMatch, undefined)
+  assert.equal(activeMatchFor({ menus: {}, paths: { '/': 'guides' } }, 'reference'), undefined)
+  assert.ok(FROZEN_TOP_MENU.every(tab => tab.activeMatch === undefined))
 })
 
 // ── Reference for this page ──────────────────────────────────────────────────

@@ -90,9 +90,35 @@ test('llms.txt has the required shape: H1, summary blockquote, sections', () =>
 		'## Start here',
 		'## Core capabilities',
 		'## Conventions & reference',
+		'## Evaluating KernDX',
 		'## Optional'
 	])
 	{
 		assert.ok(LLMS.includes(`\n${heading}\n`), `missing section: ${heading}`);
+	}
+});
+
+// The text of one "## " section, from its heading to the next one.
+function sectionOf(heading)
+{
+	const start = LLMS.indexOf(`\n${heading}\n`);
+	const next = LLMS.indexOf('\n## ', start + 1);
+	return start === -1 ? '' : LLMS.slice(start, next === -1 ? undefined : next);
+}
+
+// The llms.txt convention lets an agent skip the "Optional" section. An agent asked whether to adopt KernDX, what the
+// risks are, or how it compares needs the strategic guides, so they have a section of their own above it. The Glossary
+// and the Metrics are linked under "Conventions & reference".
+test('the strategic guides have their own section above Optional', () =>
+{
+	assert.ok(LLMS.indexOf('\n## Evaluating KernDX\n') < LLMS.indexOf('\n## Optional\n'), 'Expected "Evaluating KernDX" before "Optional"');
+	const evaluating = sectionOf('## Evaluating KernDX');
+	const optional = sectionOf('## Optional');
+	const guides = [...validSlugs].filter(slug => /^strategic-guide-/.test(slug) && !['strategic-guide-glossary', 'strategic-guide-metrics'].includes(slug));
+	assert.ok(guides.length > 0, 'Expected strategic guide pages to check');
+	for(const slug of guides)
+	{
+		assert.ok(evaluating.includes(`https://docs.jvb-consulting.io/${slug})`), `Expected /${slug} under "Evaluating KernDX"`);
+		assert.ok(!optional.includes(`https://docs.jvb-consulting.io/${slug})`), `Expected /${slug} not under "Optional"`);
 	}
 });

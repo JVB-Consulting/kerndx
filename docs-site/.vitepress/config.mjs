@@ -37,7 +37,7 @@ function mermaidConfigPlugin(userConfig = {})
 import generatedSidebar from './sidebar.generated.mjs';
 import generatedVersions from './versions.generated.mjs';
 import {removedVersionRedirectScript} from '../scripts/version-routing.mjs';
-import {TOP_MENU, FROZEN_TOP_MENU} from '../scripts/generate-nav.mjs';
+import {FROZEN_TOP_MENU, topMenuFor} from '../scripts/generate-nav.mjs';
 import {repoUrl} from '../scripts/repo.mjs';
 import {seoHeadEntries} from '../scripts/seo-head.mjs';
 import githubLight from 'shiki/themes/github-light.mjs';
@@ -192,10 +192,15 @@ export default defineConfig({
 	],
 	themeConfig: {
 		// F-shape top nav — most-important-first. "Why KernDX" leads (the evaluator's
-		// first question), then the daily-driver paths, then lookup. Each tab lands on the
-		// first page of its area, and each area has its own sidebar (scripts/generate-nav.mjs).
-		// A frozen tree keeps its older four-item menu, without Guides.
-		nav: FROZEN ? FROZEN_TOP_MENU : TOP_MENU,
+		// first question), then the daily-driver paths, then lookup. Each tab opens the first
+		// page of its area, and each area has its own sidebar (scripts/generate-nav.mjs). Why
+		// KernDX opens the Strategic Overview; the site title links to the front page. Each tab
+		// stays lit on every page of its area, using the same sidebar keys that pick the menu.
+		// A frozen tree keeps its older four-item menu, without Guides, and one flat sidebar, so
+		// its tabs light only on the page each one opens. After build:versions the generated
+		// sidebar is the last frozen tree's flat list, and `vitepress preview` still loads this
+		// file to serve the built pages, so a flat list gives the menu with no area patterns.
+		nav: FROZEN ? FROZEN_TOP_MENU : topMenuFor(Array.isArray(generatedSidebar) ? {menus: {}, paths: {}} : generatedSidebar),
 		search: {
 			// What goes into the search index, and how results rank, lives in
 			// scripts/search-render.mjs. Every page is indexed without its code (except a
