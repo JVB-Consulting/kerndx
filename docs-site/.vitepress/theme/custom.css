@@ -181,10 +181,17 @@
 	font-size      : 0.6rem;
 	font-weight    : 700;
 	letter-spacing : 0.05em;
-	color          : var(--vp-c-brand-1);
+	/* The darker brand colour in light mode: brand-1 on the soft background measures 4.47:1, just
+	   under the 4.5:1 that small text needs. */
+	color          : var(--vp-c-brand-2);
 	background     : var(--vp-c-brand-soft);
 	border-radius  : 4px;
 	padding        : 0.1rem 0.35rem;
+}
+
+.dark .version-switcher__badge
+{
+	color : var(--vp-c-brand-1);
 }
 
 .version-switcher__menu
@@ -482,22 +489,58 @@
 	   signature in the first column. Give it the entire card width with the label
 	   stacked above, so the signature wraps as readable code instead of being squeezed
 	   into the ~60% value gutter. Detail tables (Parameter/Exception, all inside
-	   .apex-member) keep the compact label-left layout above. */
+	   .apex-member) keep the compact label-left layout above. The "Worked example"
+	   cell of the "Methods by task" table stacks its label the same way: in the
+	   narrow gutter the label wraps to two lines and runs past the bottom of the card. */
 	.reference .vp-doc td[data-label='Method'],
 	.reference .vp-doc td[data-label='Property'],
-	.reference .vp-doc td[data-label='Value']
+	.reference .vp-doc td[data-label='Value'],
+	.reference .vp-doc td[data-label='Worked example']
 	{
 		padding-left : 0;
 	}
 
 	.reference .vp-doc td[data-label='Method']::before,
 	.reference .vp-doc td[data-label='Property']::before,
-	.reference .vp-doc td[data-label='Value']::before
+	.reference .vp-doc td[data-label='Value']::before,
+	.reference .vp-doc td[data-label='Worked example']::before
 	{
 		position      : static;
 		display       : block;
 		width         : auto;
 		margin-bottom : 0.15rem;
+	}
+
+	/* The job table on Fast Starts: the job is the card's heading, so it takes the whole width
+	   and drops its "I need to" label. Each link below it starts with its column name on the
+	   same line ("Try it in minutes: Fast Start: Selectors"). The narrow label column above
+	   would wrap these longer names onto a second line, over the next row. */
+	.vp-doc td[data-label='I need to'],
+	.vp-doc td:is([data-label='Try it in minutes'], [data-label='Learn it properly'], [data-label='Look up a method'])
+	{
+		padding-left : 0;
+	}
+
+	.vp-doc td[data-label='I need to']
+	{
+		padding-bottom : 0.6rem;
+	}
+
+	.vp-doc td[data-label='I need to']::before
+	{
+		content : none;
+	}
+
+	.vp-doc td:is([data-label='Try it in minutes'], [data-label='Learn it properly'], [data-label='Look up a method'])::before
+	{
+		content        : attr(data-label) ': ';
+		position       : static;
+		width          : auto;
+		font-size      : inherit;
+		font-weight    : 600;
+		letter-spacing : normal;
+		text-transform : none;
+		color          : var(--vp-c-text-2);
 	}
 }
 

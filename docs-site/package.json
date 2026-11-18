@@ -12,14 +12,17 @@
     "preview": "vitepress preview --port 4173",
     "test:unit": "node --test \"scripts/!(render-smoke).test.mjs\"",
     "test:render": "node scripts/render-smoke.test.mjs",
+    "test:search": "node scripts/search-test.mjs",
     "test:audit": "node scripts/site-audit.mjs",
     "test:artifact": "node scripts/artifact-audit.mjs",
-    "test:sweep": "node scripts/full-corpus-sweep.mjs"
+    "test:sweep": "node scripts/full-corpus-sweep.mjs",
+    "check:rewrite": "node scripts/rewrite-check.mjs"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
     "axe-core": "4.14.0",
     "mermaid": "11.17.2",
+    "minisearch": "^7.1.1",
     "vitepress": "1.6.4",
     "vitepress-plugin-mermaid": "2.0.17"
   }

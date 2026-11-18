@@ -20,10 +20,101 @@
 // (absent page → home, absent anchor → page top) so the shared landing never points an older
 // version at content it never had. Wrap every internal landing link with the resolve helper
 // (see the install and fast-start links in the template below).
+//
+// Two layouts. The current front page (home.md) fills the #features slot: a jump list of every
+// feature ("What you get on day one"), then one "The same task" section of examples in groups
+// (FeatureGroup.vue, the first open), then the job table, renamed "Pick your path". The front pages
+// of the frozen versions (docs-versions/<X.Y>/home.md) fill #examples and #examplesMore instead, and
+// keep their older layout: the day-one links to the Fast Starts, the job table, then the examples
+// with a "Show 5 more examples" fold. Both render with this one component, because a frozen version
+// is built with the latest theme.
 import {withBase} from 'vitepress';
+import {onBeforeUnmount, onMounted, ref, useSlots} from 'vue';
 import landing from '../../landing.generated.mjs';
+import {openClosedGroupsAround, scrollToElement, showHashTarget} from '../movedAnchors.mjs';
 
 const resolve = (href) => withBase(landing.links?.[href] ?? href);
+
+const hasFeatures = Boolean(useSlots().features);
+
+// How long a block the reader jumped to keeps its outline, so the eye finds it.
+const JUMP_OUTLINE_MS = 1400;
+
+const examplesSection = ref(null);
+const allOpen = ref(false);
+
+// The groups of examples in the "The same task" section.
+const groups = () => examplesSection.value?.querySelectorAll('details.kl-group') ?? [];
+
+// "Expand all" reads "Collapse all" once every group is open.
+function updateExpandAll()
+{
+	const list = [...groups()];
+	allOpen.value = list.length > 0 && list.every(group => group.open);
+}
+
+// Opens every group, or closes every group when all are open.
+function toggleAllGroups()
+{
+	const open = !allOpen.value;
+	groups().forEach(group =>
+	{
+		group.open = open;
+	});
+	updateExpandAll();
+}
+
+// Takes the reader to an example: opens its group, scrolls to it and outlines it for a moment. The
+// address takes the example's #id in place of the current entry, as a jump inside the page.
+function jumpTo(hash)
+{
+	const element = document.getElementById(decodeURIComponent(hash.slice(1)));
+	if(!element)
+	{
+		return;
+	}
+	window.history.replaceState(window.history.state, '', hash);
+	openClosedGroupsAround(element);
+	window.requestAnimationFrame(() =>
+	{
+		scrollToElement(element);
+		element.classList.add('kl-jumped');
+		window.setTimeout(() => element.classList.remove('kl-jumped'), JUMP_OUTLINE_MS);
+	});
+}
+
+// The jump list's links and each group's "Back to all features" link. Their containers carry the
+// vp-raw class, so VitePress leaves these clicks to this handler: the address is replaced, not added
+// to the history. The back link sits at the top of an open group's body, outside its heading; the
+// click still stops here so it never reaches the group's own toggle.
+function onExamplesClick(event)
+{
+	const link = event.target instanceof Element ? event.target.closest('a.kl-index-link, a.kl-back') : null;
+	if(!link || event.button !== 0 || event.ctrlKey || event.shiftKey || event.altKey || event.metaKey)
+	{
+		return;
+	}
+	event.preventDefault();
+	event.stopPropagation();
+	jumpTo(link.getAttribute('href'));
+}
+
+// A link from another page, an old guide address sent here, or the Back and Forward buttons can
+// name an example inside a closed group. Open the group, then show the example.
+const onHashChange = () => showHashTarget(window.location.hash);
+
+onMounted(() =>
+{
+	if(!hasFeatures)
+	{
+		return;
+	}
+	updateExpandAll();
+	showHashTarget(window.location.hash);
+	window.addEventListener('hashchange', onHashChange);
+});
+
+onBeforeUnmount(() => window.removeEventListener('hashchange', onHashChange));
 </script>
 
 <template>
@@ -85,14 +176,79 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 				<h2 class="kl-eyebrow" id="why-it-exists">Why it exists</h2>
 				<p class="kl-headline">An accelerator you own, not a product you rent.</p>
 				<div class="kl-origin" data-spec-id="origin-story">
-					<p>Most enterprise Salesforce orgs spend three to five years rebuilding the same foundations: selectors, trigger handling, logging, web services, async, masking, and field-level security (FLS) enforcement. They take on tech debt at every layer. KernDX is the integrated package those teams would have built with the budget and design discipline upfront: one library of frameworks for Apex and Lightning Web Components (LWC), plus the onboarding docs, continuous-integration (CI) tooling, and enforced defaults (permissions on by default, audit-logged bypasses, a coverage gate run on every release) that keep those guarantees true after a dozen contributors. The aim is to skip the rebuild cycle, not pay to rent your way around it.</p>
+					<p>Most enterprise Salesforce orgs spend three to five years rebuilding the same foundations: selectors, trigger handling, logging, web services, async, masking, and field-level security (FLS) enforcement. They take on tech debt at every layer. The aim of KernDX is to skip the rebuild cycle, not pay to rent your way around it.</p>
+					<p>KernDX is the integrated package those teams would have built with the budget and design discipline upfront: one library of frameworks for Apex and Lightning Web Components (LWC), plus the onboarding docs, continuous-integration (CI) tooling, and enforced defaults (permissions on by default, audit-logged bypasses, a coverage gate run on every release) that keep those guarantees true after a dozen contributors.</p>
 					<p data-spec-id="origin-ownership">And the architecture stays yours. The source is public under the Apache License 2.0, so you can read it, fork it, deploy it unmanaged, or repackage it under your own namespace. No black box and no lock-in: if you ever move off the managed package, the framework stays in your org as your code, not a vendor's.</p>
 				</div>
 			</div>
 		</section>
 
-			<!-- What you get on day one — the whole stack in one install -->
-			<section class="kl-section">
+			<!-- What you get on day one: one line per feature, grouped as the examples are. Each line
+			     opens its example below, in its group. -->
+			<section v-if="hasFeatures" id="jump-to-a-feature" class="kl-section" @click="onExamplesClick">
+				<div class="kl-wrap">
+					<h2 class="kl-eyebrow" id="whats-in-the-box">What you get on day one</h2>
+					<p class="kl-headline">One install. The whole stack.</p>
+					<p class="kl-lead">Each name opens its example below: the plain Salesforce way on the left, the KernDX way on the right. The guide for each feature is linked from its example.</p>
+					<div class="kl-index vp-raw" data-spec-id="day-one">
+						<div><h3>Read and save data</h3>
+							<ul>
+								<li><a class="kl-index-link" href="#selectors">Selectors</a> <span>every read in user mode, paged past 2,000 rows</span></li>
+								<li><a class="kl-index-link" href="#saving-records">Saving records</a> <span>related records in one all-or-nothing save</span></li>
+								<li><a class="kl-index-link" href="#dtos">DTOs</a> <span>JSON in and out through typed classes</span></li>
+								<li><a class="kl-index-link" href="#security">Encryption and sharing</a> <span>one call to encrypt, sharing chosen per read</span></li>
+								<li><a class="kl-index-link" href="#data-masking">Data masking</a> <span>card numbers and keys removed from logs</span></li>
+							</ul>
+						</div>
+						<div><h3>Automate</h3>
+							<ul>
+								<li><a class="kl-index-link" href="#triggers">Triggers</a> <span>one trigger per object, actions set in metadata</span></li>
+								<li><a class="kl-index-link" href="#validation">Validation rules</a> <span>log a rule's failures before it blocks saves</span></li>
+								<li><a class="kl-index-link" href="#async-chains">Background chains</a> <span>steps that recover from a crash</span></li>
+								<li><a class="kl-index-link" href="#scheduled-jobs">Scheduled jobs</a> <span>timed and tuned from a record</span></li>
+								<li><a class="kl-index-link" href="#flow-actions">Flow actions</a> <span>callouts, flags and logs, ready to drag in</span></li>
+								<li><a class="kl-index-link" href="#feature-flags">Feature flags</a> <span>switch code on for a pilot group, no deployment</span></li>
+							</ul>
+						</div>
+						<div><h3>Integrate</h3>
+							<ul>
+								<li><a class="kl-index-link" href="#outbound-calls">Outbound services</a> <span>one service class every caller and Flow shares</span></li>
+								<li><a class="kl-index-link" href="#resilient-callouts">Resilient callouts</a> <span>retry, breaker and a test mock on a single call</span></li>
+								<li><a class="kl-index-link" href="#inbound-apis">Inbound APIs</a> <span>a replayed request answered with HTTP 409</span></li>
+								<li><a class="kl-index-link" href="#logging">Logging</a> <span>errors that survive a rollback</span></li>
+							</ul>
+						</div>
+						<div><h3>Build, test and run</h3>
+							<ul>
+								<li><a class="kl-index-link" href="#lwc">Lightning web components</a> <span>toasts and navigation in one call</span></li>
+								<li><a class="kl-index-link" href="#test-data">Test data and mocks</a> <span>200 records in one line, or none at all</span></li>
+								<li><a class="kl-index-link" href="#code-scanning">Code scanning</a> <span>PMD and ESLint rules that know KernDX</span></li>
+								<li><a class="kl-index-link" href="#cache">Platform Cache</a> <span>a cache that never breaks the call</span></li>
+								<li><a class="kl-index-link" href="#consoles">Admin consoles</a> <span>find what failed, from a screen</span></li>
+								<li><a class="kl-index-link" href="#ai-assisted-development">AI coding standards</a> <span>rules your AI assistant reads</span></li>
+							</ul>
+						</div>
+					</div>
+					<div class="kl-optin" data-spec-id="opt-in">
+						<p><strong>Take only what you need.</strong> Every layer is opt-in: you can install KernDX for logging and the Log Console alone, and leave every existing trigger, query and class as it is.</p>
+						<p>Two parts lean on others. The code-scanning rules expect the other layers: they flag inline SOQL, hand-written DML, <code>System.debug</code>, raw <code>Http</code> calls and plain <code>Schedulable</code> classes, but they only report until you set a severity threshold. A Flow callout action needs one outbound service class to call.</p>
+					</div>
+				</div>
+			</section>
+
+			<!-- The same task, with and without KernDX: every example, in four groups (from home.md) -->
+			<section v-if="hasFeatures" id="the-same-task" ref="examplesSection" class="kl-section" @click="onExamplesClick" @toggle.capture="updateExpandAll">
+				<div class="kl-wrap">
+					<h2 class="kl-eyebrow" id="the-same-task-heading">The same task, with and without KernDX</h2>
+					<p class="kl-headline">You write the line you expect. You get the depth you didn't.</p>
+					<p class="kl-lead">Plain Salesforce on the left, KernDX on the right. The KernDX samples use the managed package's <code>kern.</code> prefix, and every read in them goes through a selector.</p>
+					<div class="kl-group-tools vp-raw"><button id="kl-expand-all" type="button" :aria-expanded="String(allOpen)" @click.stop="toggleAllGroups">{{ allOpen ? 'Collapse all' : 'Expand all' }}</button></div>
+					<slot name="features" />
+				</div>
+			</section>
+
+			<!-- What you get on day one — the whole stack in one install (the frozen versions' layout) -->
+			<section v-if="!hasFeatures" class="kl-section">
 				<div class="kl-wrap">
 					<h2 class="kl-eyebrow" id="whats-in-the-box">What you get on day one</h2>
 					<p class="kl-headline">One install. The whole stack.</p>
@@ -116,8 +272,37 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 				</div>
 			</section>
 
-		<!-- The same task, with and without KernDX (examples come from home.md as ```apex fences) -->
-		<section class="kl-section">
+		<!-- The job table: one row per job, with the page to try it, learn it and look up a method. On the
+		     current front page it comes after the examples, as "Pick your path". -->
+		<section :id="hasFeatures ? 'pick-your-path' : undefined" class="kl-section">
+			<div class="kl-wrap">
+				<h2 class="kl-eyebrow" id="what-do-you-need-to-do">{{ hasFeatures ? 'Pick your path' : 'What do you need to do?' }}</h2>
+				<p class="kl-lead" data-spec-id="jobs-new">New to KernDX? <a :href="resolve('/from-plain-apex-to-kerndx')">From Plain Apex to KernDX</a> shows the Apex you already write next to the KernDX version. Deciding whether to use it? Start with <a :href="resolve('/strategic-guide-overview')">Why KernDX</a>.</p>
+				<div class="kl-jobs" data-spec-id="job-table">
+					<table role="table">
+						<thead role="rowgroup">
+							<tr role="row"><th scope="col" role="columnheader">I need to</th><th scope="col" role="columnheader">Try it in minutes</th><th scope="col" role="columnheader">Learn it properly</th><th scope="col" role="columnheader">Look up a method</th></tr>
+						</thead>
+						<tbody role="rowgroup">
+							<tr role="row"><th scope="row" role="rowheader">Query records<span>SOQL, selectors, counts and totals</span></th><td role="cell" data-label="Try it in minutes"><a :href="resolve('/fast-start-selectors')">Fast Start: Selectors</a></td><td role="cell" data-label="Learn it properly"><a :href="resolve('/selectors-guide')">Selectors guide</a></td><td role="cell" data-label="Look up a method"><a :href="resolve('/reference/apex/qry-builder')">QRY_Builder</a></td></tr>
+							<tr role="row"><th scope="row" role="rowheader">Save records<span>Insert, update, upsert, delete, unit of work</span></th><td role="cell" data-label="Try it in minutes"><a :href="resolve('/fast-start-dml')">Fast Start: DML</a></td><td role="cell" data-label="Learn it properly"><a :href="resolve('/dml-guide')">DML guide</a></td><td role="cell" data-label="Look up a method"><a :href="resolve('/reference/apex/dml-builder')">DML_Builder</a></td></tr>
+							<tr role="row"><th scope="row" role="rowheader">Run code on a trigger<span>Logic before and after a save</span></th><td role="cell" data-label="Try it in minutes"><a :href="resolve('/fast-start-trigger-actions')">Fast Start: Trigger Actions</a></td><td role="cell" data-label="Learn it properly"><a :href="resolve('/triggers-guide')">Triggers guide</a></td><td role="cell" data-label="Look up a method"><a :href="resolve('/reference/apex/trg-base')">TRG_Base</a></td></tr>
+							<tr role="row"><th scope="row" role="rowheader">Log what happened<span>Instead of System.debug</span></th><td role="cell" data-label="Try it in minutes"><a :href="resolve('/fast-start-logging')">Fast Start: Logging</a></td><td role="cell" data-label="Learn it properly"><a :href="resolve('/logging-guide')">Logging guide</a></td><td role="cell" data-label="Look up a method"><a :href="resolve('/reference/apex/log-builder')">LOG_Builder</a></td></tr>
+							<tr role="row"><th scope="row" role="rowheader">Run work in the background<span>Queueable jobs in steps</span></th><td role="cell" data-label="Try it in minutes"><a :href="resolve('/fast-start-async-processing')">Fast Start: Async Processing</a></td><td role="cell" data-label="Learn it properly"><a :href="resolve('/async-processing-guide')">Async Processing guide</a></td><td role="cell" data-label="Look up a method"><a :href="resolve('/reference/apex/util-asyncchain')">UTIL_AsyncChain</a></td></tr>
+							<tr role="row"><th scope="row" role="rowheader">Call another system<span>HTTP callouts and retries</span></th><td role="cell" data-label="Try it in minutes"><a :href="resolve('/fast-start-outbound-apis')">Fast Start: Outbound APIs</a></td><td role="cell" data-label="Learn it properly"><a :href="resolve('/web-services-guide')">Web Services guide</a></td><td role="cell" data-label="Look up a method"><a :href="resolve('/reference/apex/util-httpclient')">UTIL_HttpClient</a>, <a :href="resolve('/reference/apex/api-outbound')">API_Outbound</a></td></tr>
+							<tr role="row"><th scope="row" role="rowheader">Run a scheduled job<span>Schedulable and the job runner</span></th><td role="cell" data-label="Try it in minutes"><a :href="resolve('/fast-start-scheduled-jobs')">Fast Start: Scheduled Jobs</a></td><td role="cell" data-label="Learn it properly"><a :href="resolve('/async-processing-guide#scheduler-framework')">Async Processing guide</a></td><td role="cell" data-label="Look up a method"><a :href="resolve('/reference/apex/sched-base')">SCHED_Base</a></td></tr>
+							<tr role="row"><th scope="row" role="rowheader">Validate records<span>Rules that stop bad data</span></th><td role="cell" data-label="Try it in minutes"><a :href="resolve('/fast-start-custom-validations')">Fast Start: Custom Validations</a></td><td role="cell" data-label="Learn it properly"><a :href="resolve('/validation-guide')">Validation guide</a></td><td role="cell" data-label="Look up a method"><a :href="resolve('/reference/apex/util-validationrule')">UTIL_ValidationRule</a></td></tr>
+							<tr role="row"><th scope="row" role="rowheader">Control who can see records<span>Sharing, field security and user mode</span></th><td role="cell" data-label="Try it in minutes"><a :href="resolve('/fast-start-security')">Fast Start: Security</a></td><td role="cell" data-label="Learn it properly"><a :href="resolve('/security-guide')">Security guide</a></td><td role="cell" data-label="Look up a method"><a :href="resolve('/reference/apex/qry-builder-builder')">QRY_Builder.Builder</a>, <a :href="resolve('/reference/apex/util-sharing')">UTIL_Sharing</a></td></tr>
+							<tr role="row"><th scope="row" role="rowheader">Test my code<span>Test data and pretend query results</span></th><td role="cell" data-label="Try it in minutes"><a :href="resolve('/fast-start-test-data')">Fast Start: Test Data</a></td><td role="cell" data-label="Learn it properly"><a :href="resolve('/test-data-guide')">Test Data guide</a></td><td role="cell" data-label="Look up a method"><a :href="resolve('/reference/apex/tst-builder')">TST_Builder</a>, <a :href="resolve('/reference/apex/tst-mock')">TST_Mock</a></td></tr>
+						</tbody>
+					</table>
+				</div>
+			</div>
+		</section>
+
+		<!-- The same task, with and without KernDX (the frozen versions' layout: examples come from home.md
+		     as ```apex fences, the last five behind a fold) -->
+		<section v-if="!hasFeatures" class="kl-section">
 			<div class="kl-wrap">
 				<h2 class="kl-eyebrow" id="the-same-task">The same task, with and without KernDX</h2>
 				<p class="kl-headline">You write the line you expect. You get the depth you didn't.</p>
@@ -130,8 +315,9 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 			</div>
 		</section>
 
-		<!-- Built for AI-assisted development (surfaced early — it's the differentiator) -->
-		<section class="kl-section">
+		<!-- Built for AI-assisted development (surfaced early — it's the differentiator). The jump list's
+		     "AI coding standards" line lands here. -->
+		<section id="ai-assisted-development" class="kl-section">
 			<div class="kl-wrap">
 				<h2 class="kl-eyebrow" id="built-for-ai">Built for AI-assisted development</h2>
 				<p class="kl-headline">Your AI assistant gets the standards before it writes.</p>
@@ -370,11 +556,57 @@ const resolve = (href) => withBase(landing.links?.[href] ?? href);
 html:not(.dark) .kl-kernid,
 html:not(.dark) .kl-core-parts span{ color: var(--vp-c-brand-2); }
 
+/* The job table. Wide screens get four columns. On a phone (640px and narrower, below) each row
+   becomes a card: the job is the heading and each link starts with its column name, so nothing
+   sits off screen. The role attributes in the markup keep it a table for screen readers, because
+   some browsers stop treating a table as a table once its parts are display: block. */
+.kl-jobs{ overflow-x: auto; }
+.kl-jobs table{ border-collapse: collapse; width: 100%; font-size: .92rem; }
+.kl-jobs th, .kl-jobs td{ text-align: left; vertical-align: top; padding: .6rem .8rem; border-bottom: 1px solid var(--vp-c-divider); }
+.kl-jobs thead th{ font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--vp-c-text-2); }
+.kl-jobs tbody th span{ display: block; font-weight: 400; color: var(--vp-c-text-2); font-size: .85rem; }
+.kl-jobs a{ color: var(--vp-c-brand-1); }
+@media (max-width: 640px){
+	.kl-jobs{ overflow-x: visible; }
+	.kl-jobs table, .kl-jobs tbody, .kl-jobs tr, .kl-jobs th, .kl-jobs td{ display: block; }
+	.kl-jobs thead{ position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+	.kl-jobs tbody tr{ border: 1px solid var(--vp-c-divider); border-radius: 10px; background: var(--vp-c-bg-soft); padding: .75rem .9rem; margin: 0 0 .75rem; }
+	.kl-jobs tbody th, .kl-jobs td{ border-bottom: 0; padding: .2rem 0; }
+	.kl-jobs tbody th{ font-size: 1rem; padding-bottom: .45rem; }
+	.kl-jobs td::before{ content: attr(data-label) ": "; font-weight: 600; color: var(--vp-c-text-2); }
+}
+
 /* "What you get on day one" — capability chips */
 .kl-stack{ display: flex; flex-wrap: wrap; gap: 10px; }
 .kl-stack a{ display: inline-flex; align-items: center; gap: 7px; font-size: .9rem; font-weight: 600; padding: .45rem .85rem; border: 1px solid var(--vp-c-divider); border-radius: 8px; background: var(--vp-c-bg-soft); color: var(--vp-c-text-1); text-decoration: none; transition: background .15s, border-color .15s, color .15s; }
 .kl-stack a:hover{ background: var(--vp-c-brand-soft); border-color: var(--vp-c-brand-1); color: var(--vp-c-brand-1); }
 .kl-stack a::before{ content: ""; flex: none; width: 6px; height: 6px; border-radius: 50%; background: var(--vp-c-brand-1); }
+
+/* "What you get on day one" on the current front page: one line per feature, in four groups; each
+   name is a link to its example. */
+.kl-index{ display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 14px 30px; }
+.kl-index > div{ min-width: 0; }
+.kl-index h3{ font-size: .78rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--vp-c-text-2); margin: 0 0 6px; }
+.kl-index ul{ list-style: none; margin: 0; padding: 0; }
+.kl-index li{ padding: 3px 0; font-size: .9rem; line-height: 1.45; }
+.kl-index a{ font-weight: 600; color: var(--vp-c-brand-1); text-decoration: none; }
+.kl-index a:hover{ text-decoration: underline; }
+.kl-index li span{ color: var(--vp-c-text-2); }
+.kl-optin{ margin: 22px 0 0; padding: 12px 16px; border: 1px solid var(--vp-c-divider); border-radius: 10px; background: var(--vp-c-bg-soft); font-size: .92rem; color: var(--vp-c-text-1); max-width: 860px; }
+.kl-optin code{ font-size: .85em; }
+.kl-optin p{ margin: 0; }
+.kl-optin p + p{ margin-top: 8px; }
+/* "Expand all" over the groups of examples */
+.kl-group-tools{ display: flex; justify-content: flex-end; margin: 0 0 6px; font-size: .88rem; }
+.kl-group-tools button{ padding: 0; border: 0; background: none; font: inherit; color: var(--vp-c-brand-1); font-weight: 600; cursor: pointer; }
+.kl-group-tools button:hover{ text-decoration: underline; }
+@media (max-width: 820px){
+	.kl-index{ grid-template-columns: minmax(0, 1fr); }
+	.kl-index li{ padding: 0; }
+	.kl-index a{ display: inline-flex; align-items: center; min-height: 44px; padding-right: 6px; }
+	.kl-index li span{ display: block; margin: -10px 0 6px; }
+	.kl-group-tools button{ display: inline-flex; align-items: center; min-height: 44px; }
+}
 
 /* Origin */
 .kl-origin{ border-left: 3px solid var(--vp-c-brand-1); padding-left: 18px; max-width: 70ch; }

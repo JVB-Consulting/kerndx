@@ -9,7 +9,9 @@ Iron rules for generated code. Read these even if you read nothing else:
 3. Turning a safety check off is a deliberate, audited act. Never bypass silently.
 4. The complete code-generation rules live in one file: https://docs.jvb-consulting.io/ai-agent-instructions
 
-This file covers the latest KernDX release. Earlier release lines keep frozen documentation snapshots on this site under versioned paths; match the documentation to the version installed in your org.
+Every page below, and every page of the reference, also has a plain Markdown copy with no HTML around it. Add `.md` to the end of the page address: `/selectors-guide` becomes `/selectors-guide.md` (a section index such as `/reference/apex/` becomes `/reference/apex.md`).
+
+This file covers the latest KernDX release. The three most recent earlier release lines keep frozen documentation snapshots on this site under versioned paths; match the documentation to the version installed in your org.
 
 ## Start here
 
@@ -17,6 +19,7 @@ This file covers the latest KernDX release. Earlier release lines keep frozen do
 - [AI Agent Onboarding](https://docs.jvb-consulting.io/agents): the tool-neutral entry point for coding agents
 - [Code Conventions](https://docs.jvb-consulting.io/code-conventions-guide): the canonical naming, style, and framework rules
 - [Installation](https://docs.jvb-consulting.io/installation): the three ways to install, from managed package to CI tooling only
+- [From Plain Apex to KernDX](https://docs.jvb-consulting.io/from-plain-apex-to-kerndx): plain SOQL, DML, System.debug, Queueable, trigger, callout and test code next to the KernDX version of each
 - [Documentation hub](https://docs.jvb-consulting.io/readme): learning paths and the full guide index
 
 ## Core capabilities

@@ -11,7 +11,7 @@ const PREFIX_GROUPS = [
 // and the KernDX naming convention) rather than a flat A–Z list of 238 classes.
 // Each apex class maps to a domain by its TRG_/SEL_/UTIL_… prefix; custom objects,
 // events, and metadata become their own folders.
-const APEX_PREFIX_DOMAIN = {
+export const APEX_PREFIX_DOMAIN = {
 	TRG_: 'Triggers',
 	QRY_: 'Query & Selectors',
 	SEL_: 'Query & Selectors',
@@ -299,4 +299,288 @@ export function generateSidebar(pages)
 		sidebar.push({text: name, collapsed: name === 'API Reference', items});
 	}
 	return sidebar;
+}
+
+// ── Areas ────────────────────────────────────────────────────────────────────
+// The latest docs are split into five areas, one per top-menu item, and each area has its own
+// sidebar. Frozen version trees (/1.x/) keep the single sidebar from generateSidebar() above.
+
+// The top menu of the latest docs, in reading order. Each item opens the first page of its area.
+export const TOP_MENU = [
+	{text: 'Why KernDX', link: '/'},
+	{text: 'Get Started', link: '/installation'},
+	{text: 'Fast Starts', link: '/fast-starts'},
+	{text: 'Guides', link: '/triggers-guide'},
+	{text: 'Reference', link: '/reference/'}
+];
+
+// The top menu of a frozen tree: as it was before the Guides area, so it links only to pages
+// that the older tree has.
+export const FROZEN_TOP_MENU = TOP_MENU.filter(item => item.text !== 'Guides');
+
+// The areas, in top-menu order.
+export const AREAS = ['why', 'get-started', 'fast-starts', 'guides', 'reference'];
+
+const AREA_MENU_TITLE = {why: 'Why KernDX', 'get-started': 'Get Started', 'fast-starts': 'Fast Starts', guides: 'Guides'};
+
+// Get Started pages, by normalized file name. The Glossary is a Strategic Guide by name and
+// Code Conventions a guide by name, but a new reader needs both early, so they sit here. The
+// Administration Tools guide is not here: it is a developer guide, so it is in Guides.
+const GET_STARTED_PAGES = new Set([
+	'installation',
+	'set up your computer',
+	'from plain apex to kerndx',
+	'strategic guide glossary',
+	'code conventions guide',
+	'readme',
+	'agents',
+	'ai agent instructions'
+]);
+
+// The area a page matches, or null when no rule places it.
+function matchArea(page)
+{
+	const chosen = page.frontmatter?.area;
+	if(chosen != null)
+	{
+		if(!AREAS.includes(chosen))
+		{
+			throw new Error(`${page.relPath} has area "${chosen}" in its frontmatter; use one of ${AREAS.join(', ')}`);
+		}
+		return chosen;
+	}
+	if(page.relPath.startsWith('reference/') || page.relPath.startsWith('release-notes/'))
+	{
+		return 'reference';
+	}
+	const base = normalize(page.relPath.replace(/\.md$/i, '').split('/').pop());
+	if(GET_STARTED_PAGES.has(base))
+	{
+		return 'get-started';
+	}
+	if(base.startsWith('strategic guide'))
+	{
+		return 'why';
+	}
+	if(base.startsWith('fast start'))
+	{
+		return 'fast-starts';
+	}
+	if(base.endsWith('guide'))
+	{
+		return 'guides';
+	}
+	return null;
+}
+
+// The area a page belongs to. Throws for a page that no rule places, so a new page cannot ship
+// without a menu: name it like the pages of its area, or give it an `area` in its frontmatter.
+export function areaForPage(page)
+{
+	const area = matchArea(page);
+	if(!area)
+	{
+		throw new Error(`${page.relPath} belongs to no docs area. Add "area: <one of ${AREAS.join(', ')}>" to its frontmatter, `
+				+ 'or add it to the rules in scripts/generate-nav.mjs');
+	}
+	return area;
+}
+
+// True when the page is a developer guide, the only kind of page that gets "Reference for this
+// page". Does not throw for a page in no area: generateSidebarAreas reports that.
+export function isGuidePage(page)
+{
+	return matchArea(page) === 'guides';
+}
+
+// The path VitePress looks a page's sidebar up by: its source path under src/, with a leading slash.
+function routePath(page)
+{
+	if(page.slug === '')
+	{
+		return '/index.md';
+	}
+	return /(^|\/)index\.md$/i.test(page.relPath) ? `/${page.slug}/index.md` : `/${page.slug}.md`;
+}
+
+// The sidebar for a path, chosen the way VitePress chooses it: the key with the most path
+// segments that the path starts with wins, and keys with the same number of segments are tried
+// in the order they were written.
+export function sidebarForPath(sidebars, path)
+{
+	const key = sidebarKeyFor(Object.keys(sidebars), path);
+	return key === undefined ? [] : sidebars[key];
+}
+
+function sidebarKeyFor(keys, path)
+{
+	return [...keys].sort((a, b) => b.split('/').length - a.split('/').length).find(key => path.startsWith(key));
+}
+
+function commonPrefix(paths)
+{
+	let prefix = paths[0] ?? '';
+	for(const p of paths)
+	{
+		while(!p.startsWith(prefix))
+		{
+			prefix = prefix.slice(0, -1);
+		}
+	}
+	return prefix;
+}
+
+function menuLink(page)
+{
+	return {text: page.frontmatter?.navLabel || page.frontmatter?.title || page.title, link: page.slug === '' ? '/' : `/${page.slug}`};
+}
+
+function areaMenu(area, pages)
+{
+	if(area === 'reference')
+	{
+		// The API tree and the release notes, both open: on a reference page they are the whole menu.
+		return generateSidebar(pages).map(group => ({...group, collapsed: false}));
+	}
+	return [{text: AREA_MENU_TITLE[area], items: pages.slice().sort(orderCompare).map(menuLink)}];
+}
+
+// The area menus in a compact form: `menus` holds each area's sidebar once, and `paths` maps a
+// sidebar key to the area whose menu it shows. Inline site data ships on every page, so writing
+// the API tree once instead of once per key is what keeps it inside the artifact audit's budget.
+// The theme turns this back into a VitePress path-keyed sidebar with expandSidebarAreas().
+//
+// Keys are as few as possible: each area gets the prefix its pages share (for example
+// "/fast-start"), the guides take the catch-all "/", and a page that a shorter key would send to
+// the wrong menu gets its own exact key. The home page shows the Why KernDX menu.
+export function generateSidebarAreas(pages)
+{
+	const visible = pages.filter(p => !(p.frontmatter && p.frontmatter.draft));
+	const pagesByArea = new Map();
+	const routes = [];
+	for(const page of visible)
+	{
+		const area = areaForPage(page);
+		if(!pagesByArea.has(area))
+		{
+			pagesByArea.set(area, []);
+		}
+		pagesByArea.get(area).push(page);
+		routes.push([routePath(page), area]);
+	}
+	const menus = {};
+	for(const area of AREAS)
+	{
+		if(pagesByArea.has(area))
+		{
+			menus[area] = areaMenu(area, pagesByArea.get(area));
+		}
+	}
+	if(menus.why && !routes.some(([route]) => route === '/index.md'))
+	{
+		routes.push(['/index.md', 'why']);
+	}
+	const fallback = menus.guides ? 'guides' : Object.keys(menus)[0];
+	if(!fallback)
+	{
+		return {menus, paths: {}};
+	}
+
+	const prefixKeys = {};
+	for(const area of Object.keys(menus))
+	{
+		if(area === fallback)
+		{
+			continue;
+		}
+		const prefix = commonPrefix(routes.filter(([route, a]) => a === area && route !== '/index.md').map(([route]) => route));
+		if(prefix.length > 1 && !(prefix in prefixKeys))
+		{
+			prefixKeys[prefix] = area;
+		}
+	}
+	const exactKeys = {};
+	for(const [route, area] of routes)
+	{
+		const key = sidebarKeyFor([...Object.keys(prefixKeys), '/'], route);
+		if((key === '/' ? fallback : prefixKeys[key]) !== area)
+		{
+			exactKeys[route] = area;
+		}
+	}
+	// Exact keys first, so that they win over a prefix with the same number of path segments.
+	const paths = {...exactKeys, ...prefixKeys, '/': fallback};
+	for(const [route, area] of routes)
+	{
+		if(paths[sidebarKeyFor(Object.keys(paths), route)] !== area)
+		{
+			throw new Error(`Sidebar keys send ${route} to the wrong menu; expected the ${area} menu`);
+		}
+	}
+	return {menus, paths};
+}
+
+// The VitePress path-keyed sidebar from the compact form. Every key of an area shares one menu.
+export function expandSidebarAreas({menus, paths})
+{
+	return Object.fromEntries(Object.entries(paths).map(([key, area]) => [key, menus[area]]));
+}
+
+// The site data with the latest tree's compact menus (`themeConfig.sidebarAreas`) expanded into
+// the path-keyed `themeConfig.sidebar` that VitePress reads. It builds a new object and never
+// changes the one it is given, because the dev server gives the theme read-only site data. It
+// returns the same object when there is nothing to do: a frozen tree has no `sidebarAreas`, and
+// data that already has a `sidebar` was expanded before.
+export function withExpandedSidebar(siteData)
+{
+	const themeConfig = siteData?.themeConfig;
+	if(!themeConfig?.sidebarAreas || themeConfig.sidebar)
+	{
+		return siteData;
+	}
+	return {...siteData, themeConfig: {...themeConfig, sidebar: expandSidebarAreas(themeConfig.sidebarAreas)}};
+}
+
+// The path-keyed sidebar of the latest docs: each key maps to the menu of the area it belongs to.
+export function generateSidebars(pages)
+{
+	return expandSidebarAreas(generateSidebarAreas(pages));
+}
+
+// The most a "Reference for this page" group lists.
+export const REFERENCE_LINK_LIMIT = 5;
+
+// The most used classes of a guide, for its "Reference for this page" group: the Apex reference
+// pages its body links to most, the most linked first (a tie keeps the one linked first). `body`
+// is the page's markdown after links were turned into site paths, and `slugs` maps each Apex
+// reference page's slug to its title.
+//
+// A guide may choose its own list with `referenceLinks: "QRY_Builder, SEL_Base"` in its
+// frontmatter, or none with `referenceLinks: ""`. A name that is no reference page fails the build.
+export function referenceLinksFor(page, slugs)
+{
+	const toLink = slug => ({text: slugs.get(slug), link: `/${slug}`});
+	const chosen = page.frontmatter?.referenceLinks;
+	if(chosen != null)
+	{
+		const slugByTitle = new Map([...slugs].map(([slug, title]) => [title, slug]));
+		return String(chosen).split(',').map(name => name.trim()).filter(Boolean).map(name =>
+		{
+			if(!slugByTitle.has(name))
+			{
+				throw new Error(`${page.relPath} lists "${name}" in referenceLinks, but no Apex reference page has that name`);
+			}
+			return toLink(slugByTitle.get(name));
+		});
+	}
+	const counts = new Map();
+	for(const m of (page.body || '').matchAll(/\]\(\/(reference\/apex\/[^)#?\s]+)/g))
+	{
+		if(slugs.has(m[1]))
+		{
+			counts.set(m[1], (counts.get(m[1]) ?? 0) + 1);
+		}
+	}
+	// A Map keeps the order in which each slug was first linked, and sort() is stable.
+	return [...counts].sort((a, b) => b[1] - a[1]).slice(0, REFERENCE_LINK_LIMIT).map(([slug]) => toLink(slug));
 }

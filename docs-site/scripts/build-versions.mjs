@@ -3,7 +3,10 @@
 // root, then every frozen docs-versions/<X.Y>/ line under /X.Y/, into one dist/:
 //
 //   dist/            ← latest  (DOCS_BASE=/)            canonical CNAME / 404 / robots / sitemap
-//   dist/1.1/        ← frozen  (DOCS_BASE=/1.1/ FROZEN) noindex, no sitemap, smart canonical
+//   dist/1.9/        ← frozen  (DOCS_BASE=/1.9/ FROZEN) noindex, no sitemap, smart canonical
+//
+// Only the lines with a docs-versions/<X.Y>/ folder are built; the site keeps the last three. A
+// link into a removed line is sent to the current page by the 404 page (see config.mjs).
 //
 // Latest builds first so its route list can drive frozen smart-canonical (a frozen page that
 // still exists in latest canonicalises there). Each frozen tree is content+toolchain hashed and

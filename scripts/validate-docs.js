@@ -267,7 +267,11 @@ const KERN_CLASS_REF_EXCEPTIONS = [
 	{file: 'docs/Fast Start - Selectors.md', ref: 'SEL_Accounts'},
 	// Bypass-KEY string for the framework's internal flow runner, not a callable type.
 	// TRG_InvokeFlow is `public` (no reference page) by design.
-	{file: 'docs/Triggers - Guide.md', ref: 'TRG_InvokeFlow'}
+	{file: 'docs/Triggers - Guide.md', ref: 'TRG_InvokeFlow'},
+	// The value LogEntry__c.ClassMethod__c holds when no class of the reader made a bypass
+	// (`kern.UTIL_BypassAudit.emit`), quoted so a reader can recognise it, not a callable type.
+	{file: 'docs/Security - Guide.md', ref: 'UTIL_BypassAudit'},
+	{file: 'release-notes/Release Notes - Kern 1.12.md', ref: 'UTIL_BypassAudit'}
 ];
 
 /**
@@ -398,9 +402,18 @@ function parseCodeBlocks(content)
 }
 
 /**
- * Parses headings from Markdown content (skips headings inside code blocks)
+ * The explicit id at the end of a heading, `{#my-id}`: the same pattern the documentation site reads
+ * (`docs-site/scripts/anchor-normalizer.mjs`).
+ * @type {RegExp}
+ */
+const EXPLICIT_HEADING_ID_PATTERN = /\{#([^}]+)\}\s*$/;
+
+/**
+ * Parses headings from Markdown content (skips headings inside code blocks). A heading may end with an explicit id,
+ * `## Heading {#my-id}`, as the documentation site allows: the id goes in `id`, and the `{#...}` part is left out of
+ * `text`.
  * @param {string} content - Markdown content
- * @returns {Array<{level: number, text: string, line: number}>}
+ * @returns {Array<{level: number, text: string, id?: string, line: number}>}
  */
 function parseHeadings(content)
 {
@@ -424,9 +437,11 @@ function parseHeadings(content)
 			const match = line.match(/^(#{1,6})\s+(.*)/);
 			if(match)
 			{
-				headings.push({
-					level: match[1].length, text: match[2].trim(), line: lineNum
-				});
+				const text = match[2].trim();
+				const explicitId = text.match(EXPLICIT_HEADING_ID_PATTERN);
+				headings.push(explicitId
+					? {level: match[1].length, text: text.slice(0, explicitId.index).trim(), id: explicitId[1], line: lineNum}
+					: {level: match[1].length, text, line: lineNum});
 			}
 		}
 	}
@@ -570,14 +585,61 @@ function githubSlug(heading, slugCounts)
 /**
  * Gives each heading the anchor GitHub gives it. GitHub numbers repeated anchors across every heading on the page,
  * whatever its level: the first `Overview` is `#overview`, the next is `#overview-1`, then `#overview-2`. So the
- * numbering must count every heading, even the ones a table of contents leaves out (such as the H1 title).
- * @param {Array<{level: number, text: string}>} headings - Every heading on the page, in page order
+ * numbering must count every heading, even the ones a table of contents leaves out (such as the H1 title). A heading
+ * with an explicit id keeps that id as its anchor.
+ * @param {Array<{level: number, text: string, id?: string}>} headings - Every heading on the page, in page order
  * @returns {Array<{level: number, text: string, slug: string}>} Copies of the headings, each with its anchor in `slug`
  */
 function addHeadingSlugs(headings)
 {
 	const slugCounts = new Map();
-	return headings.map(heading => ({...heading, slug: githubSlug(heading.text, slugCounts)}));
+	return headings.map(heading => ({...heading, slug: headingAnchor(heading, slugCounts)}));
+}
+
+/**
+ * Gives one heading its anchor: the explicit id when the heading has one (`## Heading {#my-id}`), as the
+ * documentation site does, and otherwise the anchor GitHub gives its text. An explicit id is also counted as taken, so
+ * a later heading whose text gives the same anchor is numbered.
+ * @param {{text: string, id?: string}} heading - The heading
+ * @param {Map<string, number>} slugCounts - The anchors already taken on the page
+ * @returns {string} The heading's anchor
+ */
+function headingAnchor(heading, slugCounts)
+{
+	if(heading.id === undefined)
+	{
+		return githubSlug(heading.text, slugCounts);
+	}
+	if(!slugCounts.has(heading.id))
+	{
+		slugCounts.set(heading.id, 0);
+	}
+	return heading.id;
+}
+
+/**
+ * Reads the `movedAnchors` line of a page's frontmatter: the old heading anchors the page still answers for, each
+ * mapped to the place the heading moved to (`{"old-anchor": "/page-route#new-anchor"}`). The site keeps a link to an
+ * old anchor working, so the old anchor counts as present on the page. The value is one line of JSON, as the site
+ * reads it; a page with no frontmatter, no `movedAnchors` line or a value that is not a JSON object gives no anchors
+ * (the site's own build reports a bad value).
+ * @param {string} content - Markdown content of the page
+ * @returns {Set<string>} The old anchors the page keeps
+ */
+function findMovedAnchors(content)
+{
+	const frontmatter = content.match(/^---\r?\n([\s\S]*?)\r?\n---\s*(?:\r?\n|$)/);
+	const line = frontmatter?.[1].split(/\r?\n/).find(frontmatterLine => /^movedAnchors:/.test(frontmatterLine));
+	let movedAnchors = null;
+	try
+	{
+		movedAnchors = line ? JSON.parse(line.slice('movedAnchors:'.length).trim()) : null;
+	}
+	catch
+	{
+		// A value that is not JSON gives no anchors.
+	}
+	return new Set(movedAnchors && typeof movedAnchors === 'object' && !Array.isArray(movedAnchors) ? Object.keys(movedAnchors) : []);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -776,7 +838,7 @@ function checkLinks(content, filePath, fsModule = fs)
 		}
 
 		const anchor = link.href.includes('#') ? link.href.slice(link.href.indexOf('#') + 1) : '';
-		if(anchor && resolved.endsWith('.md') && !findHeadingSlugs(fsModule.readFileSync(resolved, 'utf-8')).has(decodeLinkPart(anchor)))
+		if(anchor && resolved.endsWith('.md') && !hasAnchor(fsModule.readFileSync(resolved, 'utf-8'), decodeLinkPart(anchor)))
 		{
 			issues.push({
 				file: filePath, line: link.line, severity: 'error', check: 'link', message: `Broken anchor: ${link.href} (no heading in ${targetPath} has that anchor)`
@@ -785,6 +847,18 @@ function checkLinks(content, filePath, fsModule = fs)
 	}
 
 	return issues;
+}
+
+/**
+ * Tells whether a Markdown page answers for an anchor: one of its headings has it, or its `movedAnchors` frontmatter
+ * keeps it.
+ * @param {string} content - Markdown content of the target page
+ * @param {(string|null)} anchor - The decoded anchor, or null when it could not be decoded
+ * @returns {boolean} True when a link to the anchor works
+ */
+function hasAnchor(content, anchor)
+{
+	return anchor !== null && (findHeadingSlugs(content).has(anchor) || keepsMovedAnchor(findMovedAnchors(content), anchor));
 }
 
 /**
@@ -807,14 +881,55 @@ function decodeLinkPart(text)
 }
 
 /**
- * Lists the anchors a Markdown file's headings get on GitHub, so a link to `file.md#anchor` can be checked.
+ * Lists the anchors a link to `file.md#anchor` can land on: the anchor GitHub gives each heading (or its explicit id
+ * when it has one), and the id of each HTML anchor, `<a id="x"></a>` or `<a name="x"></a>`, outside code blocks.
+ * GitHub lands a link on an HTML anchor too. A guide puts one before a heading when the documentation site gives the
+ * heading another anchor than GitHub does.
  * @param {string} content - Markdown content of the target file
- * @returns {Set<string>} the anchor of every heading, a repeated heading numbered as GitHub numbers it
+ * @returns {Set<string>} every anchor on the page, a repeated heading numbered as GitHub numbers it
  */
 function findHeadingSlugs(content)
 {
 	const slugCounts = new Map();
-	return new Set(parseHeadings(content).map(heading => githubSlug(heading.text, slugCounts)));
+	return new Set([...parseHeadings(content).map(heading => headingAnchor(heading, slugCounts)), ...findHtmlAnchors(content)]);
+}
+
+/**
+ * Lists the id of each HTML anchor on a Markdown page, `<a id="x"></a>` or `<a name="x"></a>`, leaving out code blocks.
+ * @param {string} content - Markdown content of the page
+ * @returns {string[]} the id of every HTML anchor outside code blocks
+ */
+function findHtmlAnchors(content)
+{
+	const anchors = [];
+	let inCodeBlock = false;
+	for(const line of content.split('\n'))
+	{
+		if(/^[ \t]*```/.test(line))
+		{
+			inCodeBlock = !inCodeBlock;
+		}
+		else if(!inCodeBlock)
+		{
+			anchors.push(...[...line.matchAll(/<a\s+(?:id|name)="([^"]+)"/gi)].map(match => match[1]));
+		}
+	}
+	return anchors;
+}
+
+/**
+ * Tells whether a page keeps an anchor through its `movedAnchors` frontmatter. A link written the GitHub way can
+ * differ from the kept anchor in its punctuation (`#pros--cons-comparison` for the kept `pros-cons-comparison`). The
+ * site still finds the anchor in that case: it compares the two with every run of characters that are not letters or
+ * digits made into one hyphen. This check compares them the same way.
+ * @param {Set<string>} movedAnchors - The old anchors the page keeps, from findMovedAnchors
+ * @param {string} anchor - The anchor a link or a table of contents entry points to
+ * @returns {boolean} True when the page keeps the anchor
+ */
+function keepsMovedAnchor(movedAnchors, anchor)
+{
+	const looseForm = text => text.normalize('NFKD').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+	return movedAnchors.has(anchor) || [...movedAnchors].some(movedAnchor => looseForm(movedAnchor) === looseForm(anchor));
 }
 
 /**
@@ -1014,16 +1129,8 @@ function checkToc(content, filePath)
 		}
 	}
 
-	if(contentHeadings.length <= 3)
+	if(contentHeadings.length <= 3 || tocEntries.length === 0)
 	{
-		return issues;
-	}
-
-	if(tocEntries.length === 0)
-	{
-		issues.push({
-			file: filePath, line: 1, severity: 'warning', check: 'toc', message: 'Document has >3 sections but no Table of Contents'
-		});
 		return issues;
 	}
 
@@ -1033,12 +1140,13 @@ function checkToc(content, filePath)
 		headingSlugs.set(heading.slug, heading);
 	}
 
+	const movedAnchors = findMovedAnchors(content);
 	const tocAnchors = new Set();
 	for(const entry of tocEntries)
 	{
 		tocAnchors.add(entry.anchor);
 
-		if(!headingSlugs.has(entry.anchor))
+		if(!headingSlugs.has(entry.anchor) && !keepsMovedAnchor(movedAnchors, entry.anchor))
 		{
 			issues.push({
 				file: filePath, line: entry.line, severity: 'error', check: 'toc', message: `Orphaned TOC entry: "${entry.text}" (anchor #${entry.anchor} has no matching heading)`

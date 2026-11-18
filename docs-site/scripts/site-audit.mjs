@@ -22,7 +22,8 @@ const axeSource = readFileSync(createRequire(import.meta.url).resolve('axe-core/
 // One page per structural archetype. Sweeping the whole corpus is a pre-release activity; this set
 // is what every CI run can afford, chosen so each distinct page shape is represented: landing,
 // hand-written guide, generated API reference, fast start, the install page (which has its own
-// touch-target constraint), and the media-heavy tour page.
+// touch-target constraint), the media-heavy tour page, and From Plain Apex to KernDX (side-by-side
+// code samples).
 const PAGES = [
 	'/',
 	'/selectors-guide',
@@ -30,8 +31,22 @@ const PAGES = [
 	'/fast-start-selectors',
 	'/installation',
 	'/strategic-guide-overview',
-	'/administration-tools-guide'
+	'/administration-tools-guide',
+	'/from-plain-apex-to-kerndx'
 ];
+
+// Pages also scanned whole at desktop width, where the top bar shows more than on a phone (the
+// search button with its keyboard keys, the version badge): the landing page with its job table,
+// From Plain Apex to KernDX, a guide, and a reference page with its links to a Fast Start and a guide.
+const DESKTOP_PAGES = [
+	'/',
+	'/from-plain-apex-to-kerndx',
+	'/selectors-guide',
+	'/reference/apex/qry-builder'
+];
+
+// A guide large enough that "On this page" shows main headings with one button to show them all.
+const OUTLINE_PAGE = '/selectors-guide';
 
 // Lighthouse's axe tag set plus WCAG 2.2 AA (target-size) and best-practice. `experimental` rules
 // are enabled below via `runOnly` not covering them — see ENABLE_EXPERIMENTAL.
@@ -168,6 +183,65 @@ try
 			console.log(`scanned [${theme}] ${path}`);
 		}
 		await ctx.close();
+
+		// "On this page" sits in the right-hand column, which VitePress shows only from 1280px, so
+		// the phone scans above never see it. Scan it on a large guide at desktop width twice: with
+		// the section being read open, and with every heading shown (theme/overrides/VPDocOutlineItem.vue).
+		// Only the list is scanned here: the rest of the page is scanned at phone width above.
+		const desktop = await browser.newContext({colorScheme: theme, viewport: {width: 1440, height: 900}});
+		const desktopPage = await desktop.newPage();
+		const brokenDesktopAssets = [];
+		desktopPage.on('response', (response) =>
+		{
+			if(response.status() >= 400 && response.url().startsWith(BASE))
+			{
+				brokenDesktopAssets.push(`${response.status()} ${response.url().replace(BASE, '')}`);
+			}
+		});
+		for(const path of DESKTOP_PAGES)
+		{
+			await desktopPage.goto(`${BASE}${path}`, {waitUntil: 'networkidle'});
+			if(brokenDesktopAssets.length)
+			{
+				throw new Error(`asset(s) failed to load at desktop width, so any result would be phantom:\n  ${brokenDesktopAssets.join('\n  ')}`);
+			}
+			await desktopPage.evaluate(axeSource);
+			const results = await desktopPage.evaluate(
+				async ({tags, experimental}) =>
+				{
+					const base = await window.axe.run(document, {runOnly: {type: 'tag', values: tags}});
+					const extra = await window.axe.run(document, {runOnly: {type: 'rule', values: experimental}});
+					return {violations: [...base.violations, ...extra.violations]};
+				},
+				{tags: TAGS, experimental: ENABLE_EXPERIMENTAL}
+			);
+			collect(results, `${path} (desktop)`, theme, found);
+			console.log(`scanned [${theme}] ${path} at desktop width`);
+		}
+		await desktopPage.goto(`${BASE}${OUTLINE_PAGE}`, {waitUntil: 'networkidle'});
+		await desktopPage.locator('.VPDocAsideOutline li:has(> .section-headings) > a.outline-link').nth(1).click();
+		await desktopPage.waitForTimeout(300);
+		for(const view of ['section open', 'all headings'])
+		{
+			if(view === 'all headings')
+			{
+				await desktopPage.locator('.VPDocAsideOutline button.outline-toggle').click();
+			}
+			await desktopPage.evaluate(axeSource);
+			const results = await desktopPage.evaluate(
+				async ({tags, experimental}) =>
+				{
+					const context = {include: ['.VPDocAsideOutline']};
+					const base = await window.axe.run(context, {runOnly: {type: 'tag', values: tags}});
+					const extra = await window.axe.run(context, {runOnly: {type: 'rule', values: experimental}});
+					return {violations: [...base.violations, ...extra.violations]};
+				},
+				{tags: TAGS, experimental: ENABLE_EXPERIMENTAL}
+			);
+			collect(results, `${OUTLINE_PAGE} (desktop, ${view})`, theme, found);
+			console.log(`scanned [${theme}] ${OUTLINE_PAGE} at desktop width, "On this page" with ${view}`);
+		}
+		await desktop.close();
 	}
 }
 finally
@@ -178,7 +252,8 @@ finally
 const blocking = [...found.values()].filter(v => !KNOWN[v.id]);
 const known = [...found.values()].filter(v => KNOWN[v.id]);
 
-console.log(`\nscanned ${PAGES.length * 2} page-scans across ${PAGES.length} pages in light + dark`);
+console.log(`\nscanned ${PAGES.length * 2} page-scans across ${PAGES.length} pages in light + dark, plus ${DESKTOP_PAGES.length} pages`
+	+ ` and ${OUTLINE_PAGE}'s "On this page" (twice) at desktop width in each`);
 
 for(const v of known)
 {

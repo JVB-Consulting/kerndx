@@ -10,7 +10,7 @@
  *
  * @group Web Services
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -21,7 +21,7 @@
  * {
  *     public String invoiceId;
  *     public String status;
- *     protected override Type getObjectType()
+ *     public override Type getObjectType()
  *     {
  *         return DTO_Invoice.class;
  *     }
@@ -48,7 +48,7 @@ global inherited sharing virtual class DTO_JsonBase extends DTO_Base
 	 * ```apex
 	 * public class DTO_Invoice extends DTO_JsonBase
 	 * {
-	 *     protected override Type getObjectType()
+	 *     public override Type getObjectType()
 	 *     {
 	 *         return DTO_Invoice.class;
 	 *     }

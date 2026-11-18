@@ -6,7 +6,10 @@ import {fileURLToPath} from 'node:url';
 import {createRequire} from 'node:module';
 import {execFileSync} from 'node:child_process';
 import {buildSlugMap, slugForPath} from './slug.mjs';
-import {generateSidebar} from './generate-nav.mjs';
+import {generateSidebar, generateSidebarAreas, isGuidePage, referenceLinksFor} from './generate-nav.mjs';
+import {linksForClass, renderLinkLine, insertLinkLine, isApexClassPage} from './reference-links.mjs';
+import {groupMembers, insertGroupTable, methodNamesOf, renderGroupTable} from './method-groups.mjs';
+import {markdownCopyHeadEntry, markdownCopyPath, renderMarkdownCopy} from './markdown-copy.mjs';
 import {transformDetails} from './details-transform.mjs';
 import {escapeAngles} from './markdown-safety.mjs';
 import {rewriteLinks} from './link-normalizer.mjs';
@@ -17,6 +20,7 @@ import {cleanMetaDescription} from './meta-description.mjs';
 import {parseFrontmatter, stringifyFrontmatter} from './frontmatter.mjs';
 import {diffSlugs, loadLock} from './slug-lock.mjs';
 import {sourceRepoRelForPage} from './sitemap-lastmod.mjs';
+import {checkSearchTerms, searchTermsOf} from './search-render.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');   // docs-site/
 const REPO = path.resolve(ROOT, '..');                                          // repo root
@@ -251,6 +255,147 @@ function unresolvedHomeLinks(body, slugMap, currentDir = '')
 	return out;
 }
 
+// How many guides get the "On this page" list that opens by section. They are the guides with the
+// most entries in that list, where a full list of main and sub-headings is too long to scan.
+const OUTLINE_OPENS_GUIDE_COUNT = 8;
+
+// The number of entries a page shows in "On this page" by default: its main headings (##) and
+// sub-headings (###). Lines inside fenced code blocks are code, not headings.
+export function countOutlineEntries(markdown)
+{
+	let count = 0;
+	let fence = null;
+	for(const line of markdown.split('\n'))
+	{
+		const marker = line.match(/^\s{0,3}(`{3,}|~{3,})/);
+		if(marker)
+		{
+			if(fence === null)
+			{
+				fence = marker[1];
+			}
+			else if(marker[1][0] === fence[0] && marker[1].length >= fence.length && /^\s{0,3}(`+|~+)\s*$/.test(line))
+			{
+				fence = null;
+			}
+			continue;
+		}
+		if(fence === null && /^\s{0,3}#{2,3}\s+\S/.test(line))
+		{
+			count++;
+		}
+	}
+	return count;
+}
+
+// The "On this page" setting a guide gets, from its entry count and its place when guides are
+// ordered from most entries to fewest (1 is the largest). The largest guides show main headings
+// and open the section being read (outlineOpens, read by theme/overrides/VPDocOutlineItem.vue);
+// every other guide shows main headings only.
+export function outlineSetting(pageEntryCount, rank)
+{
+	return pageEntryCount > 0 && rank <= OUTLINE_OPENS_GUIDE_COUNT ? {outlineOpens: true} : {outline: 2};
+}
+
+// An old heading id in `movedAnchors` that can stand in an element's id: no space, quote, angle
+// bracket, ampersand or "#".
+const MOVED_ANCHOR_ID = /^[^\s"'<>&#]+$/;
+
+// Reads a page's `movedAnchors` frontmatter: each old heading id on the page, and the place
+// (`/<page-route>#<id>`) the heading moved to. The frontmatter holds it as one line of JSON, which
+// parseFrontmatter returns as a string. Returns {} when the page has none, and throws when the value
+// is not a JSON object.
+export function movedAnchorsOf(data)
+{
+	const value = data.movedAnchors;
+	if(value == null || value === '')
+	{
+		return {};
+	}
+	let parsed = value;
+	if(typeof value === 'string')
+	{
+		try
+		{
+			parsed = JSON.parse(value);
+		}
+		catch
+		{
+			parsed = null;
+		}
+	}
+	if(!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || Object.values(parsed).some(target => typeof target !== 'string'))
+	{
+		throw new Error(`movedAnchors is not a JSON object of "old-id": "/route#id" pairs: ${value}`);
+	}
+	return parsed;
+}
+
+// The ids the landing page's own elements carry (`id="selectors"` on an example block, a group, a
+// section), in the order they appear. A component prop written `:id="..."` is not one.
+export function landingElementIds(body)
+{
+	return [...body.matchAll(/(?<![:\w-])id="([^"\s]+)"/g)].map(match => match[1]);
+}
+
+// Drops each line that holds only an HTML anchor (`<a id="x"></a>` or `<a name="x"></a>`) whose id a
+// heading on the page already has here. A guide puts such a line before a heading so a GitHub link
+// lands on it, because GitHub gives the heading another anchor (it keeps `_`, the site makes it
+// `-`). On the site the heading carries that id itself, and a second element with it would make the
+// id appear twice. Lines inside fenced or indented code blocks, and anchors inside a paragraph, are left as written.
+export function dropHeadingAnchorLines(body)
+{
+	const headingIds = new Set(extractHeadingIds(body));
+	let fence = null;
+	return body.split('\n').filter(line =>
+	{
+		const fenceMark = line.match(/^ {0,3}([`~]{3,})/);
+		if(fenceMark)
+		{
+			fence = fence === null ? fenceMark[1][0] : (fenceMark[1][0] === fence ? null : fence);
+			return true;
+		}
+		const anchor = fence === null ? line.match(/^ {0,3}<a\s+(?:id|name)="([^"]+)"\s*><\/a>\s*$/i) : null;
+		return !(anchor && headingIds.has(anchor[1]));
+	}).join('\n');
+}
+
+// Puts an empty element with each moved heading's old id in front of the stub's link to the place
+// the heading moved to, so an old link (`/page#old-id`) still scrolls to the stub when scripts are
+// off. The theme script (theme/movedAnchors.mjs) sends a reader with scripts on to the new place.
+// Returns the new body and a list of problems: an old id that is still a heading on the page, or a
+// moved heading the stub does not link to.
+function placeMovedAnchors(body, movedAnchors, headingIds)
+{
+	const problems = [];
+	let content = body;
+	for(const [oldId, target] of Object.entries(movedAnchors))
+	{
+		if(!MOVED_ANCHOR_ID.test(oldId))
+		{
+			problems.push(`movedAnchors "${oldId}" is not a heading id`);
+			continue;
+		}
+		if(headingIds.has(oldId))
+		{
+			problems.push(`movedAnchors #${oldId} is still a heading on this page`);
+			continue;
+		}
+		// The stub links to the exact new place. Only a block on the front page may be served by a link to the page alone: a guide's
+		// "Why KernDX" link to the front page serves every old id sent to a block there. Any other page needs the exact link.
+		const linkTo = (place) => new RegExp(`\\[[^\\]]*\\]\\(${place.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(\\s+"[^"]*")?\\)`);
+		const page = target.includes('#') ? target.slice(0, target.indexOf('#')) : null;
+		const match = content.match(linkTo(target)) ?? (page === '/' ? content.match(linkTo(page)) : null);
+		if(!match)
+		{
+			problems.push(`movedAnchors #${oldId}: the stub has no link to ${target}`);
+			continue;
+		}
+		content = `${content.slice(0, match.index)}<span id="${oldId}"></span>${content.slice(match.index)}`;
+	}
+	return {content, problems};
+}
+
 // PURE core. No filesystem, no process.exit, no console. Fully deterministic — every
 // input is supplied; every output is returned. main() is the I/O shell around this.
 //
@@ -260,10 +405,22 @@ function unresolvedHomeLinks(body, slugMap, currentDir = '')
 //   mirrorExcluded: Set<string>         docs-relative paths to skip
 //   locked:         string[]            slugs.lock.json slugs
 //   redirects:      object              redirects.json map
+//   frozen:         boolean             a frozen version tree: no "Reference for this page" links, no "On this page" settings, no "Methods by task" table and no Markdown copies
+//   base:           string              the deploy base ('/' for the latest tree), put in front of each page's Markdown copy link
+//   searchCases:    object[]|null       the search cases in search-cases.json, which every page's searchTerms are checked against; required unless frozen
+//   landingComponent: string|null       the front page component's source (KernLanding.vue), whose section ids a link or a moved heading may name; a frozen tree ignores it
 //
-// Returns { writes, pages, sidebar, unresolved, slugDiff, currentSlugs }.
-export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorExcluded, locked, redirects})
+// Returns { writes, copies, pages, sidebar, unresolved, slugDiff, currentSlugs }. `copies` holds the
+// Markdown copy of each page ({copyPath, content}); the caller writes them under src/public/.
+export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorExcluded, locked, redirects, frozen = false, base = '/', searchCases = null,
+	landingComponent = null})
 {
+	// Without the case list the search words check below cannot run, and a page's searchTerms would
+	// reach the site unchecked. A frozen tree ignores searchTerms, so it needs no list.
+	if(!frozen && !Array.isArray(searchCases))
+	{
+		throw new Error('buildSitePlan needs the search cases from scripts/search-cases.json to check the pages\' searchTerms');
+	}
 	const excluded = mirrorExcluded || new Set();
 	const rawByRel = new Map(docInputs.map(d => [
 		d.relPath,
@@ -305,19 +462,49 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 		slugMap.set(`release-notes/${relPath}`, slugForPath(relPath));
 	}
 
+	// Slug → title of every Apex reference page, for the "Reference for this page" links of a guide.
+	const apexTitles = new Map(docRel.filter(rel => rel.startsWith('reference/apex/')).map(rel => [
+		slugMap.get(rel),
+		parseFrontmatter(rawByRel.get(rel)).data.title || path.posix.basename(rel, '.md')
+	]));
+
+	// Each guide's place when guides are ordered by their "On this page" entry count, largest first
+	// (ties by path, so the order is stable). A frozen tree gets no outline settings.
+	const outlineRankByRel = new Map();
+	if(!frozen)
+	{
+		docRel
+		.map(rel => ({rel, ...parseFrontmatter(rawByRel.get(rel))}))
+		.filter(({rel, data}) => isGuidePage({relPath: rel, frontmatter: data}))
+		.map(({rel, content}) => ({rel, count: countOutlineEntries(content)}))
+		.sort((a, b) => b.count - a.count || a.rel.localeCompare(b.rel))
+		.forEach(({rel, count}, index) => outlineRankByRel.set(rel, {count, rank: index + 1}));
+	}
+
 	const pages = [];
 	const unresolved = [];
 
 	// Pass 1 — materialize every page's body (frontmatter, <details>, angle-escaping,
 	// cross-file link resolution) and record the heading ids VitePress will mint for it, so
 	// pass 2 can reconcile in-page anchors against the real id set of any page they target.
-	const materialized = [];     // { outRel, slug, fm, body }
+	const materialized = [];     // { outRel, slug, fm, body, plain, title }
 	const idsBySlug = new Map();  // slug → Set<heading id>
-	const register = (slug, outRel, fm, body) =>
+	const movedProblems = [];     // a page's movedAnchors that cannot work, reported with the bad anchors
+	const searchTermProblems = []; // a page's searchTerms that cannot be read
+	const movedTargets = [];      // { outRel, oldId, target }: each target must be a real heading id
+	// `plain` is the page's Markdown as written, for its Markdown copy: the same links and added
+	// lines as `body`, but none of the changes that let VitePress render it. A page with no copy
+	// (the landing page, a frozen tree) passes none.
+	const register = (slug, outRel, fm, body, plain = null, title = '') =>
 	{
 		idsBySlug.set(slug, new Set(extractHeadingIds(body)));
-		materialized.push({outRel, slug, fm, body});
+		materialized.push({outRel, slug, fm, body, plain, title});
 	};
+	// Adds one `key: value` line to the end of a frontmatter block, or makes the block.
+	const withFrontmatterLine = (fm, line) => (fm ? fm.replace(/---\n$/, `${line}\n---\n`) : `---\n${line}\n---\n`);
+	// Tells browsers and crawlers where the page's Markdown copy is. A JSON list is also a YAML
+	// list, which is how VitePress reads frontmatter.
+	const withCopyLink = (fm, slug) => (frozen || slug === '' ? fm : withFrontmatterLine(fm, `head: ${JSON.stringify([markdownCopyHeadEntry(slug, base)])}`));
 
 	// Regular docs pages.
 	for(const rel of docRel)
@@ -325,12 +512,42 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 		const raw = rawByRel.get(rel);
 		const {data, content} = parseFrontmatter(raw);
 		const currentRelDir = path.posix.dirname(rel) === '.' ? '' : path.posix.dirname(rel);
-		let body = escapeAngles(transformDetails(unlinkPlaceholderRefs(content, currentRelDir)));
+		let body = escapeAngles(transformDetails(dropHeadingAnchorLines(unlinkPlaceholderRefs(content, currentRelDir))));
 		const {content: linked, unresolved: unresolvedHere} = rewriteLinks(body, rel, slugMap);
 		body = linked;
 		for(const u of unresolvedHere)
 		{
 			unresolved.push(`${rel} → ${u}`);
+		}
+		// The Markdown copy starts from the page as written, and gets the same links and the same added
+		// lines (below) as the page body. A link that does not resolve is reported above, from the body.
+		let plain = frozen ? null : rewriteLinks(unlinkPlaceholderRefs(content, currentRelDir), rel, slugMap).content;
+
+		// An Apex class page opens with a line that links it to its Fast Start and guide. A frozen
+		// tree is left as it was published.
+		if(!frozen && isApexClassPage(rel))
+		{
+			// A target that is not built (a trimmed set of pages) is left out, never linked dead.
+			// reference-links.test.mjs checks that every target of the table is a real page.
+			const links = linksForClass(path.posix.basename(rel, '.md'));
+			for(const key of ['fastStart', 'guide'])
+			{
+				if(links[key] && !slugMap.has(`${links[key]}.md`))
+				{
+					delete links[key];
+				}
+			}
+			const linkLine = renderLinkLine(links);
+			body = insertLinkLine(body, linkLine);
+
+			// A class listed in GROUPS_BY_CLASS in method-groups.mjs (nine classes) also gets a short table
+			// that groups its methods by what you want to do, above the alphabetical list. A worked example
+			// on a page that is not built is left out, and so is the link of a group that has none.
+			const groups = groupMembers(path.posix.basename(rel, '.md'), methodNamesOf(body))
+			.map(g => (slugMap.has(`${g.exampleLink.page}.md`) ? g : {...g, exampleLink: null}));
+			const groupTable = renderGroupTable(groups);
+			body = insertGroupTable(body, groupTable);
+			plain = insertGroupTable(insertLinkLine(plain, linkLine), groupTable);
 		}
 
 		// Clean the meta description in-place (omit the key when unusable).
@@ -350,15 +567,84 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 		const slug = slugMap.get(rel);
 		const isIndex = path.posix.basename(rel).toLowerCase() === 'index.md';
 		const outRel = slug === '' ? 'index.md' : isIndex ? `${slug}/index.md` : `${slug}.md`;
-		const fm = Object.keys(data).length ? stringifyFrontmatter(data) : '';
-		register(slug, outRel, fm, body);
+
+		// Headings that moved to another page keep their old ids on this one (see placeMovedAnchors).
+		// A frozen tree is left as it was published, so it ignores movedAnchors.
+		let movedAnchors = {};
+		if(!frozen)
+		{
+			try
+			{
+				movedAnchors = movedAnchorsOf(data);
+			}
+			catch(error)
+			{
+				movedProblems.push(`${outRel} → ${error.message}`);
+			}
+		}
+		delete data.movedAnchors;
+		// A section's extra search words (search-render.mjs) stay in the page's frontmatter as one
+		// line of JSON, where the search index reads them. A frozen tree is left as it was published.
+		let searchTermsLine = null;
+		if(!frozen && data.searchTerms != null)
+		{
+			try
+			{
+				searchTermsLine = `searchTerms: ${JSON.stringify(Object.fromEntries(searchTermsOf(raw)))}`;
+			}
+			catch(error)
+			{
+				searchTermProblems.push(`${rel}: ${error.message}`);
+			}
+		}
+		delete data.searchTerms;
+		if(Object.keys(movedAnchors).length)
+		{
+			const placed = placeMovedAnchors(body, movedAnchors, new Set(extractHeadingIds(body)));
+			body = placed.content;
+			placed.problems.forEach(problem => movedProblems.push(`${outRel} → ${problem}`));
+			Object.entries(movedAnchors).forEach(([oldId, target]) => movedTargets.push({outRel, oldId, target}));
+		}
 
 		// Title: frontmatter title, else the first H1 (matches what VitePress shows in the
 		// <title> tag), else the filename. The H1 fallback keeps index.md pages from being
 		// labelled the literal "index" in the sidebar (their H1 is the real section name).
 		const h1 = body.match(/^\s{0,3}#\s+(.+?)\s*$/m);
 		const derivedTitle = data.title || (h1 ? h1[1].trim() : rel.replace(/\.md$/i, '').split('/').pop());
-		pages.push({relPath: rel, slug, frontmatter: data, title: derivedTitle});
+		const page = {relPath: rel, slug, frontmatter: data, title: derivedTitle};
+
+		// A guide's most used classes go into its own frontmatter, where ReferenceForPage.vue reads
+		// them. Inline site data ships on every page, so they never go into the shared sidebar.
+		let fm = Object.keys(data).length ? stringifyFrontmatter(data) : '';
+		const referenceLinks = !frozen && isGuidePage(page) ? referenceLinksFor({...page, body}, apexTitles) : [];
+		if(referenceLinks.length)
+		{
+			// A JSON list is also a YAML list, which is how VitePress reads frontmatter.
+			const line = `referenceForPage: ${JSON.stringify(referenceLinks)}\n`;
+			fm = fm ? fm.replace(/---\n$/, `${line}---\n`) : `---\n${line}---\n`;
+		}
+		// How much of "On this page" a guide shows. A guide that sets its own `outline` keeps it.
+		const outlineRank = outlineRankByRel.get(rel);
+		if(outlineRank && data.outline == null)
+		{
+			const setting = outlineSetting(outlineRank.count, outlineRank.rank);
+			const lines = Object.entries(setting).map(([key, value]) => `${key}: ${value}\n`).join('');
+			fm = fm ? fm.replace(/---\n$/, `${lines}---\n`) : `---\n${lines}---\n`;
+		}
+		// The theme script reads the moved anchors from the page data. A JSON object is also a YAML map.
+		if(Object.keys(movedAnchors).length)
+		{
+			fm = withFrontmatterLine(fm, `movedAnchors: ${JSON.stringify(movedAnchors)}`);
+		}
+		if(searchTermsLine)
+		{
+			fm = withFrontmatterLine(fm, searchTermsLine);
+		}
+		register(slug, outRel, withCopyLink(fm, slug), body, plain, derivedTitle);
+		// Before the anchor pass, so a link to an old id counts as a link to a real place on this page.
+		const pageIds = idsBySlug.get(slug);
+		Object.keys(movedAnchors).filter(oldId => !pageIds.has(oldId) && MOVED_ANCHOR_ID.test(oldId)).forEach(oldId => pageIds.add(oldId));
+		pages.push(page);
 	}
 
 	// Home (src/index.md). When the home declares a layout (the landing page uses
@@ -371,7 +657,18 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 		const {data: homeData, content: homeBody} = parseFrontmatter(readme);
 		if(homeData.layout)
 		{
+			// The landing page has no Markdown headings. Its places are the elements it gives an id,
+			// such as an example block (<CodeCompare id="selectors">), so a link or a moved heading can
+			// land on one. They are known before its own links are resolved, so a link to one is kept.
+			// The front page component's own sections (KernLanding.vue, such as #jump-to-a-feature) are
+			// places too. Only its template is read, so an id written inside its script is not one.
+			// An older version's front page has its own layout, so a frozen tree takes none of them.
+			const templateStart = frozen || landingComponent == null ? -1 : landingComponent.indexOf('<template>');
+			const componentTemplate = templateStart < 0 ? '' : landingComponent.slice(templateStart, landingComponent.lastIndexOf('</template>'));
+			const landingIds = [...landingElementIds(homeBody), ...landingElementIds(componentTemplate)];
+			idsBySlug.set('', new Set(landingIds));
 			register('', 'index.md', stringifyFrontmatter(homeData), resolveLandingLinks(homeBody, idsBySlug));
+			landingIds.forEach(id => idsBySlug.get('').add(id));
 		}
 		else
 		{
@@ -391,7 +688,8 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 		{
 			unresolved.push(`AGENTS.md → ${u}`);
 		}
-		register('agents', 'agents.md', '', escapeAngles(transformDetails(rewriteHomeLinks(agentsBody, slugMap))));
+		register('agents', 'agents.md', withCopyLink('', 'agents'), escapeAngles(transformDetails(rewriteHomeLinks(agentsBody, slugMap))),
+				frozen ? null : rewriteHomeLinks(agentsBody, slugMap), 'AI Agent Onboarding');
 		pages.push({relPath: 'AGENTS.md', slug: 'agents', frontmatter: {title: 'AI Agent Onboarding'}, title: 'AI Agent Onboarding'});
 	}
 
@@ -413,7 +711,8 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 		const v = relPath.match(/(\d+)\.(\d+)/);
 		const order = v ? -(Number(v[1]) * 1000 + Number(v[2])) : 0;
 		const data = {title, group: 'Release Notes', order};
-		register(slug, `${slug}.md`, stringifyFrontmatter(data), body);
+		register(slug, `${slug}.md`, withCopyLink(stringifyFrontmatter(data), slug), body,
+				frozen ? null : rewriteHomeLinks(content, slugMap, 'release-notes'), title);
 		pages.push({relPath: `release-notes/${relPath}`, slug, frontmatter: data, title});
 	}
 
@@ -422,8 +721,21 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 	// collected separately so the caller can gate on dead anchors that the route-only
 	// dead-link check never sees.
 	const writes = [];
-	const unresolvedAnchors = [];
-	for(const {outRel, slug, fm, body} of materialized)
+	const copies = [];
+	const unresolvedAnchors = [...movedProblems];
+	// The place each moved heading went must be a real heading id, written exactly: the theme script
+	// sends the reader there as written, with no fuzzy matching. A place with no `#id` is a whole page
+	// (a removed section can send its old links to the front page, `/`); the page must exist.
+	for(const {outRel, oldId, target} of movedTargets)
+	{
+		const [route, id] = target.split('#');
+		const ids = idsBySlug.get(route.replace(/^\//, '').replace(/\/$/, ''));
+		if(!route.startsWith('/') || !ids || (id !== undefined && !ids.has(id)))
+		{
+			unresolvedAnchors.push(`${outRel} → movedAnchors #${oldId}: ${target} is no heading on the site`);
+		}
+	}
+	for(const {outRel, slug, fm, body, plain, title} of materialized)
 	{
 		const {content: anchored, unresolved: badAnchors} = rewriteAnchors(body, {currentSlug: slug, idsBySlug});
 		for(const a of badAnchors)
@@ -431,6 +743,13 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 			unresolvedAnchors.push(`${outRel} → ${a}`);
 		}
 		writes.push({outRel, content: fm + anchored});
+		// The copy gets the same anchor fixes as the page, so a link in it lands on the same heading.
+		// A bad anchor was reported above from the page body.
+		if(plain !== null && slug !== '')
+		{
+			const {content: plainAnchored} = rewriteAnchors(plain, {currentSlug: slug, idsBySlug});
+			copies.push({copyPath: markdownCopyPath(slug), content: renderMarkdownCopy({markdown: plainAnchored, title})});
+		}
 	}
 
 	const sidebar = generateSidebar(pages);
@@ -439,7 +758,20 @@ export function buildSitePlan({docInputs, readme, agents, releaseNotes, mirrorEx
 	const currentSlugs = [...new Set(pages.map(p => p.slug))];
 	const slugDiff = diffSlugs(locked, currentSlugs, redirects);
 
-	return {writes, pages, sidebar, unresolved, unresolvedAnchors, slugDiff, currentSlugs, idsBySlug};
+	// Every section's extra search words, checked against the headings of every page and against the
+	// search cases. A frozen tree ignores them.
+	if(!frozen)
+	{
+		// The AGENTS page and the release notes are pages of the site too, so their headings count.
+		const builtPages = [
+			...docRel.map(rel => ({name: rel, source: rawByRel.get(rel)})),
+			...(agents == null ? [] : [{name: 'AGENTS.md', source: agents}]),
+			...releaseNoteList.map(({relPath, raw}) => ({name: `release-notes/${relPath}`, source: raw}))
+		];
+		searchTermProblems.push(...checkSearchTerms(builtPages, searchCases));
+	}
+
+	return {writes, copies, pages, sidebar, unresolved, unresolvedAnchors, slugDiff, currentSlugs, idsBySlug, searchTermProblems: [...new Set(searchTermProblems)]};
 }
 
 // The docs-site home is the landing tour, authored as a real markdown file at
@@ -567,9 +899,25 @@ async function main()
 	const releaseNotes = await loadReleaseNotes();
 	const {locked, redirects} = await loadLock(path.join(ROOT, 'slugs.lock.json'), path.join(ROOT, 'redirects.json'));
 
-	const {writes, pages, sidebar, unresolved, unresolvedAnchors, slugDiff, idsBySlug} = buildSitePlan({
-		docInputs, readme, agents, releaseNotes, mirrorExcluded, locked, redirects
+	const searchCases = JSON.parse(await readFile(path.join(ROOT, 'scripts', 'search-cases.json'), 'utf8'));
+	// The front page component, whose section ids are places a link may name.
+	const landingComponent = await readFile(path.join(ROOT, '.vitepress', 'theme', 'components', 'KernLanding.vue'), 'utf8').catch(() => null);
+	const {writes, copies, pages, sidebar, unresolved, unresolvedAnchors, slugDiff, idsBySlug, searchTermProblems} = buildSitePlan({
+		docInputs, readme, agents, releaseNotes, mirrorExcluded, locked, redirects, frozen: FROZEN, base: BASE, searchCases, landingComponent
 	});
+
+	// Fail loudly on a section's search words that are misplaced (see checkSearchTerms in
+	// search-render.mjs): a word on a heading the page does not have, a word already in a heading,
+	// or a word with no search case in scripts/search-cases.json.
+	if(searchTermProblems.length)
+	{
+		console.error('Search words (searchTerms) that cannot be used:');
+		for(const problem of searchTermProblems)
+		{
+			console.error('  ' + problem);
+		}
+		process.exit(1);
+	}
 
 	// Materialize every planned write under src/.
 	for(const {outRel, content} of writes)
@@ -578,6 +926,19 @@ async function main()
 		await mkdir(path.dirname(dest), {recursive: true});
 		await writeFile(dest, content);
 	}
+
+	// The Markdown copies go under src/public/, so they are served as they are at /<slug>.md and are
+	// not built into pages (config.mjs leaves out markdown under public/), listed in the sitemap or
+	// put in the search index. A frozen tree has none.
+	let copyBytes = 0;
+	for(const {copyPath, content} of copies)
+	{
+		const dest = path.join(SRC, 'public', copyPath);
+		await mkdir(path.dirname(dest), {recursive: true});
+		await writeFile(dest, content);
+		copyBytes += Buffer.byteLength(content);
+	}
+	console.log(`Markdown copies: ${copies.length} written to src/public/ (${(copyBytes / 1024 / 1024).toFixed(1)} MB).`);
 
 	// Fail loudly on unresolved internal links (better error than VitePress' own).
 	if(unresolved.length)
@@ -602,9 +963,12 @@ async function main()
 		process.exit(1);
 	}
 
-	// Emit the generated sidebar.
+	// Emit the generated sidebar. A frozen tree keeps its single flat sidebar (an array). The latest
+	// tree gets one menu per area, in the compact form of generateSidebarAreas (an object), which
+	// throws for a page in no area and so fails the build. config.mjs tells the two apart.
+	const sidebarOutput = FROZEN ? sidebar : generateSidebarAreas(pages);
 	await writeFile(path.join(ROOT, '.vitepress', 'sidebar.generated.mjs'),
-			`// AUTO-GENERATED by scripts/prepare.mjs — do not edit.\nexport default ${JSON.stringify(sidebar, null, 2)}\n`);
+			`// AUTO-GENERATED by scripts/prepare.mjs — do not edit.\nexport default ${JSON.stringify(sidebarOutput, null, 2)}\n`);
 
 	// Emit the per-page sitemap <lastmod> map (git last-commit date of each page's source).
 	// config.mjs applies it to the sitemap via transformItems.

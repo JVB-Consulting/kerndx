@@ -104,6 +104,18 @@ jobs:
         # an oversized entry chunk, and <img> tags without width/height (layout jump + LCP).
         run: npm run test:artifact
 
+      - name: Install headless Chromium (search test, render smoke-test, accessibility gate)
+        working-directory: docs-site
+        run: npx playwright install --with-deps chromium
+
+      - name: Search test (the top results for each search in scripts/search-cases.json)
+        working-directory: docs-site
+        # Serves the built site and types each listed search into its search box in headless
+        # Chromium, then checks the first three results. Fails the build when a search no longer
+        # finds the page it should.
+        timeout-minutes: 10
+        run: npm run test:search
+
       - name: Markdown lint (advisory, non-blocking)
         working-directory: docs-site
         # Runs after the build, so the materialized src/ tree exists.
@@ -117,7 +129,6 @@ jobs:
         # network-idle waits, which have hung a runner for the job's full lifetime once.
         timeout-minutes: 25
         run: |
-          npx playwright install --with-deps chromium
           npm run test:render
           npm run test:audit
 

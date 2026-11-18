@@ -58,6 +58,41 @@ export function resolveTargetUrl(targetVersion, logical, routeSet)
 	return base;
 }
 
+// The site publishes the current docs at the base and a few older versions under /X.Y/. A link
+// into an older version that is no longer published (such as /1.3/selectors-guide) should open
+// the same page in the current docs (/selectors-guide). Given the address the reader asked for,
+// this returns that current address, or null when the address is not inside a removed version:
+// a published older version, the current docs, and every other address are left alone. A page
+// that no longer exists in the current docs then gets the site's normal "page not found".
+//
+// The function is written without any outside helper on purpose: removedVersionRedirectScript
+// copies its source text into the "page not found" page, where it runs on its own.
+export function removedVersionTarget(pathname, publishedLines, base)
+{
+	const siteBase = String(base || '/').replace(/\/*$/, '/');
+	const path = String(pathname || '');
+	if(!path.startsWith(siteBase) && path !== siteBase.replace(/\/$/, ''))
+	{
+		return null;
+	}
+	const rest = path.slice(siteBase.length);
+	const match = /^(\d+\.\d+)(\/.*)?$/.exec(rest);
+	if(!match || (publishedLines || []).includes(match[1]))
+	{
+		return null;
+	}
+	return siteBase + (match[2] || '/').replace(/^\/+/, '');
+}
+
+// The inline script for the site's "page not found" page. GitHub Pages serves that page for
+// every address it has no file for, so this is where a link into a removed version is caught
+// and sent on to the current page. The address's query and #section are kept.
+export function removedVersionRedirectScript(publishedLines, base)
+{
+	return `(function(){var target=(${removedVersionTarget.toString()})(location.pathname,${JSON.stringify(publishedLines)},${JSON.stringify(base)});`
+		+ 'if(target!==null){location.replace(target+location.search+location.hash);}})();';
+}
+
 // Normalise a raw routes.json array (logical slugs) into a lookup Set. Non-arrays → null,
 // signalling "could not confirm", which resolveTargetUrl treats as a home fallback.
 export function toRouteSet(routes)

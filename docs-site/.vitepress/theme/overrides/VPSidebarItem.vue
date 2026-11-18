@@ -24,8 +24,26 @@
 // structural fix (native <details>/<summary>). NOT fixed in 2.0.0-alpha.19 — the markup there is
 // byte-identical. Delete this file and the alias when upstream lands a fix; the accessibility gate
 // (scripts/site-audit.mjs) will tell you if that regresses.
+//
+// The second change from stock: a collapsed group does not render its children. Stock renders them
+// all and hides them with CSS, so every page with a sidebar shipped and hydrated all 361 sidebar
+// items, 290 of them inside the collapsed API Reference group. That was one 550 ms main-thread task
+// on a slow phone (Lighthouse mobile, CPU x12) and failed Total Blocking Time; rendering only the 71
+// visible items brought it to 200 ms. Opening a group renders its children then. The cost: closing
+// a group forgets which of its subgroups were open. If this file is deleted for the upstream fix
+// above, keep this behaviour: the sidebar ceiling in scripts/artifact-audit.mjs fails if it is lost.
+//
+// The third change: the group holding the current page is open in the server-rendered HTML too.
+// Stock opens it only after mount (a watchPostEffect, which never runs on the server), and with
+// collapsed groups rendering nothing that pushed every group below it down once the page started:
+// Lighthouse measured the layout shift on /reference/apex/qry-builder at desktop width (CLS 0.014
+// before the area menus, 0.100 after). The watchEffect below runs on the server and in the browser
+// before the first render, after stock's own watchEffect, and reads only the page and the item, so
+// the server HTML and the browser's first render agree and nothing moves.
 import type { DefaultTheme } from 'vitepress/theme'
-import { computed } from 'vue'
+import { computed, watchEffect } from 'vue'
+import { useData } from 'vitepress'
+import { isActive } from 'vitepress/dist/client/shared.js'
 import { useSidebarControl } from 'vitepress/dist/client/theme-default/composables/sidebar.js'
 import VPLink from 'vitepress/dist/client/theme-default/components/VPLink.vue'
 
@@ -43,6 +61,15 @@ const {
   hasChildren,
   toggle
 } = useSidebarControl(computed(() => props.item))
+
+const { page } = useData()
+
+// Stock's isActiveLink is set only after mount, so the item's own link is checked here directly.
+watchEffect(() => {
+  if (hasActiveLink.value || isActive(page.value.relativePath, props.item.link)) {
+    collapsed.value = false
+  }
+})
 
 const sectionTag = computed(() => (hasChildren.value ? 'section' : `div`))
 
@@ -129,7 +156,7 @@ function onCaretClick() {
       </div>
     </div>
 
-    <div v-if="item.items && item.items.length" class="items">
+    <div v-if="item.items && item.items.length && !collapsed" class="items">
       <template v-if="depth < 5">
         <VPSidebarItem
           v-for="i in item.items"
@@ -278,9 +305,5 @@ function onCaretClick() {
 .VPSidebarItem.level-5 .items {
   border-left: 1px solid var(--vp-c-divider);
   padding-left: 16px;
-}
-
-.VPSidebarItem.collapsed .items {
-  display: none;
 }
 </style>

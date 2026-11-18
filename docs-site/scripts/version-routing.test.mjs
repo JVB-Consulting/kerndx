@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: Apache-2.0
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {logicalPath, currentVersion, resolveTargetUrl, toRouteSet} from './version-routing.mjs';
+import vm from 'node:vm';
+import {logicalPath, currentVersion, resolveTargetUrl, toRouteSet, removedVersionTarget, removedVersionRedirectScript} from './version-routing.mjs';
 
 const LATEST = {line: '1.3', label: '1.3', base: '/', latest: true};
 const V12 = {line: '1.2', label: '1.2', base: '/1.2/', latest: false};
@@ -79,4 +80,66 @@ test('toRouteSet normalises slugs and rejects non-arrays', () =>
 	assert.ok(set.has('fast-starts/triggers'));
 	assert.equal(toRouteSet(null), null);
 	assert.equal(toRouteSet({}), null);
+});
+
+// The site publishes the current docs at '/' and the older versions 1.8, 1.9 and 1.10.
+const PUBLISHED = ['1.10', '1.9', '1.8'];
+
+test('removedVersionTarget sends a page of a removed version to the same page in the current docs', () =>
+{
+	assert.equal(removedVersionTarget('/1.3/selectors-guide', PUBLISHED, '/'), '/selectors-guide');
+	assert.equal(removedVersionTarget('/1.5/reference/apex/qry-builder', PUBLISHED, '/'), '/reference/apex/qry-builder');
+	assert.equal(removedVersionTarget('/1.1/fast-starts/triggers/', PUBLISHED, '/'), '/fast-starts/triggers/');
+});
+
+test('removedVersionTarget sends the home of a removed version to the current home', () =>
+{
+	assert.equal(removedVersionTarget('/1.1/', PUBLISHED, '/'), '/');
+	assert.equal(removedVersionTarget('/1.1', PUBLISHED, '/'), '/');
+	assert.equal(removedVersionTarget('/1.7/index.html', PUBLISHED, '/'), '/index.html');
+});
+
+test('removedVersionTarget leaves a published older version alone', () =>
+{
+	assert.equal(removedVersionTarget('/1.9/selectors-guide', PUBLISHED, '/'), null);
+	assert.equal(removedVersionTarget('/1.10/', PUBLISHED, '/'), null);
+	assert.equal(removedVersionTarget('/1.8/no-such-page', PUBLISHED, '/'), null);
+});
+
+test('removedVersionTarget leaves the current docs and other addresses alone', () =>
+{
+	assert.equal(removedVersionTarget('/selectors-guide', PUBLISHED, '/'), null);
+	assert.equal(removedVersionTarget('/', PUBLISHED, '/'), null);
+	assert.equal(removedVersionTarget('/release-notes-kern-1-3', PUBLISHED, '/'), null);
+	assert.equal(removedVersionTarget('/1.2x/guide', PUBLISHED, '/'), null);
+	assert.equal(removedVersionTarget('/no-such-page', PUBLISHED, '/'), null);
+});
+
+test('removedVersionTarget keeps a project-page base', () =>
+{
+	assert.equal(removedVersionTarget('/YourRepo/1.3/selectors-guide', PUBLISHED, '/YourRepo/'), '/YourRepo/selectors-guide');
+	assert.equal(removedVersionTarget('/YourRepo/1.3', PUBLISHED, '/YourRepo/'), '/YourRepo/');
+	assert.equal(removedVersionTarget('/YourRepo/1.9/selectors-guide', PUBLISHED, '/YourRepo/'), null);
+	assert.equal(removedVersionTarget('/Other/1.3/selectors-guide', PUBLISHED, '/YourRepo/'), null);
+});
+
+// Runs the "page not found" script against a pretend browser address and returns where it sent the reader.
+function runRedirectScript(pathname, search = '', hash = '')
+{
+	const replaced = [];
+	const location = {pathname, search, hash, replace: url => replaced.push(url)};
+	vm.runInNewContext(removedVersionRedirectScript(PUBLISHED, '/'), {location});
+	return replaced;
+}
+
+test('the page-not-found script opens the current page and keeps the query and section', () =>
+{
+	assert.deepEqual(runRedirectScript('/1.3/selectors-guide', '?q=1', '#joins'), ['/selectors-guide?q=1#joins']);
+	assert.deepEqual(runRedirectScript('/1.1/'), ['/']);
+});
+
+test('the page-not-found script does nothing for a published version or the current docs', () =>
+{
+	assert.deepEqual(runRedirectScript('/1.9/selectors-guide'), []);
+	assert.deepEqual(runRedirectScript('/no-such-page'), []);
 });

@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {readFileSync, readdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
+import {areaForPage} from './generate-nav.mjs';
 
 // Enforces the documentation IA convention (docs/Code Conventions - Guide.md): every
 // Fast Start declares a banded `navOrder` ("soonest × oftenest"), so the sidebar order
@@ -50,6 +51,22 @@ test('every Fast Start declares a banded navOrder (IA convention)', () =>
 	assert.deepEqual(missing, [], `Fast Starts missing navOrder — add a banded value (see the IA convention): ${missing.join(', ')}`);
 	assert.deepEqual(outOfBand, [], `Fast Starts with out-of-band navOrder: ${outOfBand.join(', ')}`);
 });
+
+test('every developer guide has a plain-word menu label', () =>
+{
+	// The Guides menu shows `navLabel`, for example "DML (saving records)", so a reader who does
+	// not know the KernDX name of a feature can still find its guide. The page title stays as it is.
+	const guides = readdirSync(DOCS).filter(f => f.endsWith('.md') && areaForPage({relPath: f, frontmatter: {}}) === 'guides');
+	assert.ok(guides.length > 0, 'expected to find guide source files');
+	const unlabelled = guides.filter(f => !/^navLabel:\s*"[^"]+\([^"]+\)"\s*$/m.test(frontmatterOf(f)));
+	assert.deepEqual(unlabelled, [], `Guides without a navLabel of the form "Name (plain words)": ${unlabelled.join(', ')}`);
+});
+
+function frontmatterOf(file)
+{
+	const fm = readFileSync(join(DOCS, file), 'utf8').match(/^---\n([\s\S]*?)\n---/);
+	return fm ? fm[1] : '';
+}
 
 test('Guides without navOrder are reported (advisory — they fall back to alpha)', () =>
 {

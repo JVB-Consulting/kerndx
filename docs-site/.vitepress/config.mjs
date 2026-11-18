@@ -34,7 +34,10 @@ function mermaidConfigPlugin(userConfig = {})
 		}
 	};
 }
-import sidebar from './sidebar.generated.mjs';
+import generatedSidebar from './sidebar.generated.mjs';
+import generatedVersions from './versions.generated.mjs';
+import {removedVersionRedirectScript} from '../scripts/version-routing.mjs';
+import {TOP_MENU, FROZEN_TOP_MENU} from '../scripts/generate-nav.mjs';
 import {repoUrl} from '../scripts/repo.mjs';
 import {seoHeadEntries} from '../scripts/seo-head.mjs';
 import githubLight from 'shiki/themes/github-light.mjs';
@@ -42,6 +45,7 @@ import githubDark from 'shiki/themes/github-dark.mjs';
 import responsiveTables from './theme/responsive-tables.mjs';
 import {readFileSync} from 'node:fs';
 import {applyLastmod} from '../scripts/sitemap-lastmod.mjs';
+import {localSearchOptions} from '../scripts/search-render.mjs';
 
 const HOSTNAME = 'https://docs.jvb-consulting.io';
 const BASE = process.env.DOCS_BASE || '/';
@@ -141,6 +145,13 @@ export default defineConfig({
 				{
 					find: /^.*\/VPSidebarItem\.vue$/,
 					replacement: fileURLToPath(new URL('./theme/overrides/VPSidebarItem.vue', import.meta.url))
+				},
+				// "On this page" on the largest guides: main headings, with the section being read
+				// opened. The reason and the VitePress internals it leans on are in the target file's
+				// header. Anchored on the filename for the same reason as the sidebar override above.
+				{
+					find: /^.*\/VPDocOutlineItem\.vue$/,
+					replacement: fileURLToPath(new URL('./theme/overrides/VPDocOutlineItem.vue', import.meta.url))
 				}
 			]
 		},
@@ -182,43 +193,41 @@ export default defineConfig({
 	themeConfig: {
 		// F-shape top nav — most-important-first. "Why KernDX" leads (the evaluator's
 		// first question), then the daily-driver paths, then lookup. Each tab lands on the
-		// canonical first page of the matching sidebar section, so the top nav and the
-		// left sidebar stay consistent. (The version selector lives in the sidebar.)
-		nav: [
-			{text: 'Why KernDX', link: '/'},
-			{text: 'Get Started', link: '/installation'},
-			{text: 'Fast Starts', link: '/fast-starts'},
-			{text: 'Reference', link: '/reference/'}
-		],
+		// first page of its area, and each area has its own sidebar (scripts/generate-nav.mjs).
+		// A frozen tree keeps its older four-item menu, without Guides.
+		nav: FROZEN ? FROZEN_TOP_MENU : TOP_MENU,
 		search: {
-			provider: 'local', options: {
-				// The corpus is code-heavy (268 generated API reference pages). Indexing
-				// fenced code blocks pushed the local-search index well past the ~1 MB target, so
-				// strip fenced code (and the noisy frontmatter) from the indexed content before
-				// rendering. Prose, headings, and tables are still indexed; code is excluded.
-				_render(src, env, md)
-				{
-					// Closing fence must use the same character as the opener AND be at least
-					// as long (CommonMark). Capture the fence char (group 2) so the close is the
-					// opener (\1) followed by zero-or-more of that same char (\2*) — length >=
-					// opener. A bare \1 backreference (exact-length) leaves a block closed by a
-					// longer fence unstripped, leaking code into the search index.
-					const withoutCode = src
-					.replace(/^---\n[\s\S]*?\n---\n/, '')
-					.replace(/^ {0,3}(([`~])\2{2,})[\s\S]*?^ {0,3}\1\2*\s*$/gm, '');
-					// The generated API reference pages are the bulk of the corpus even without
-					// their code. Index only the text above a reference page's first "## "
-					// section (its heading and summary; a page with no member sections, such as
-					// a trigger, is small and stays indexed whole): a class or member name still
-					// finds its page, and its member-by-member text stays out of the index. The
-					// artifact audit's search-index budget (scripts/artifact-audit.mjs) fails the
-					// build if the chunk creeps back up.
-					const isReference = (env?.relativePath ?? '').startsWith('reference/');
-					const indexed = isReference ? withoutCode.split(/^## /m)[0] : withoutCode;
-					return md.render(indexed, env);
-				}
+			// What goes into the search index, and how results rank, lives in
+			// scripts/search-render.mjs. Every page is indexed without its code (except a
+			// "// Plain Apex" sample) and frontmatter; a generated API reference page keeps only
+			// its summary and its headings, so a method name finds its member section, release
+			// notes and strategic guides rank lower, and From Plain Apex to KernDX ranks higher.
+			// A frozen version tree keeps its old search: a reference page indexed only above
+			// its first section, with no ranking changes.
+			// The artifact audit's search-index budget (scripts/artifact-audit.mjs) fails the
+			// build if the index grows past it.
+			// The search button shows "Search" and its keyboard keys (Ctrl or Command, then K) on a
+			// wide screen. Its accessible name must contain that visible text in the same order, or
+			// voice control cannot find it by what it shows (axe label-content-name-mismatch); the
+			// default name, "Search", leaves the K out. A phone shows only the icon, so the name
+			// still has to say "Search" on its own. The space after "Search" in the button text
+			// keeps it a separate word from the K beside it: the two sit in neighbouring elements
+			// with no space between, so a checker otherwise reads them as one word, "SearchK". The
+			// button is shared, so frozen version trees get the same name.
+			provider: 'local',
+			options: {
+				...localSearchOptions({frozen: FROZEN}),
+				translations: {button: {buttonText: 'Search ', buttonAriaLabel: 'Search K (Ctrl K or Command K)'}}
 			}
-		}, sidebar, outline: {
+		},
+		// A frozen tree's sidebar is one flat list. The latest tree's area menus arrive in a compact
+		// form (each menu written once, plus which sidebar key shows which menu) because site data is
+		// inlined into every page; theme/index.mjs expands `sidebarAreas` into the path-keyed
+		// `sidebar` before anything renders. Writing them out here instead would repeat the API tree
+		// once per key and break the artifact audit's inline site data budget.
+		sidebar: Array.isArray(generatedSidebar) ? generatedSidebar : undefined,
+		sidebarAreas: Array.isArray(generatedSidebar) ? undefined : generatedSidebar,
+		outline: {
 			level: [
 				2,
 				3
@@ -239,6 +248,23 @@ export default defineConfig({
 			// theme/index.mjs, so mermaid itself only loads on a page that has a diagram.
 			MermaidMarkdown(md);
 		}
+	},
+	// The site publishes only the older versions that have a docs-versions/<X.Y>/ folder. GitHub
+	// Pages has no server redirects and serves the root 404.html for any address it has no file
+	// for, so a link into a removed version (/1.3/selectors-guide) reaches that page. A small
+	// script there sends the reader to the same page in the current docs (/selectors-guide); if
+	// the page is gone from the current docs too, the reader sees the normal "page not found".
+	// Only the current tree's 404 page gets it: a frozen tree's own 404.html is never served.
+	// It runs only when 404.html is loaded in full, so never link to a removed version from
+	// inside the site: the in-app router would show "page not found" without the redirect.
+	transformHead({page})
+	{
+		if(FROZEN || page !== '404.md')
+		{
+			return [];
+		}
+		const publishedLines = generatedVersions.filter(version => !version.latest).map(version => version.line);
+		return [['script', {}, removedVersionRedirectScript(publishedLines, BASE)]];
 	}, // Canonical + Open Graph + Twitter card per page.
 	transformPageData(pageData)
 	{

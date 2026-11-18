@@ -1,5 +1,6 @@
 ---
 navOrder: 96
+navLabel: "Documentation Site (how this site is built)"
 ---
 
 # Documentation Site - Guide
@@ -126,9 +127,11 @@ A healthy deploy shows the `build` job green (the strict gate), the `deploy` job
 
 Every push to your default branch that touches `docs/`, `README.md`, release notes, or the site pipeline rebuilds and redeploys automatically, including when you pull in a new KernDX release. No manual steps after the one-time setup.
 
+The site publishes the current version and every older version that has a folder under `docs-versions/`; KernDX keeps the last three. Each older version is a folder under `docs-versions/` (for example `docs-versions/1.9/`), served at its own address (`/1.9/`). To stop publishing an older version, delete its folder. A link into that version then opens the same page in the current docs (`/1.9/selectors-guide` opens `/selectors-guide`). If the current docs no longer have that page, the reader sees the normal "page not found" page.
+
 ## Adding your own pages
 
-Drop Markdown files into `docs/` and push: each becomes a page with a clean URL, appears in the sidebar, and is indexed by search automatically. (Search indexes prose only: fenced code is left out of the index on every page, and an API reference page contributes only the text above its first member section, its heading and summary, so the index a reader downloads on their first search stays small.) File naming controls sidebar grouping:
+Drop Markdown files into `docs/` and push: each becomes a page with a clean URL, appears in the sidebar, and is indexed by search automatically. (To keep the search index small, search leaves fenced code out, except, outside API reference pages, a code block whose first line is `// Plain Apex`; on an API reference page it indexes only the class heading, its summary and every member heading; older versions of the site index prose only, as before.) File naming controls sidebar grouping:
 
 - Names ending in " - Guide" land under **Guides**
 - Names starting with "Fast Start - " land under **Fast Starts**
