@@ -10,7 +10,7 @@
  *
  * @group Triggers
  *
- * @date May 2026, October 2026
+ * @date May 2026, November 2026
  */
 @IsTest(seeAllData=false)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs')
@@ -184,7 +184,7 @@ private class SEL_PostTriggerAction_TEST
 	 * every field. Asserts `queriedFieldNames()` covers every direct field AND every relationship
 	 * path `UTIL_PostTriggerAction` reads at runtime. A relationship path (`Lookup__r.Field__c`)
 	 * is not included by querying its lookup field, so the paths are the easier half to miss and
-	 * are checked one by one.
+	 * are checked one by one. The handler reads four paths through the trigger setting lookup.
 	 */
 	@IsTest
 	private static void queriedFieldNamesCoverEveryHandlerReadField()
@@ -213,19 +213,28 @@ private class SEL_PostTriggerAction_TEST
 					'The query must select ' + fieldName + ', because the handler reads it off the SOQL-returned row');
 		}
 
-		Map<Schema.SObjectField, String> handlerReadRelationshipPaths = new Map<Schema.SObjectField, String>
+		Map<Schema.SObjectField, List<String>> handlerReadRelationshipPaths = new Map<Schema.SObjectField, List<String>>
 		{
-				PostTriggerAction__mdt.TriggerSetting__c => '.SObjectType__c',
-				PostTriggerAction__mdt.RequiredFeatureFlag__c => '.DeveloperName',
-				PostTriggerAction__mdt.BypassFeatureFlag__c => '.DeveloperName'
+				PostTriggerAction__mdt.TriggerSetting__c => new List<String>
+				{
+						'.SObjectType__c',
+						'.' + UTIL_System.getManagedPackageNamespacePrefix() + 'SObjectType__r.QualifiedApiName',
+						'.' + UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.ObjectApiNameOverride__c),
+						'.' + UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.PerformanceThresholdMs__c)
+				},
+				PostTriggerAction__mdt.RequiredFeatureFlag__c => new List<String> {'.DeveloperName'},
+				PostTriggerAction__mdt.BypassFeatureFlag__c => new List<String> {'.DeveloperName'}
 		};
 
 		for(Schema.SObjectField lookupField : handlerReadRelationshipPaths.keySet())
 		{
-			String relationshipPath = UTIL_SObjectDescribe.getCachedFieldDescribe(lookupField).getRelationshipName()
-					+ handlerReadRelationshipPaths.get(lookupField);
-			Assert.isTrue(selectedFieldNames.contains(relationshipPath),
-					'The query must select ' + relationshipPath + ', because the handler reads it off the SOQL-returned row through the relationship');
+			String relationshipName = UTIL_SObjectDescribe.getCachedFieldDescribe(lookupField).getRelationshipName();
+			for(String pathSuffix : handlerReadRelationshipPaths.get(lookupField))
+			{
+				String relationshipPath = relationshipName + pathSuffix;
+				Assert.isTrue(selectedFieldNames.contains(relationshipPath),
+						'The query must select ' + relationshipPath + ', because the handler reads it off the SOQL-returned row through the relationship');
+			}
 		}
 	}
 

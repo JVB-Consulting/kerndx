@@ -27,14 +27,14 @@
  *
  * @group Utilities
  *
- * @date April 2025, October 2026
+ * @date April 2025, November 2026
  *
  * @since 1.0
  *
  * @example
  * ```apex
  * UTIL_FormulaFilter filter = new UTIL_FormulaFilter(
- *     'MyProcess', 'UTIL_FormulaContext.AccountContext', 'newRecord.Industry == "Technology"'
+ *     'MyProcess', 'UTIL_FormulaContext.AccountContext', 'TEXT(newRecord.Industry) == "Technology"'
  * );
  * UTIL_FormulaFilter.DTO_FilterResults results = filter.filter(oldRecords, newRecords);
  * ```
@@ -91,7 +91,11 @@ global inherited sharing class UTIL_FormulaFilter
 			// Note: Quote, Order, Contract, Product2 require Professional+ edition
 
 			// Package Test Object - enables comprehensive formula evaluation testing
-			Foobar__c.SObjectType => UTIL_FormulaContext.FoobarContext.class
+			Foobar__c.SObjectType => UTIL_FormulaContext.FoobarContext.class,
+
+			// Package objects - let a trigger action on these objects use an entry formula without naming a context class
+			ApiCall__c.SObjectType => UTIL_FormulaContext.ApiCallContext.class,
+			ApiIssue__c.SObjectType => UTIL_FormulaContext.ApiIssueContext.class
 	};
 
 	/**
@@ -306,7 +310,7 @@ global inherited sharing class UTIL_FormulaFilter
 	 * ```apex
 	 * Type contextType = UTIL_System.getTypeForClassName('UTIL_FormulaContext.AccountContext');
 	 * FormulaEval.FormulaInstance formula = UTIL_FormulaFilter.buildBooleanFormula(
-	 *     'newRecord.Industry == "Technology"',
+	 *     'TEXT(newRecord.Industry) == "Technology"',
 	 *     contextType,
 	 *     'MyValidation'
 	 * );
@@ -413,7 +417,8 @@ global inherited sharing class UTIL_FormulaFilter
 	 * @param objectApiName The SObject API name (e.g., 'Account', 'Contact', 'MyObject__c')
 	 * @param specifiedContextClass The explicitly configured context class (may be blank)
 	 *
-	 * @return The context class name to use, or null if no context class is available
+	 * @return The context class name to use, or null if no context class is available. The answer is also null when the
+	 * name is blank or is not the name of an object, for example the name of an Apex class.
 	 *
 	 * @example
 	 * ```apex
@@ -431,7 +436,7 @@ global inherited sharing class UTIL_FormulaFilter
 		}
 
 		// Resolve object API name to SObjectType and delegate to main method
-		SObjectType objectType = UTIL_SObjectDescribe.getGlobalDescribe().get(objectApiName);
+		SObjectType objectType = UTIL_SObjectDescribe.getSObjectTypeByName(objectApiName);
 		return resolveContextClass(objectType, null);
 	}
 

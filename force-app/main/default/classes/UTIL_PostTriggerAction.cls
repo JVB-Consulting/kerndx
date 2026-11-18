@@ -5,24 +5,25 @@
  * cheap-first filters before the action is instantiated:
  *
  * 1. Feature-flag gate (`BypassFeatureFlag__c` / `RequiredFeatureFlag__c`)
- * 2. Optional `TriggerSetting__c` scope filter — when set, the parent setting's
- *    `SObjectType__c` must appear in the dispatch's `touchedSObjectTypes`
+ * 2. Optional `TriggerSetting__c` scope filter: when it is set, the object of the linked
+ *    setting must appear in the dispatch's `touchedSObjectTypes`
  * 3. Optional Apex entry-criteria evaluator (`EntryCriteriaContextClassName__c`)
  *
  * Rows that survive the gates are dispatched under a per-row performance timer
  * with a no-DML contract guard. The guard discounts the logging framework's own
  * log persistence (inside a platform-event / change-event trigger dispatch,
  * `LOG_Engine` persists via direct DML instead of publishing), so post-actions can
- * log — the documented contract — without being blamed for the engine's DML.
+ * log, as their contract allows, without being blamed for the engine's DML.
  * Action exceptions route through `FailureAction__c`
  * policy (`LogAndContinue` or `BlockDml`); `LimitException` and the no-DML guard's
  * own `PostActionDmlException` always rethrow regardless of policy.
  *
  * A static `isRunning` guard prevents recursion if a post-action triggers DML that
- * itself fires more triggers — the inner dispatch returns immediately on re-entry.
+ * itself fires more triggers: the inner dispatch returns immediately on re-entry.
  *
  * @see TRG_Dispatcher
  * @see SEL_PostTriggerAction
+ * @see SEL_TriggerAction
  * @see PostTriggerAction__mdt
  * @see IF_Trigger.PostAction
  * @see IF_Trigger.PostActionEntryCriteria
@@ -34,7 +35,7 @@
  *
  * @group Triggers
  *
- * @date May 2026, October 2026
+ * @date May 2026, November 2026
  *
  * @since 1.1
  */
@@ -161,12 +162,11 @@ public inherited sharing class UTIL_PostTriggerAction
 	}
 
 	/**
-	 * @description Optional-lookup smart-semantics filter. When `TriggerSetting__c` is
-	 * null the row is cross-object and proceeds. When set, the parent setting's
-	 * `SObjectType__c` must appear in the dispatch's `touchedSObjectTypes` — otherwise
-	 * the post-action is skipped because none of its scoped object's triggers
-	 * participated. Mis-configured rows (blank `SObjectType__c`, or a name that doesn't
-	 * resolve via `UTIL_SObjectDescribe`) are skipped fail-soft.
+	 * @description Skips a row that is limited to one trigger setting when that setting's object did not take part
+	 * in the transaction. A row with no `TriggerSetting__c` is not limited to one object, so it always goes on. A row
+	 * with a setting goes on only when the setting's object (see resolveSettingObjectName) is in the dispatch's
+	 * `touchedSObjectTypes`. A row is also skipped, without an error, when its setting names no object or names one
+	 * that `UTIL_SObjectDescribe` cannot find.
 	 *
 	 * @param row The post-action CMDT row.
 	 * @param context The post-action context.
@@ -179,7 +179,7 @@ public inherited sharing class UTIL_PostTriggerAction
 		{
 			return false;
 		}
-		String parentSObjectName = row.TriggerSetting__r?.SObjectType__c;
+		String parentSObjectName = resolveSettingObjectName(row.TriggerSetting__r);
 		if(String.isBlank(parentSObjectName))
 		{
 			return true;
@@ -189,9 +189,34 @@ public inherited sharing class UTIL_PostTriggerAction
 	}
 
 	/**
+	 * @description Works out the API name of the object a trigger setting is for. A name typed in
+	 * `ObjectApiNameOverride__c` comes first: a setting for a change event (for example a Change Data Capture event)
+	 * names its object there, because `SObjectType__c` cannot point to a change event. Next it reads
+	 * `SObjectType__r.QualifiedApiName` when the query filled it in. For a custom object this is the only place that
+	 * holds the name, because `SObjectType__c` holds the object's record id (it starts with `01I`). When the
+	 * relationship is empty, as on a setting a test builds in memory, it falls back to `SObjectType__c`, which then
+	 * holds the name. `SEL_TriggerAction` reads a trigger setting's object in the same order. The typed name is
+	 * returned as the admin typed it: the caller looks it up with `UTIL_SObjectDescribe.getSObjectTypeByName`, which
+	 * ignores letter case. That is the same lookup `SEL_TriggerAction` uses to correct the case of a typed name.
+	 *
+	 * @param setting The trigger setting linked to the post-action row, or null.
+	 *
+	 * @return The object API name, or null when the setting is null or names no object.
+	 */
+	private static String resolveSettingObjectName(TriggerSetting__mdt setting)
+	{
+		String typedObjectName = setting?.ObjectApiNameOverride__c;
+		if(String.isNotBlank(typedObjectName))
+		{
+			return typedObjectName;
+		}
+		return setting?.SObjectType__r?.QualifiedApiName ?? setting?.SObjectType__c;
+	}
+
+	/**
 	 * @description Apex entry-criteria evaluator. When `EntryCriteriaContextClassName__c`
 	 * is blank the row proceeds. When set, the named class is instantiated as an
-	 * `IF_Trigger.PostActionEntryCriteria` and its `shouldRun(context)` is consulted —
+	 * `IF_Trigger.PostActionEntryCriteria` and its `shouldRun(context)` is consulted:
 	 * `false` skips the row, `true` proceeds. Mis-typed class names propagate as
 	 * `TypeException` (wrong-interface binding) or `IllegalArgumentException` (unresolvable
 	 * class name) so the configuration error surfaces rather than silently routing through
@@ -215,7 +240,8 @@ public inherited sharing class UTIL_PostTriggerAction
 
 	/**
 	 * @description Dispatches a single post-action row under a performance timer with the
-	 * no-DML contract guard. The action class is instantiated as `IF_Trigger.PostAction`;
+	 * no-DML contract guard. The timer takes the row's performance settings and the threshold of the row's trigger
+	 * setting; a row with no trigger setting gives no threshold. The action class is instantiated as `IF_Trigger.PostAction`;
 	 * a wrong-interface binding propagates as `TypeException`. After `execute(context)`
 	 * returns, the DML statement counter is checked — if any DML occurred, a
 	 * `PostActionDmlException` is thrown and routes through `handleFailure`, which
@@ -238,7 +264,7 @@ public inherited sharing class UTIL_PostTriggerAction
 				(IF_Trigger.PostAction)UTIL_System.getTypeForClassName(row.ApexClassName__c).newInstance();
 		UTIL_TriggerPerformanceTimer timer =
 				new UTIL_TriggerPerformanceTimer(row.ApexClassName__c, OPERATION_LABEL, null, null);
-		timer.withPostActionSettings(row);
+		timer.withPostActionSettings(row).withTriggerSettingThreshold(row.TriggerSetting__r?.PerformanceThresholdMs__c);
 		timer.start();
 		try
 		{

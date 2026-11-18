@@ -25,9 +25,9 @@
  *
  * @group Triggers
  *
- * @date February 2026, October 2026
+ * @date February 2026, November 2026
  */
-@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ApexUnitTestClassShouldHaveRunAs')
+@SuppressWarnings('PMD.ApexUnitTestClassShouldHaveAsserts,PMD.CognitiveComplexity,PMD.CyclomaticComplexity,PMD.ApexUnitTestClassShouldHaveRunAs,PMD.NcssTypeCount')
 @IsTest(seeAllData=false isParallel=true)
 private class TRG_Dispatcher_TEST
 {
@@ -40,6 +40,16 @@ private class TRG_Dispatcher_TEST
 	 * @description The Name given to DEFAULT_RECORD, the record most tests hand to the dispatcher.
 	 */
 	private static final String DEFAULT_RECORD_NAME = 'My Record';
+	/**
+	 * @description A performance threshold of 0 milliseconds. Every run takes at least that long, so every run is slow
+	 * enough to log.
+	 */
+	private static final Integer THRESHOLD_EVERY_RUN = 0;
+	/**
+	 * @description A performance threshold of 999999 milliseconds, about 17 minutes. No test run takes that long, so no
+	 * run is slow enough to log.
+	 */
+	private static final Integer THRESHOLD_NO_RUN = 999999;
 	/**
 	 * @description The pattern of the secret the masking grouping test hides: the word secret, a hyphen, then letters
 	 * and digits.
@@ -248,6 +258,36 @@ private class TRG_Dispatcher_TEST
 	 */
 	private static Boolean wasBeforeUpdateCalled = false;
 	/**
+	 * @description Full name of the inner class TestNestedSaveGuard, a before insert action that implements
+	 * TRG_Dispatcher.NestedSaveGuard. Tests set it as the action class to check that such an action runs on a save
+	 * started by another action.
+	 */
+	private static final String TEST_NESTED_SAVE_GUARD = TRG_Dispatcher_TEST.class.getName() + '.TestNestedSaveGuard';
+	/**
+	 * @description Full name of the inner class TestStartingBeforeInsert, a before insert action that runs a second
+	 * dispatcher from inside itself. It stands for an action that saves a record and so starts another trigger.
+	 */
+	private static final String TEST_STARTING_ACTION = TRG_Dispatcher_TEST.class.getName() + '.TestStartingBeforeInsert';
+	/**
+	 * @description The second dispatcher TestStartingBeforeInsert runs from inside itself. While it runs, the starting
+	 * action is the first action on the stack, as it is when an action saves a record of another object.
+	 */
+	private static TRG_Dispatcher nestedDispatcher;
+	/**
+	 * @description How many times TestNestedSaveGuard ran in the current test.
+	 */
+	private static Integer nestedSaveGuardCalls = 0;
+	/**
+	 * @description How many times TestStartingBeforeInsert ran in the current test. A test reads it to prove the second
+	 * dispatcher really ran.
+	 */
+	private static Integer startingActionCalls = 0;
+	/**
+	 * @description When true, TestNestedSaveGuard runs its dispatcher once more from inside itself (nestedDispatcher when set, else FACTORY_TRIGGER_ACTION), the way an
+	 * action that saves its own object starts itself again.
+	 */
+	private static Boolean nestedSaveGuardShouldStartAgain = false;
+	/**
 	 * @description Set to true by TestThrowingBeforeInsert just before it throws. Tests read it to prove the
 	 * failing action was really called, so the failure they check came from the action.
 	 */
@@ -325,6 +365,18 @@ private class TRG_Dispatcher_TEST
 	 * cleared between top-level dispatches.
 	 */
 	private static Set<SObjectType> capturedTouchedTypes;
+
+	/**
+	 * @description The API name of the Account change event, in lower case, as an admin might type it in a trigger
+	 * setting's `ObjectApiNameOverride__c`. The lower case proves the name is found whatever its letter case.
+	 */
+	private static final String CHANGE_EVENT_OBJECT_NAME_IN_LOWER_CASE =
+			UTIL_SObjectDescribe.getObjectNameFromType(AccountChangeEvent.SObjectType).toLowerCase();
+
+	/**
+	 * @description DeveloperName of the post-trigger action limited to the Account change event setting.
+	 */
+	private static final String CHANGE_EVENT_SCOPED_POST_ACTION_NAME = 'TestDispatcherChangeEventPostAction';
 
 	/**
 	 * @description Tests the after delete trigger action
@@ -568,7 +620,7 @@ private class TRG_Dispatcher_TEST
 	 * @description Tests that an action-level bypass prevents the dispatcher from executing the action
 	 *
 	 * @see TRG_Base.bypassAction
-	 * @see TRG_Base.isActionBypassed
+	 * @see TRG_Base.isRegisteredActionBypassed
 	 */
 	@IsTest
 	private static void actionBypassPreventsExecution()
@@ -891,6 +943,115 @@ private class TRG_Dispatcher_TEST
 	}
 
 	/**
+	 * @description An action's own threshold logs a slow run even when the org switch for trigger performance logging is
+	 * off. The action's threshold is 0, so its run is logged.
+	 */
+	@IsTest
+	private static void shouldLogAboveTheActionThresholdWithTheOrgSwitchOff()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.newLoggerSettings().apply();
+
+		Test.startTest();
+
+		dispatchWithThresholds(TriggerOperation.BEFORE_INSERT, THRESHOLD_EVERY_RUN, null);
+
+		Test.stopTest();
+
+		Assert.isNotNull(findPerformanceLog(TriggerOperation.BEFORE_INSERT),
+				'Expected a log entry, because a set action threshold logs even with the org switch off');
+	}
+
+	/**
+	 * @description A trigger setting's threshold replaces the org threshold for the actions under that setting, also when
+	 * it is higher. The org logs every run, the setting's threshold is too high for any run, and the action has none: no
+	 * entry is written.
+	 */
+	@IsTest
+	private static void shouldNotLogBelowTheTriggerSettingThreshold()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.newLoggerSettings().withTriggerLogging(THRESHOLD_EVERY_RUN).apply();
+
+		Test.startTest();
+
+		dispatchWithThresholds(TriggerOperation.BEFORE_INSERT, null, THRESHOLD_NO_RUN);
+
+		Test.stopTest();
+
+		Assert.isNull(findPerformanceLog(TriggerOperation.BEFORE_INSERT),
+				'Expected no log entry, because the trigger setting threshold replaces the org threshold and no run reaches it');
+	}
+
+	/**
+	 * @description A trigger setting's threshold replaces the org threshold for the actions under that setting when it is
+	 * lower. The org threshold is too high for any run, the setting's threshold is 0, and the action has none: one entry
+	 * is written.
+	 */
+	@IsTest
+	private static void shouldLogAboveATriggerSettingThresholdLowerThanTheOrgThreshold()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.newLoggerSettings().withTriggerLogging(THRESHOLD_NO_RUN).apply();
+
+		Test.startTest();
+
+		dispatchWithThresholds(TriggerOperation.BEFORE_INSERT, null, THRESHOLD_EVERY_RUN);
+
+		Test.stopTest();
+
+		Assert.isNotNull(findPerformanceLog(TriggerOperation.BEFORE_INSERT),
+				'Expected a log entry, because the trigger setting threshold of 0 replaces the higher org threshold');
+	}
+
+	/**
+	 * @description A trigger setting's threshold logs a slow run of the actions under it even when the org switch is off.
+	 * The setting's threshold is 0 and the action has none: one entry is written.
+	 */
+	@IsTest
+	private static void shouldLogAboveTheTriggerSettingThresholdWithTheOrgSwitchOff()
+	{
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.newLoggerSettings().apply();
+
+		Test.startTest();
+
+		dispatchWithThresholds(TriggerOperation.BEFORE_INSERT, null, THRESHOLD_EVERY_RUN);
+
+		Test.stopTest();
+
+		Assert.isNotNull(findPerformanceLog(TriggerOperation.BEFORE_INSERT),
+				'Expected a log entry, because a set trigger setting threshold logs even with the org switch off');
+	}
+
+	/**
+	 * @description With no threshold on the action or its trigger setting, the org settings decide alone. The first run
+	 * has the org switch off and writes no entry. The second run, of another action, has the switch on with an org
+	 * threshold of 0 and writes one.
+	 */
+	@IsTest
+	private static void shouldFollowTheOrgSettingsWhenNoThresholdIsSet()
+	{
+		LOG_Builder.ignoreTestMode = true;
+
+		Test.startTest();
+
+		TST_Factory.newLoggerSettings().apply();
+		dispatchWithThresholds(TriggerOperation.BEFORE_INSERT, null, null);
+		TST_Factory.newLoggerSettings().withTriggerLogging(THRESHOLD_EVERY_RUN).apply();
+		dispatchWithThresholds(TriggerOperation.AFTER_INSERT, null, null);
+
+		Test.stopTest();
+
+		Assert.isTrue(wasBeforeInsertCalled, 'Expected the before insert action to run');
+		Assert.isTrue(wasAfterInsertCalled, 'Expected the after insert action to run');
+		Assert.isNull(findPerformanceLog(TriggerOperation.BEFORE_INSERT),
+				'Expected no log entry with the org switch off and no threshold set');
+		Assert.isNotNull(findPerformanceLog(TriggerOperation.AFTER_INSERT),
+				'Expected a log entry with the org switch on and an org threshold of 0');
+	}
+
+	/**
 	 * @description Tests that performance log includes record count in the message.
 	 * Verifies the performance timer correctly captures the batch size.
 	 *
@@ -980,6 +1141,195 @@ private class TRG_Dispatcher_TEST
 		Test.stopTest();
 
 		Assert.isTrue(wasBeforeInsertCalled, 'Self-initiated action should still execute');
+	}
+
+	/**
+	 * @description Builds a second dispatcher for the Foobar before insert step that holds one action row, and stores it
+	 * in nestedDispatcher. The row does not allow a save started by another action. The tests then run it from inside
+	 * TestStartingBeforeInsert, so the starting action is first on the stack.
+	 *
+	 * @param actionClassName The full name of the action class the row names.
+	 *
+	 * @return The action row, so a test can change its settings before the run.
+	 */
+	private static TriggerAction__mdt prepareNestedDispatcher(String actionClassName)
+	{
+		TriggerAction__mdt nestedRow = TST_Factory.newTriggerActionForContext(actionClassName, TRIGGER_SETTING, TriggerOperation.BEFORE_INSERT);
+		nestedRow.AllowNonSelfInitiated__c = false;
+
+		nestedDispatcher = new TRG_Dispatcher();
+		nestedDispatcher.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
+		nestedDispatcher.context = TriggerOperation.BEFORE_INSERT;
+		nestedDispatcher.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.BEFORE_INSERT => new List<TriggerAction__mdt> {nestedRow}
+		};
+		return nestedRow;
+	}
+
+	/**
+	 * @description Runs a new dispatcher for DEFAULT_RECORD with one action: TestAfterInsert for the after insert step,
+	 * TestBeforeInsert for any other step. The action belongs to its own trigger setting for Foobar__c, so each test can
+	 * give the setting the threshold it needs.
+	 *
+	 * @param context The trigger step to run.
+	 * @param actionThresholdMs The action's PerformanceThresholdMs__c, or null to leave it blank.
+	 * @param triggerSettingThresholdMs The trigger setting's PerformanceThresholdMs__c, or null to leave it blank.
+	 */
+	private static void dispatchWithThresholds(TriggerOperation context, Integer actionThresholdMs, Integer triggerSettingThresholdMs)
+	{
+		Map<SObjectField, Object> settingOverrides = new Map<SObjectField, Object>();
+		if(triggerSettingThresholdMs != null)
+		{
+			settingOverrides.put(TriggerSetting__mdt.PerformanceThresholdMs__c, triggerSettingThresholdMs);
+		}
+		TriggerSetting__mdt triggerSetting = TST_Factory.newTriggerSetting(SEL_Foobar.OBJECT_NAME, settingOverrides);
+		TriggerAction__mdt triggerAction = TST_Factory.newTriggerActionForContext(resolveActionClassName(context), triggerSetting, context);
+		if(actionThresholdMs != null)
+		{
+			triggerAction.PerformanceThresholdMs__c = actionThresholdMs;
+		}
+
+		TRG_Dispatcher dispatcher = new TRG_Dispatcher();
+		dispatcher.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
+		dispatcher.context = context;
+		dispatcher.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				context => new List<TriggerAction__mdt> {triggerAction}
+		};
+		dispatcher.run();
+	}
+
+	/**
+	 * @description Finds the performance log entry the timer wrote for the action dispatchWithThresholds ran in one
+	 * trigger step.
+	 *
+	 * @param context The trigger step the action ran in.
+	 *
+	 * @return The log entry, or null when there is none.
+	 */
+	private static LogEntry__c findPerformanceLog(TriggerOperation context)
+	{
+		return new SEL_LogEntry().findPerformanceLogByMethod(resolveActionClassName(context) + '/' + context.name().toLowerCase());
+	}
+
+	/**
+	 * @description Names the action class dispatchWithThresholds runs for a trigger step.
+	 *
+	 * @param context The trigger step.
+	 *
+	 * @return TEST_AFTER_INSERT for the after insert step, TEST_BEFORE_INSERT for any other step.
+	 */
+	private static String resolveActionClassName(TriggerOperation context)
+	{
+		return context == TriggerOperation.AFTER_INSERT ? TEST_AFTER_INSERT : TEST_BEFORE_INSERT;
+	}
+
+	/**
+	 * @description Runs FACTORY_TRIGGER_ACTION for the Foobar before insert step with TestStartingBeforeInsert as its
+	 * only action. That action runs nestedDispatcher from inside itself.
+	 */
+	private static void runStartingAction()
+	{
+		FACTORY_TRIGGER_ACTION.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
+		FACTORY_TRIGGER_ACTION.context = TriggerOperation.BEFORE_INSERT;
+		FACTORY_TRIGGER_ACTION.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.BEFORE_INSERT => new List<TriggerAction__mdt>
+				{
+						TST_Factory.newTriggerActionForContext(TEST_STARTING_ACTION, TRIGGER_SETTING, TriggerOperation.BEFORE_INSERT)
+				}
+		};
+
+		FACTORY_TRIGGER_ACTION.run();
+	}
+
+	/**
+	 * @description Tests that an action implementing TRG_Dispatcher.NestedSaveGuard runs on a save started by another
+	 * action, even though its row does not allow a save started by another action.
+	 */
+	@IsTest
+	private static void shouldRunAGuardActionThatIsNotFirstOnTheStack()
+	{
+		prepareNestedDispatcher(TEST_NESTED_SAVE_GUARD);
+
+		Test.startTest();
+
+		runStartingAction();
+
+		Test.stopTest();
+
+		Assert.areEqual(1, startingActionCalls, 'Expected the starting action to have run the nested dispatcher');
+		Assert.areEqual(1, nestedSaveGuardCalls, 'Expected the guard action to run once on the save started by another action');
+	}
+
+	/**
+	 * @description Tests that an action without TRG_Dispatcher.NestedSaveGuard is still skipped on a save started by
+	 * another action when its row does not allow such a save.
+	 */
+	@IsTest
+	private static void shouldStillSkipAnActionThatIsNotFirstOnTheStackWithoutTheGuard()
+	{
+		prepareNestedDispatcher(TEST_BEFORE_INSERT);
+
+		Test.startTest();
+
+		runStartingAction();
+
+		Test.stopTest();
+
+		Assert.areEqual(1, startingActionCalls, 'Expected the starting action to have run the nested dispatcher');
+		Assert.isFalse(wasBeforeInsertCalled, 'Expected the action without the guard to be skipped on a save started by another action');
+	}
+
+	/**
+	 * @description Tests that an action implementing TRG_Dispatcher.NestedSaveGuard, on a save started by another
+	 * action, still cannot start itself again when its row does not allow recursion.
+	 */
+	@IsTest
+	private static void shouldStillStopAGuardActionThatIsNotFirstOnTheStackFromStartingItselfAgain()
+	{
+		TriggerAction__mdt guardRow = prepareNestedDispatcher(TEST_NESTED_SAVE_GUARD);
+		guardRow.AllowRecursion__c = false;
+		nestedSaveGuardShouldStartAgain = true;
+
+		Test.startTest();
+
+		runStartingAction();
+
+		Test.stopTest();
+
+		Assert.isFalse(nestedSaveGuardShouldStartAgain, 'Expected the guard action to have tried to start itself again');
+		Assert.areEqual(1, nestedSaveGuardCalls, 'Expected the guard action to run once and not start itself again');
+	}
+
+	/**
+	 * @description Tests that an action implementing TRG_Dispatcher.NestedSaveGuard still cannot start itself again when
+	 * its row does not allow recursion: the second start, made while the first is still running, is skipped.
+	 */
+	@IsTest
+	private static void shouldStillStopAGuardActionFromStartingItselfAgain()
+	{
+		TriggerAction__mdt guardRow = TST_Factory.newTriggerActionForContext(TEST_NESTED_SAVE_GUARD, TRIGGER_SETTING, TriggerOperation.BEFORE_INSERT);
+		guardRow.AllowRecursion__c = false;
+		guardRow.AllowNonSelfInitiated__c = false;
+
+		FACTORY_TRIGGER_ACTION.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
+		FACTORY_TRIGGER_ACTION.context = TriggerOperation.BEFORE_INSERT;
+		FACTORY_TRIGGER_ACTION.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.BEFORE_INSERT => new List<TriggerAction__mdt> {guardRow}
+		};
+		nestedSaveGuardShouldStartAgain = true;
+
+		Test.startTest();
+
+		FACTORY_TRIGGER_ACTION.run();
+
+		Test.stopTest();
+
+		Assert.isFalse(nestedSaveGuardShouldStartAgain, 'Expected the guard action to have tried to start itself again');
+		Assert.areEqual(1, nestedSaveGuardCalls, 'Expected the second start of the guard action to be skipped');
 	}
 
 	/**
@@ -1203,6 +1553,50 @@ private class TRG_Dispatcher_TEST
 		public void beforeInsert(List<SObject> triggerNew)
 		{
 			TRG_Dispatcher_TEST.wasBeforeInsertCalled = true;
+		}
+	}
+
+	/**
+	 * @description A before insert action that implements TRG_Dispatcher.NestedSaveGuard. It counts its runs and, when
+	 * asked, runs its dispatcher once more from inside itself: nestedDispatcher when set, else FACTORY_TRIGGER_ACTION.
+	 */
+	@SuppressWarnings('ApexUnusedDeclaration')
+	public class TestNestedSaveGuard implements IF_Trigger.BeforeInsert, TRG_Dispatcher.NestedSaveGuard
+	{
+		/**
+		 * @description Adds one to nestedSaveGuardCalls. When nestedSaveGuardShouldStartAgain is set, clears it and runs
+		 * nestedDispatcher again, or FACTORY_TRIGGER_ACTION when there is no nestedDispatcher, so the action tries to
+		 * start itself while it is still running.
+		 *
+		 * @param triggerNew The records about to be inserted; unused.
+		 */
+		public void beforeInsert(List<SObject> triggerNew)
+		{
+			TRG_Dispatcher_TEST.nestedSaveGuardCalls++;
+			if(TRG_Dispatcher_TEST.nestedSaveGuardShouldStartAgain)
+			{
+				TRG_Dispatcher_TEST.nestedSaveGuardShouldStartAgain = false;
+				(TRG_Dispatcher_TEST.nestedDispatcher ?? TRG_Dispatcher_TEST.FACTORY_TRIGGER_ACTION).run();
+			}
+		}
+	}
+
+	/**
+	 * @description A before insert action that runs nestedDispatcher from inside itself. It stands for an action that
+	 * saves a record and so starts another trigger while it is first on the stack.
+	 */
+	@SuppressWarnings('ApexUnusedDeclaration')
+	public class TestStartingBeforeInsert implements IF_Trigger.BeforeInsert
+	{
+		/**
+		 * @description Adds one to startingActionCalls, then runs nestedDispatcher.
+		 *
+		 * @param triggerNew The records about to be inserted; unused.
+		 */
+		public void beforeInsert(List<SObject> triggerNew)
+		{
+			TRG_Dispatcher_TEST.startingActionCalls++;
+			TRG_Dispatcher_TEST.nestedDispatcher.run();
 		}
 	}
 
@@ -1987,6 +2381,62 @@ private class TRG_Dispatcher_TEST
 	}
 
 	/**
+	 * @description A post-trigger action can be limited to a trigger setting for a change event. Such a setting names
+	 * its object in `ObjectApiNameOverride__c`, because `SObjectType__c` cannot point to a change event. When the change
+	 * event is dispatched, the action runs, even when the admin typed the name in another letter case.
+	 *
+	 * @see UTIL_PostTriggerAction
+	 * @see SEL_PostTriggerAction
+	 */
+	@IsTest
+	private static void shouldRunAPostActionScopedToAChangeEventSettingWhenTheChangeEventIsDispatched()
+	{
+		registerPostActionScopedToChangeEventSetting();
+
+		FACTORY_TRIGGER_ACTION.triggerNew = new List<SObject> {new AccountChangeEvent()};
+		FACTORY_TRIGGER_ACTION.context = TriggerOperation.AFTER_INSERT;
+		FACTORY_TRIGGER_ACTION.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.AFTER_INSERT => new List<TriggerAction__mdt>()
+		};
+
+		Test.startTest();
+		FACTORY_TRIGGER_ACTION.run();
+		Test.stopTest();
+
+		Assert.areEqual(new Set<SObjectType> {AccountChangeEvent.SObjectType}, capturedTouchedTypes,
+				'Expected the change event to be delivered to the post-action as the object that took part');
+		Assert.areEqual(1, postActionInvocationCount,
+				'Expected the post-action scoped to the change event setting to run once when the change event is dispatched');
+	}
+
+	/**
+	 * @description A post-trigger action limited to a trigger setting for a change event is skipped when another object
+	 * is dispatched.
+	 *
+	 * @see UTIL_PostTriggerAction
+	 */
+	@IsTest
+	private static void shouldSkipAPostActionScopedToAChangeEventSettingWhenAnotherObjectIsDispatched()
+	{
+		registerPostActionScopedToChangeEventSetting();
+
+		FACTORY_TRIGGER_ACTION.triggerNew = new List<Foobar__c> {DEFAULT_RECORD};
+		FACTORY_TRIGGER_ACTION.context = TriggerOperation.AFTER_INSERT;
+		FACTORY_TRIGGER_ACTION.actionMetadataOverride = new Map<TriggerOperation, List<TriggerAction__mdt>>
+		{
+				TriggerOperation.AFTER_INSERT => new List<TriggerAction__mdt>()
+		};
+
+		Test.startTest();
+		FACTORY_TRIGGER_ACTION.run();
+		Test.stopTest();
+
+		Assert.areEqual(0, postActionInvocationCount,
+				'Expected the post-action scoped to the change event setting to be skipped when only Foobar__c is dispatched');
+	}
+
+	/**
 	 * @description Verifies the hook consults the selector but fires nothing when no post-actions
 	 * are configured (empty selector result). The dispatch completes without error.
 	 *
@@ -2167,6 +2617,33 @@ private class TRG_Dispatcher_TEST
 						.withOverride(PostTriggerAction__mdt.ApexClassName__c, POST_ACTION)
 						.withOverride(PostTriggerAction__mdt.Order__c, 10)
 						.withOverride(PostTriggerAction__mdt.FailureAction__c, FAILURE_LOG_AND_CONTINUE)
+						.withoutInsertion()
+						.build()
+		};
+		postActionInvocationCount = 0;
+		capturedTouchedTypes = null;
+	}
+
+	/**
+	 * @description Registers one post-trigger action that runs TestPostAction and is limited to a trigger setting for
+	 * the Account change event. The setting names the change event only in `ObjectApiNameOverride__c`, typed in lower
+	 * case, and leaves `SObjectType__c` blank, as an admin sets up a change event setting. Resets the invocation count
+	 * and the captured object types.
+	 */
+	private static void registerPostActionScopedToChangeEventSetting()
+	{
+		TriggerSetting__mdt changeEventSetting = (TriggerSetting__mdt)TST_Builder.of(TriggerSetting__mdt.SObjectType)
+				.withOverride(TriggerSetting__mdt.ObjectApiNameOverride__c, CHANGE_EVENT_OBJECT_NAME_IN_LOWER_CASE)
+				.withoutInsertion(true)
+				.build();
+		SEL_PostTriggerAction.overrideRows = new List<PostTriggerAction__mdt>
+		{
+				(PostTriggerAction__mdt)TST_Builder.of(PostTriggerAction__mdt.SObjectType)
+						.withOverride(PostTriggerAction__mdt.DeveloperName, CHANGE_EVENT_SCOPED_POST_ACTION_NAME)
+						.withOverride(PostTriggerAction__mdt.ApexClassName__c, POST_ACTION)
+						.withOverride(PostTriggerAction__mdt.Order__c, 10)
+						.withOverride(PostTriggerAction__mdt.FailureAction__c, FAILURE_LOG_AND_CONTINUE)
+						.withOverride(PostTriggerAction__mdt.TriggerSetting__c, changeEventSetting)
 						.withoutInsertion()
 						.build()
 		};

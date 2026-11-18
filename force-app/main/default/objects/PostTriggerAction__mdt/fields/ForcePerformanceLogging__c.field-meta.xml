@@ -2,9 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>ForcePerformanceLogging__c</fullName>
     <defaultValue>false</defaultValue>
-    <description>When checked, execution time is always logged for this post-action regardless of whether it exceeds the threshold. Overrides the threshold setting. Useful for diagnosing specific slow post-actions during performance investigations.</description>
+    <description>When checked, every run of this post-trigger action is logged however long it takes, even when Enable Trigger Performance Logging is off in Log Setting. Useful for diagnosing specific slow post-trigger actions during performance investigations.</description>
     <fieldManageability>SubscriberControlled</fieldManageability>
-    <inlineHelpText>Check to always log execution time for this post-action, even when it runs below the threshold. Useful when diagnosing specific slow post-actions in production.</inlineHelpText>
+    <inlineHelpText>Check to log every run of this post-trigger action however long it takes, even when Enable Trigger Performance Logging is off in Log Setting.</inlineHelpText>
     <label>Force Performance Logging</label>
     <type>Checkbox</type>
 </CustomField>

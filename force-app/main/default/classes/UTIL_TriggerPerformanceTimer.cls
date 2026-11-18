@@ -2,8 +2,8 @@
 /**
  * @description A stopwatch for timing trigger actions with automatic performance logging.
  * Extends UTIL_StopWatch to add trigger-specific performance logging with fluent API control.
- * Respects LogSetting__c settings for EnableTriggerPerformanceLogging__c and TriggerPerformanceThresholdMs__c,
- * as well as TriggerSetting__mdt and TriggerAction__mdt level overrides.
+ * Reads the action row (TriggerAction__mdt or PostTriggerAction__mdt), the threshold of the trigger setting the action
+ * belongs to (TriggerSetting__mdt), and the org settings (LogSetting__c).
  *
  * Use this class when timing trigger actions. For other contexts, use:
  * - {@link UTIL_PerformanceTimer} for general API/operation logging (simpler, no fluent API)
@@ -11,13 +11,23 @@
  *
  * **Shared Pattern:** This class shares common patterns with its sibling timer classes:
  * governor limit tracking, fluent API (log/suppressLogging/logIfSlowerThan), threshold-based
- * logging with hierarchy (suppress > force > custom > global), and recursion guards.
+ * logging, and recursion guards.
  * See {@link UTIL_StopWatch} class documentation for design rationale.
  *
- * **Configuration Hierarchy** (highest to lowest priority):
- * 1. TriggerAction__mdt.ForcePerformanceLogging__c / SuppressPerformanceLogging__c / PerformanceThresholdMs__c
- * 2. TriggerSetting__mdt.EnablePerformanceLogging__c / PerformanceThresholdMs__c
- * 3. LogSetting__c.EnableTriggerPerformanceLogging__c / TriggerPerformanceThresholdMs__c
+ * **When a run is logged**, strongest rule first:
+ * 1. TriggerAction__mdt.SuppressPerformanceLogging__c: the action never logs, even when Force is also ticked.
+ * 2. ForcePerformanceLogging__c on the action row: the action always logs.
+ * 3. PerformanceThresholdMs__c on the action row: the action logs a run that takes this long or longer.
+ * 4. TriggerSetting__mdt.PerformanceThresholdMs__c: the same, for every action registered under that trigger setting.
+ * 5. LogSetting__c.EnableTriggerPerformanceLogging__c and TriggerPerformanceThresholdMs__c: used only when neither the
+ *    action nor its trigger setting has a threshold.
+ *
+ * A threshold on the action or on its trigger setting logs even when the org switch
+ * (EnableTriggerPerformanceLogging__c) is off. The most specific threshold that is set applies. A threshold of 0 logs
+ * every run, and a very high threshold stops the entries for those actions.
+ *
+ * The order above is for the settings on the action row; of log(), suppressLogging() and logIfSlowerThan() called on the
+ * timer, the last call decides.
  *
  * @see UTIL_StopWatch
  * @see UTIL_PerformanceTimer
@@ -28,15 +38,15 @@
  *
  * @group Utilities
  *
- * @date December 2025, October 2026
+ * @date December 2025, November 2026
  *
  * @example
  * ```apex
- * // Simple usage - logs automatically on stop() if threshold exceeded
+ * // Simple usage - logs on stop() when the run takes the threshold that applies or longer
  * UTIL_TriggerPerformanceTimer timer = new UTIL_TriggerPerformanceTimer('TRG_Account_ValidateName', 'BEFORE_INSERT', 'Account', 100);
  * timer.start();
  * // ... execute trigger action ...
- * timer.stop(); // Automatically logs if duration exceeds configured threshold
+ * timer.stop(); // Logs when the run took the threshold that applies or longer
  * ```
  */
 @SuppressWarnings('PMD.CognitiveComplexity')
@@ -59,9 +69,16 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 	private Boolean suppressLog = false;
 
 	/**
-	 * @description Custom threshold from TriggerAction__mdt or TriggerSetting__mdt.
+	 * @description The action's own threshold in milliseconds: PerformanceThresholdMs__c on the action row, or the value
+	 * given to logIfSlowerThan. Null when the action has none. It wins over triggerSettingThresholdMs.
 	 */
 	private Integer customThresholdMs;
+
+	/**
+	 * @description The threshold in milliseconds of the trigger setting the action belongs to
+	 * (TriggerSetting__mdt.PerformanceThresholdMs__c). Null when the setting has none, or the action has no setting.
+	 */
+	private Integer triggerSettingThresholdMs;
 
 	/**
 	 * @description Flow API name captured from `TriggerAction__mdt.FlowName__c` when the
@@ -148,7 +165,7 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 
 	/**
 	 * @description Forces logging regardless of threshold settings.
-	 * Takes precedence over suppressLogging() if both are called.
+	 * Clears an earlier suppressLogging(). Of log(), suppressLogging() and logIfSlowerThan(), the one called last decides.
 	 *
 	 * @return This timer instance for method chaining
 	 *
@@ -165,8 +182,9 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 	}
 
 	/**
-	 * @description Sets a custom threshold that overrides the global setting.
-	 * The action will be logged only if duration exceeds this threshold.
+	 * @description Sets the action's own threshold. It replaces the trigger setting's threshold and the org's. A run that
+	 * takes this long or longer is logged, even when the org switch for trigger performance logging is off. Clears an
+	 * earlier log() or suppressLogging(). Of log(), suppressLogging() and logIfSlowerThan(), the one called last decides.
 	 *
 	 * @param thresholdMs Custom threshold in milliseconds
 	 *
@@ -174,7 +192,7 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 	 *
 	 * @example
 	 * ```apex
-	 * timer.logIfSlowerThan(500).stop(); // Log only if > 500ms
+	 * timer.logIfSlowerThan(500).stop(); // Logs a run of 500 ms or more
 	 * ```
 	 */
 	public UTIL_TriggerPerformanceTimer logIfSlowerThan(Integer thresholdMs)
@@ -187,7 +205,7 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 
 	/**
 	 * @description Suppresses all logging for this timer instance.
-	 * Takes precedence over threshold settings but not over forceLog().
+	 * Clears an earlier log(). Of log(), suppressLogging() and logIfSlowerThan(), the one called last decides.
 	 *
 	 * @return This timer instance for method chaining
 	 *
@@ -205,7 +223,8 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 
 	/**
 	 * @description Configures the timer from TriggerAction__mdt settings.
-	 * Applies ForcePerformanceLogging__c, SuppressPerformanceLogging__c, and PerformanceThresholdMs__c.
+	 * Applies SuppressPerformanceLogging__c, ForcePerformanceLogging__c and PerformanceThresholdMs__c. When both
+	 * Suppress and Force are ticked, Suppress wins and the action never logs.
 	 *
 	 * @param triggerActionMetadata The TriggerAction__mdt record
 	 *
@@ -215,15 +234,15 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 	{
 		if(triggerActionMetadata != null)
 		{
-			if(triggerActionMetadata.ForcePerformanceLogging__c)
-			{
-				forceLog = true;
-				suppressLog = false;
-			}
-			else if(triggerActionMetadata.SuppressPerformanceLogging__c)
+			if(triggerActionMetadata.SuppressPerformanceLogging__c)
 			{
 				suppressLog = true;
 				forceLog = false;
+			}
+			else if(triggerActionMetadata.ForcePerformanceLogging__c)
+			{
+				forceLog = true;
+				suppressLog = false;
 			}
 
 			if(triggerActionMetadata.PerformanceThresholdMs__c != null)
@@ -240,11 +259,10 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 	}
 
 	/**
-	 * @description Configures the timer from `PostTriggerAction__mdt` settings — mirrors
-	 * `withActionSettings(TriggerAction__mdt)` but covers the two perf knobs that exist on
-	 * the post-action CMDT: `ForcePerformanceLogging__c` and `PerformanceThresholdMs__c`.
-	 * `SuppressPerformanceLogging__c` is intentionally not part of the post-action CMDT —
-	 * subscribers needing to silence a chatty post-action raise the threshold instead.
+	 * @description Configures the timer from `PostTriggerAction__mdt` settings, as `withActionSettings(TriggerAction__mdt)`
+	 * does for a trigger action. A post-trigger action row has two performance settings: `ForcePerformanceLogging__c`
+	 * and `PerformanceThresholdMs__c`. It has no Suppress setting: to quiet a post-trigger action, give it a very high
+	 * threshold.
 	 *
 	 * @param postTriggerActionMetadata The PostTriggerAction__mdt record
 	 *
@@ -269,6 +287,30 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 	}
 
 	/**
+	 * @description Sets the threshold of the trigger setting the action belongs to
+	 * (TriggerSetting__mdt.PerformanceThresholdMs__c). It applies when the action has no threshold of its own. A run that
+	 * takes this long or longer is logged, even when the org switch for trigger performance logging is off. A null value
+	 * changes nothing: the action follows its own threshold, or Log Setting when it has none.
+	 *
+	 * @param thresholdMs The trigger setting's threshold in milliseconds, or null when it has none.
+	 *
+	 * @return This timer instance for method chaining
+	 *
+	 * @example
+	 * ```apex
+	 * timer.withActionSettings(actionRow).withTriggerSettingThreshold(actionRow.TriggerSetting__r?.PerformanceThresholdMs__c);
+	 * ```
+	 */
+	public UTIL_TriggerPerformanceTimer withTriggerSettingThreshold(Decimal thresholdMs)
+	{
+		if(thresholdMs != null)
+		{
+			triggerSettingThresholdMs = thresholdMs.intValue();
+		}
+		return this;
+	}
+
+	/**
 	 * @description Starts the timer and captures initial governor limit values.
 	 * Tracks CPU time, heap size, SOQL queries, and DML statements.
 	 *
@@ -282,7 +324,8 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 
 	/**
 	 * @description Stops the timer and automatically logs performance if conditions are met.
-	 * Logging respects the hierarchy: suppressLogging > forceLog > customThreshold > globalThreshold.
+	 * Whether it logs follows the order in the class description: suppress, then force, then the action's threshold,
+	 * then the trigger setting's threshold, then the org settings.
 	 *
 	 * @throws UTIL_Exceptions.IllegalStateException if the stopwatch is not running
 	 */
@@ -353,8 +396,8 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 	}
 
 	/**
-	 * @description Logs performance metrics based on the configured logging hierarchy.
-	 * Hierarchy: suppressLogging > forceLog > customThreshold > globalThreshold
+	 * @description Logs the run when the rules in the class description say so: never when suppressed, always when
+	 * forced, otherwise when the run took as long as the threshold that applies (see resolveThresholdMs) or longer.
 	 */
 	private void logPerformanceIfNeeded()
 	{
@@ -374,7 +417,6 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 		{
 			isLogging = true;
 
-			LogSetting__c setting = LOG_Engine.getLogSetting();
 			Long elapsedMs = getTime();
 
 			if(forceLog)
@@ -383,23 +425,10 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 				return;
 			}
 
-			if(setting.EnableTriggerPerformanceLogging__c != true)
-			{
-				return;
-			}
-
-			Long threshold;
-			if(customThresholdMs != null)
-			{
-				threshold = customThresholdMs;
-			}
-			else
-			{
-				threshold = (Long)setting.TriggerPerformanceThresholdMs__c;
-			}
+			Long thresholdMs = resolveThresholdMs();
 
 			// Use >= so that a 0ms threshold means "log all actions"
-			if(elapsedMs >= threshold)
+			if(thresholdMs != null && elapsedMs >= thresholdMs)
 			{
 				logPerformance(elapsedMs);
 			}
@@ -408,6 +437,25 @@ public inherited sharing class UTIL_TriggerPerformanceTimer extends UTIL_StopWat
 		{
 			isLogging = false;
 		}
+	}
+
+	/**
+	 * @description Finds the threshold that applies to this run. The action's own threshold comes first, then the
+	 * threshold of its trigger setting. Either one applies even when the org switch for trigger performance logging is
+	 * off. When neither is set, the org threshold applies, but only while the org switch is on.
+	 *
+	 * @return The threshold in milliseconds, or null when the run must not be logged.
+	 */
+	private Long resolveThresholdMs()
+	{
+		Integer configuredThresholdMs = customThresholdMs ?? triggerSettingThresholdMs;
+		if(configuredThresholdMs != null)
+		{
+			return configuredThresholdMs;
+		}
+
+		LogSetting__c setting = LOG_Engine.getLogSetting();
+		return setting.EnableTriggerPerformanceLogging__c == true ? (Long)setting.TriggerPerformanceThresholdMs__c : null;
 	}
 
 	/**

@@ -3,13 +3,14 @@ title: "UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext"
 type: class
 pageClass: reference
 description: "Interface for providing context data to dynamic formula evaluations using Salesforce's FormulaEval namespace. Implementing classes supply the necessary context for evaluating formulas using SObjects."
+group: "Utilities"
 since: "1.0"
 category: apex
 ---
 
 # UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
 
-**Class**
+**Class** · Group: `Utilities`
 
 <div class="apex-member apex-class">
 
@@ -17,7 +18,7 @@ category: apex
 global interface UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
 ```
 
-**Known Derived Types:** [UTIL_FormulaContext.AccountContext](UTIL_FormulaContext.AccountContext.md), [UTIL_FormulaContext.CampaignContext](UTIL_FormulaContext.CampaignContext.md), [UTIL_FormulaContext.CaseContext](UTIL_FormulaContext.CaseContext.md), [UTIL_FormulaContext.ContactContext](UTIL_FormulaContext.ContactContext.md), [UTIL_FormulaContext.EventContext](UTIL_FormulaContext.EventContext.md), [UTIL_FormulaContext.FoobarBulkContext](UTIL_FormulaContext.FoobarBulkContext.md), [UTIL_FormulaContext.FoobarContext](UTIL_FormulaContext.FoobarContext.md), [UTIL_FormulaContext.LeadContext](UTIL_FormulaContext.LeadContext.md), [UTIL_FormulaContext.OpportunityContext](UTIL_FormulaContext.OpportunityContext.md), [UTIL_FormulaContext.TaskContext](UTIL_FormulaContext.TaskContext.md), [UTIL_FormulaContext.UserContext](UTIL_FormulaContext.UserContext.md)
+**Known Derived Types:** [UTIL_FormulaContext.AccountContext](UTIL_FormulaContext.AccountContext.md), [UTIL_FormulaContext.ApiCallContext](UTIL_FormulaContext.ApiCallContext.md), [UTIL_FormulaContext.ApiIssueContext](UTIL_FormulaContext.ApiIssueContext.md), [UTIL_FormulaContext.CampaignContext](UTIL_FormulaContext.CampaignContext.md), [UTIL_FormulaContext.CaseContext](UTIL_FormulaContext.CaseContext.md), [UTIL_FormulaContext.ContactContext](UTIL_FormulaContext.ContactContext.md), [UTIL_FormulaContext.EventContext](UTIL_FormulaContext.EventContext.md), [UTIL_FormulaContext.FoobarBulkContext](UTIL_FormulaContext.FoobarBulkContext.md), [UTIL_FormulaContext.FoobarContext](UTIL_FormulaContext.FoobarContext.md), [UTIL_FormulaContext.LeadContext](UTIL_FormulaContext.LeadContext.md), [UTIL_FormulaContext.OpportunityContext](UTIL_FormulaContext.OpportunityContext.md), [UTIL_FormulaContext.TaskContext](UTIL_FormulaContext.TaskContext.md), [UTIL_FormulaContext.UserContext](UTIL_FormulaContext.UserContext.md)
 
 Interface for providing context data to dynamic formula evaluations using Salesforce's FormulaEval namespace. Implementing classes supply the necessary context for evaluating formulas using SObjects.
 

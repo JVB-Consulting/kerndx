@@ -11,11 +11,14 @@
  * - **Flow Extensions** - Dynamic formula evaluation in Apex-backed Flow actions
  * - **Batch Processing** - Record filtering based on formula criteria
  *
- * **Supported Objects:** Account, Contact, Lead, Opportunity, Case, Campaign, Task, Event, User, Foobar__c (test object)
+ * **Supported Objects:** Account, Contact, Lead, Opportunity, Case, Campaign, Task, Event, User, ApiCall__c, ApiIssue__c, Foobar__c (test object)
  *
  * **Formula Variable Names:**
  * - `oldRecord` - Record state BEFORE an operation (null when no prior state exists)
  * - `newRecord` - Record state AFTER an operation (null when record is being removed)
+ *
+ * A formula cannot compare a picklist field with = or <>, so such a formula is refused. Turn the picklist value into text
+ * with TEXT() first, as in TEXT(newRecord.Industry) = "Technology". The examples below do this.
  *
  * Inner classes are GLOBAL because Salesforce `FormulaEval.FormulaInstance.evaluate()`
  * requires runtime access to context properties. The `global` visibility ensures
@@ -34,7 +37,7 @@
  *
  * @group Utilities
  *
- * @date January 2026, October 2026
+ * @date January 2026, November 2026
  *
  * @since 1.0
  *
@@ -42,7 +45,7 @@
  * ```apex
  * // Direct usage with Formula.builder()
  * FormulaEval.FormulaInstance formula = Formula.builder()
- *     .withFormula('newRecord.AnnualRevenue > 1000000 && newRecord.Industry = "Technology"')
+ *     .withFormula('newRecord.AnnualRevenue > 1000000 && TEXT(newRecord.Industry) = "Technology"')
  *     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
  *     .withType(UTIL_FormulaContext.AccountContext.class)
  *     .build();
@@ -51,7 +54,7 @@
  * Boolean matches = (Boolean)formula.evaluate(context);
  * ```
  */
-@SuppressWarnings('PMD.AvoidGlobalModifier')
+@SuppressWarnings('PMD.AvoidGlobalModifier,PMD.ExcessiveClassLength')
 global inherited sharing class UTIL_FormulaContext
 {
 	/**
@@ -74,12 +77,12 @@ global inherited sharing class UTIL_FormulaContext
 	 * ```apex
 	 * // --- Trigger Action Framework Usage ---
 	 * // TriggerAction__mdt.EntryCriteriaFormula__c examples:
-	 * // newRecord.Type = "Customer"
-	 * // newRecord.Industry <> oldRecord.Industry
-	 * // AND(newRecord.AnnualRevenue > 1000000, newRecord.Type = "Customer")
+	 * // TEXT(newRecord.Type) = "Customer"
+	 * // TEXT(newRecord.Industry) <> TEXT(oldRecord.Industry)
+	 * // AND(newRecord.AnnualRevenue > 1000000, TEXT(newRecord.Type) = "Customer")
 	 * // --- Direct Apex Usage (Batch, Validation, Custom Business Rules) ---
 	 * FormulaEval.FormulaInstance formula = Formula.builder()
-	 *     .withFormula('newRecord.AnnualRevenue > 1000000 && newRecord.Industry = "Technology"')
+	 *     .withFormula('newRecord.AnnualRevenue > 1000000 && TEXT(newRecord.Industry) = "Technology"')
 	 *     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
 	 *     .withType(UTIL_FormulaContext.AccountContext.class)
 	 *     .build();
@@ -221,11 +224,11 @@ global inherited sharing class UTIL_FormulaContext
 	 * @example
 	 * ```apex
 	 * // Trigger Action Framework formulas:
-	 * // newRecord.Status = "Working"
-	 * // newRecord.LeadSource <> oldRecord.LeadSource
+	 * // TEXT(newRecord.Status) = "Working"
+	 * // TEXT(newRecord.LeadSource) <> TEXT(oldRecord.LeadSource)
 	 * // Direct Apex usage:
 	 * FormulaEval.FormulaInstance formula = Formula.builder()
-	 *     .withFormula('newRecord.IsConverted = false && newRecord.Status = "Qualified"')
+	 *     .withFormula('newRecord.IsConverted = false && TEXT(newRecord.Status) = "Qualified"')
 	 *     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
 	 *     .withType(UTIL_FormulaContext.LeadContext.class)
 	 *     .build();
@@ -289,8 +292,8 @@ global inherited sharing class UTIL_FormulaContext
 	 * @example
 	 * ```apex
 	 * // Trigger Action Framework formulas:
-	 * // newRecord.StageName <> oldRecord.StageName
-	 * // newRecord.Amount > 100000 && newRecord.StageName = "Closed Won"
+	 * // TEXT(newRecord.StageName) <> TEXT(oldRecord.StageName)
+	 * // newRecord.Amount > 100000 && TEXT(newRecord.StageName) = "Closed Won"
 	 * // Direct Apex usage:
 	 * FormulaEval.FormulaInstance formula = Formula.builder()
 	 *     .withFormula('newRecord.IsClosed && newRecord.IsWon')
@@ -359,12 +362,12 @@ global inherited sharing class UTIL_FormulaContext
 	 * @example
 	 * ```apex
 	 * // Trigger Action Framework formulas:
-	 * // newRecord.Priority = "High"
-	 * // newRecord.Status <> oldRecord.Status
+	 * // TEXT(newRecord.Priority) = "High"
+	 * // TEXT(newRecord.Status) <> TEXT(oldRecord.Status)
 	 * // newRecord.IsClosed && NOT(oldRecord.IsClosed)
 	 * // Direct Apex usage:
 	 * FormulaEval.FormulaInstance formula = Formula.builder()
-	 *     .withFormula('newRecord.IsEscalated && newRecord.Priority = "High"')
+	 *     .withFormula('newRecord.IsEscalated && TEXT(newRecord.Priority) = "High"')
 	 *     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
 	 *     .withType(UTIL_FormulaContext.CaseContext.class)
 	 *     .build();
@@ -429,10 +432,10 @@ global inherited sharing class UTIL_FormulaContext
 	 * ```apex
 	 * // Trigger Action Framework formulas:
 	 * // newRecord.IsActive = true
-	 * // newRecord.Status <> oldRecord.Status
+	 * // TEXT(newRecord.Status) <> TEXT(oldRecord.Status)
 	 * // Direct Apex usage:
 	 * FormulaEval.FormulaInstance formula = Formula.builder()
-	 *     .withFormula('newRecord.IsActive && newRecord.Type = "Email"')
+	 *     .withFormula('newRecord.IsActive && TEXT(newRecord.Type) = "Email"')
 	 *     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
 	 *     .withType(UTIL_FormulaContext.CampaignContext.class)
 	 *     .build();
@@ -496,11 +499,11 @@ global inherited sharing class UTIL_FormulaContext
 	 * @example
 	 * ```apex
 	 * // Trigger Action Framework formulas:
-	 * // newRecord.Status = "Completed"
-	 * // newRecord.Priority = "High" && oldRecord.Status <> "Completed"
+	 * // TEXT(newRecord.Status) = "Completed"
+	 * // TEXT(newRecord.Priority) = "High" && TEXT(oldRecord.Status) <> "Completed"
 	 * // Direct Apex usage:
 	 * FormulaEval.FormulaInstance formula = Formula.builder()
-	 *     .withFormula('newRecord.IsClosed && newRecord.Priority = "High"')
+	 *     .withFormula('newRecord.IsClosed && TEXT(newRecord.Priority) = "High"')
 	 *     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
 	 *     .withType(UTIL_FormulaContext.TaskContext.class)
 	 *     .build();
@@ -707,7 +710,7 @@ global inherited sharing class UTIL_FormulaContext
 	 * // Trigger Action Framework formulas:
 	 * // newRecord.Checkbox__c = true
 	 * // newRecord.NumberInteger__c > oldRecord.NumberInteger__c
-	 * // newRecord.Picklist__c <> oldRecord.Picklist__c
+	 * // TEXT(newRecord.Picklist__c) <> TEXT(oldRecord.Picklist__c)
 	 * // Direct Apex usage:
 	 * FormulaEval.FormulaInstance formula = Formula.builder()
 	 *     .withFormula('newRecord.Checkbox__c && newRecord.NumberInteger__c > 100')
@@ -755,6 +758,146 @@ global inherited sharing class UTIL_FormulaContext
 		{
 			this.oldRecord = (Foobar__c)oldSObject;
 			this.newRecord = (Foobar__c)newSObject;
+		}
+	}
+
+	/**
+	 * @description Formula evaluation context for ApiCall__c records, the records that log each API call.
+	 *
+	 * A context class is the class that gives a formula its values. This one gives a formula the API call record before and after the save,
+	 * so a trigger action on ApiCall__c can use an entry formula.
+	 *
+	 * The Trigger Action Framework finds this class by itself when `EntryCriteriaContextClassName__c` is blank.
+	 * You can also use it directly in your own Apex.
+	 *
+	 * **Formula Variable Names:** `oldRecord`, `newRecord`
+	 *
+	 * @see UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
+	 *
+	 * @since 1.12
+	 *
+	 * @example
+	 * ```apex
+	 * // Trigger Action Framework formulas:
+	 * // TEXT(newRecord.Status__c) = "Failed"
+	 * // TEXT(newRecord.Status__c) <> TEXT(oldRecord.Status__c)
+	 * // Direct Apex usage:
+	 * FormulaEval.FormulaInstance formula = Formula.builder()
+	 *     .withFormula('newRecord.ServiceName__c = \'MyService\'')
+	 *     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
+	 *     .withType(UTIL_FormulaContext.ApiCallContext.class)
+	 *     .build();
+	 * UTIL_FormulaContext.ApiCallContext context = new UTIL_FormulaContext.ApiCallContext();
+	 * context.setContext(null, apiCall); // null = no old record (insert scenario)
+	 * Boolean matches = (Boolean)formula.evaluate(context);
+	 * ```
+	 */
+	global inherited sharing class ApiCallContext implements UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
+	{
+		/**
+		 * @description ApiCall__c record state BEFORE DML (null on insert).
+		 *
+		 * @since 1.12
+		 *
+		 * @example
+		 * ```apex
+		 * ApiCall__c value = instance.oldRecord;
+		 * ```
+		 */
+		global ApiCall__c oldRecord;
+
+		/**
+		 * @description ApiCall__c record state AFTER DML (null on delete).
+		 *
+		 * @since 1.12
+		 *
+		 * @example
+		 * ```apex
+		 * ApiCall__c value = instance.newRecord;
+		 * ```
+		 */
+		global ApiCall__c newRecord;
+
+		/**
+		 * @description Sets the formula evaluation context with typed ApiCall__c records.
+		 *
+		 * @param oldSObject The ApiCall__c record before DML
+		 * @param newSObject The ApiCall__c record after DML
+		 */
+		public void setContext(SObject oldSObject, SObject newSObject)
+		{
+			oldRecord = (ApiCall__c)oldSObject;
+			newRecord = (ApiCall__c)newSObject;
+		}
+	}
+
+	/**
+	 * @description Formula evaluation context for ApiIssue__c records, the records that log each failed API call.
+	 *
+	 * A context class is the class that gives a formula its values. This one gives a formula the API issue record before and after the save,
+	 * so a trigger action on ApiIssue__c can use an entry formula.
+	 *
+	 * The Trigger Action Framework finds this class by itself when `EntryCriteriaContextClassName__c` is blank.
+	 * You can also use it directly in your own Apex.
+	 *
+	 * **Formula Variable Names:** `oldRecord`, `newRecord`
+	 *
+	 * @see UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
+	 *
+	 * @since 1.12
+	 *
+	 * @example
+	 * ```apex
+	 * // Trigger Action Framework formulas:
+	 * // TEXT(newRecord.Status__c) = "Open"
+	 * // TEXT(newRecord.Status__c) <> TEXT(oldRecord.Status__c)
+	 * // Direct Apex usage:
+	 * FormulaEval.FormulaInstance formula = Formula.builder()
+	 *     .withFormula('newRecord.ServiceName__c = \'MyService\'')
+	 *     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
+	 *     .withType(UTIL_FormulaContext.ApiIssueContext.class)
+	 *     .build();
+	 * UTIL_FormulaContext.ApiIssueContext context = new UTIL_FormulaContext.ApiIssueContext();
+	 * context.setContext(null, apiIssue); // null = no old record (insert scenario)
+	 * Boolean matches = (Boolean)formula.evaluate(context);
+	 * ```
+	 */
+	global inherited sharing class ApiIssueContext implements UTIL_FormulaFilter.INT_SObjectFormulaEvaluationContext
+	{
+		/**
+		 * @description ApiIssue__c record state BEFORE DML (null on insert).
+		 *
+		 * @since 1.12
+		 *
+		 * @example
+		 * ```apex
+		 * ApiIssue__c value = instance.oldRecord;
+		 * ```
+		 */
+		global ApiIssue__c oldRecord;
+
+		/**
+		 * @description ApiIssue__c record state AFTER DML (null on delete).
+		 *
+		 * @since 1.12
+		 *
+		 * @example
+		 * ```apex
+		 * ApiIssue__c value = instance.newRecord;
+		 * ```
+		 */
+		global ApiIssue__c newRecord;
+
+		/**
+		 * @description Sets the formula evaluation context with typed ApiIssue__c records.
+		 *
+		 * @param oldSObject The ApiIssue__c record before DML
+		 * @param newSObject The ApiIssue__c record after DML
+		 */
+		public void setContext(SObject oldSObject, SObject newSObject)
+		{
+			oldRecord = (ApiIssue__c)oldSObject;
+			newRecord = (ApiIssue__c)newSObject;
 		}
 	}
 
@@ -885,7 +1028,7 @@ global inherited sharing class UTIL_FormulaContext
 			firstListSize = newRecords?.size() ?? 0;
 			firstRecordName = firstListSize > 0 ? (String)newRecords[0].get(Foobar__c.Name) : null;
 			secondListWasNull = oldRecords == null;
-			savedFoobarCount = QRY_Builder.selectFrom(Foobar__c.SObjectType).withSystemMode().count();
+			savedFoobarCount = QRY_Builder.selectFrom(Foobar__c.SObjectType).systemModeInternal().count();
 		}
 
 		/**

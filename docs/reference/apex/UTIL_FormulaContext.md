@@ -5,7 +5,7 @@ pageClass: reference
 description: "Container for pre-built formula evaluation context classes for standard Salesforce objects.  This class provides typed context implementations for Salesforce's `FormulaEval` namespace, enabling dynami"
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "January 2026, October 2026"
+date: "January 2026, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -34,13 +34,16 @@ in any scenario requiring formula evaluation, including but not limited to:
 
     - **Batch Processing** - Record filtering based on formula criteria
 
-**Supported Objects:** Account, Contact, Lead, Opportunity, Case, Campaign, Task, Event, User, Foobar__c (test object)
+**Supported Objects:** Account, Contact, Lead, Opportunity, Case, Campaign, Task, Event, User, ApiCall__c, ApiIssue__c, Foobar__c (test object)
 
 **Formula Variable Names:**
 
     - `oldRecord` - Record state BEFORE an operation (null when no prior state exists)
 
     - `newRecord` - Record state AFTER an operation (null when record is being removed)
+
+A formula cannot compare a picklist field with = or <>, so such a formula is refused. Turn the picklist value into text
+with TEXT() first, as in TEXT(newRecord.Industry) = "Technology". The examples below do this.
 
 Inner classes are GLOBAL because Salesforce `FormulaEval.FormulaInstance.evaluate()`
 requires runtime access to context properties. The `global` visibility ensures
@@ -59,7 +62,7 @@ cross-namespace access when the managed package evaluates formulas in your org.
 ```apex
 // Direct usage with Formula.builder()
 FormulaEval.FormulaInstance formula = Formula.builder()
-    .withFormula('newRecord.AnnualRevenue > 1000000 && newRecord.Industry = "Technology"')
+    .withFormula('newRecord.AnnualRevenue > 1000000 && TEXT(newRecord.Industry) = "Technology"')
     .withReturnType(FormulaEval.FormulaReturnType.BOOLEAN)
     .withType(UTIL_FormulaContext.AccountContext.class)
     .build();
@@ -79,6 +82,8 @@ Boolean matches = (Boolean)formula.evaluate(context);
 | Class | Description |
 |-------|-------------|
 | [AccountContext](UTIL_FormulaContext.AccountContext.md) | Formula evaluation context for Account object. |
+| [ApiCallContext](UTIL_FormulaContext.ApiCallContext.md) | Formula evaluation context for ApiCall__c records, the records that log each API call. |
+| [ApiIssueContext](UTIL_FormulaContext.ApiIssueContext.md) | Formula evaluation context for ApiIssue__c records, the records that log each failed API call. |
 | [CampaignContext](UTIL_FormulaContext.CampaignContext.md) | Formula evaluation context for Campaign object. |
 | [CaseContext](UTIL_FormulaContext.CaseContext.md) | Formula evaluation context for Case object. |
 | [ContactContext](UTIL_FormulaContext.ContactContext.md) | Formula evaluation context for Contact object. |

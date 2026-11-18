@@ -2,9 +2,9 @@
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>EnablePerformanceLogging__c</fullName>
     <defaultValue>true</defaultValue>
-    <description>Master switch for performance logging on this object. When enabled, execution times are tracked for all child trigger actions and logged when they exceed the threshold. Individual actions can override via Suppress Performance Logging or Force Performance Logging.</description>
+    <description>Deprecated. This checkbox has no effect. To control slow-action logging for the actions registered under this trigger setting, use Performance Threshold (ms) on this trigger setting. Leave it blank to follow Log Setting. Set a number to log every run that takes that many milliseconds or longer, even when Enable Trigger Performance Logging is off in Log Setting. Set a very high number to stop those entries.</description>
     <fieldManageability>SubscriberControlled</fieldManageability>
-    <inlineHelpText>Check to track execution times for all trigger actions on this object. Actions exceeding the threshold are logged. Individual actions can override this setting.</inlineHelpText>
-    <label>Enable Performance Logging</label>
+    <inlineHelpText>Deprecated: this checkbox has no effect. Use Performance Threshold (ms) instead. Blank follows Log Setting. A number logs every run of the actions under this trigger setting that takes that long or longer, even when Enable Trigger Performance Logging is off in Log Setting. A very high number stops those entries.</inlineHelpText>
+    <label>Enable Performance Logging (Deprecated)</label>
     <type>Checkbox</type>
 </CustomField>

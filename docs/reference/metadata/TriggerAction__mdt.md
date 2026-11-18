@@ -40,12 +40,12 @@ Registers a single trigger action: one Apex class bound to one trigger event (e.
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Event__c](#event__c) | The specific trigger event (e.g. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [FailureAction__c](#failureaction__c) | Controls how this trigger action handles unhandled errors raised during dispatch — flow runtime faults for flow actions, uncaught Apex exceptions for Apex actions. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [FlowName__c](#flowname__c) | API name of the active flow that runs as this trigger action. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ForcePerformanceLogging__c](#forceperformancelogging__c) | When checked, execution time is always logged for this action regardless of whether it exceeds the threshold. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ForcePerformanceLogging__c](#forceperformancelogging__c) | When checked, every run of this action is logged however long it takes, even when Enable Trigger Performance Logging is off in Log Setting. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [Order__c](#order__c) | Controls the order trigger actions run in on the same object and event, lowest first. |
-| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [PerformanceThresholdMs__c](#performancethresholdms__c) | Action-level performance threshold in milliseconds. |
+| global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [PerformanceThresholdMs__c](#performancethresholdms__c) | Performance threshold in milliseconds for this action. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [RequiredFeatureFlag__c](#requiredfeatureflag__c) | Optional. |
 | global [FeatureFlag__mdt](../metadata/FeatureFlag__mdt.md) [RequiredFeatureFlag__r](#requiredfeatureflag__r) | Optional. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [SuppressPerformanceLogging__c](#suppressperformancelogging__c) | When checked, performance logging is completely suppressed for this action even if the parent Trigger Setting has logging enabled. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [SuppressPerformanceLogging__c](#suppressperformancelogging__c) | When checked, this action never writes a performance log entry, whatever the thresholds or Log Setting say. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [TriggerSetting__c](#triggersetting__c) | Links this action to its parent Trigger Setting, which identifies the SObject the trigger fires on. |
 | global [TriggerSetting__mdt](../metadata/TriggerSetting__mdt.md) [TriggerSetting__r](#triggersetting__r) | Links this action to its parent Trigger Setting, which identifies the SObject the trigger fires on. |
 
@@ -260,7 +260,7 @@ API name of the active flow that runs as this trigger action. The flow must be a
 global Boolean ForcePerformanceLogging__c
 ```
 
-When checked, execution time is always logged for this action regardless of whether it exceeds the threshold. Overrides both the action-level and object-level threshold settings. Useful for monitoring specific actions during performance investigations.
+When checked, every run of this action is logged however long it takes, even when Enable Trigger Performance Logging is off in Log Setting. If Suppress Performance Logging is also checked, Suppress wins and nothing is logged. Useful for monitoring specific actions during performance investigations.
 
 **Field Attributes:**
 
@@ -292,7 +292,7 @@ Controls the order trigger actions run in on the same object and event, lowest f
 global Decimal PerformanceThresholdMs__c
 ```
 
-Action-level performance threshold in milliseconds. When set, the action is logged if its execution time exceeds this value. Overrides both the object-level (Trigger Setting) and global thresholds. Leave blank to inherit from the parent Trigger Setting or global default.
+Performance threshold in milliseconds for this action. When set, a run that takes that long or longer is logged, even when Enable Trigger Performance Logging is off in Log Setting. It wins over the threshold of the action's trigger setting and over Trigger Performance Threshold (ms) in Log Setting. 0 logs every run. A very high number stops the entries for this action. Leave blank to use the trigger setting's threshold, or Log Setting when the trigger setting has none. Suppress Performance Logging and Force Performance Logging win over this value.
 
 **Field Attributes:**
 
@@ -341,7 +341,7 @@ Optional. This action ONLY RUNS when the Feature Flag is enabled.
 global Boolean SuppressPerformanceLogging__c
 ```
 
-When checked, performance logging is completely suppressed for this action even if the parent Trigger Setting has logging enabled. Use this for lightweight actions where logging overhead is unnecessary. Takes precedence over Force Performance Logging if both are checked.
+When checked, this action never writes a performance log entry, whatever the thresholds or Log Setting say. Use this for lightweight actions where logging is not needed. Takes precedence over Force Performance Logging if both are checked.
 
 **Field Attributes:**
 

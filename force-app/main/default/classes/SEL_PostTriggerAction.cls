@@ -12,19 +12,47 @@
  *
  * @group Triggers
  *
- * @date May 2026, October 2026
+ * @date May 2026, November 2026
  *
  * @since 1.1
  */
 public inherited sharing class SEL_PostTriggerAction
 {
 	/**
-	 * @description Relationship path for `TriggerSetting__r.SObjectType__c`. When a row links a
-	 * trigger setting, the handler uses this path to run the row only if the setting's SObject
-	 * took part in the transaction.
+	 * @description Relationship path for `TriggerSetting__r.SObjectType__c`. The handler reads the linked setting's
+	 * object from here only when neither the typed object name nor the related object's API name is filled in, as on a
+	 * setting a test builds in memory.
 	 */
 	private static final String PATH_TRIGGER_SETTING_SOBJECT_TYPE =
 			UTIL_SObjectDescribe.getCachedFieldDescribe(PostTriggerAction__mdt.TriggerSetting__c).getRelationshipName() + '.SObjectType__c';
+
+	/**
+	 * @description Relationship path for `TriggerSetting__r.ObjectApiNameOverride__c`: the object name an admin typed on
+	 * the linked setting. A setting for a change event (for example a Change Data Capture event) names its object here,
+	 * because `SObjectType__c` cannot point to a change event. The handler reads this name first.
+	 */
+	private static final String PATH_TRIGGER_SETTING_OBJECT_API_NAME_OVERRIDE =
+			UTIL_SObjectDescribe.getCachedFieldDescribe(PostTriggerAction__mdt.TriggerSetting__c).getRelationshipName() + '.'
+			+ UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.ObjectApiNameOverride__c);
+
+	/**
+	 * @description Relationship path for `TriggerSetting__r.SObjectType__r.QualifiedApiName`: the API name of the linked
+	 * setting's object. For a custom object, `SObjectType__c` holds the object's record id (it starts with `01I`), not
+	 * its name, so the handler reads the name from here. The namespace prefix is added by hand because `SObjectType__c`
+	 * links to EntityDefinition, and its describe gives no relationship name.
+	 */
+	private static final String PATH_TRIGGER_SETTING_SOBJECT_QUALIFIED_API_NAME =
+			UTIL_SObjectDescribe.getCachedFieldDescribe(PostTriggerAction__mdt.TriggerSetting__c).getRelationshipName() + '.'
+			+ UTIL_System.getManagedPackageNamespacePrefix() + 'SObjectType__r.QualifiedApiName';
+
+	/**
+	 * @description Relationship path for `TriggerSetting__r.PerformanceThresholdMs__c`: the performance threshold of the
+	 * linked setting. The handler gives it to the performance timer, which uses it when the row has no threshold of its
+	 * own.
+	 */
+	private static final String PATH_TRIGGER_SETTING_PERFORMANCE_THRESHOLD =
+			UTIL_SObjectDescribe.getCachedFieldDescribe(PostTriggerAction__mdt.TriggerSetting__c).getRelationshipName() + '.'
+			+ UTIL_SObjectDescribe.getCachedFieldName(TriggerSetting__mdt.PerformanceThresholdMs__c);
 
 	/**
 	 * @description Relationship path for `RequiredFeatureFlag__r.DeveloperName` (namespace-safe).
@@ -90,9 +118,11 @@ public inherited sharing class SEL_PostTriggerAction
 	 *
 	 * Queried fields cover everything the handler needs at runtime: identity, Apex
 	 * class binding, gating (feature flags, entry-criteria evaluator, TriggerSetting
-	 * scope), failure-action policy, and per-row performance knobs. Two relationship
-	 * traversals: `TriggerSetting__r.SObjectType__c` (for the optional scope filter)
-	 * and the two feature-flag `DeveloperName`s. See `queriedFieldNames()` for the
+	 * scope), failure-action policy, and per-row performance settings. Relationship
+	 * traversals: `TriggerSetting__r.ObjectApiNameOverride__c`, `TriggerSetting__r.SObjectType__c` and
+	 * `TriggerSetting__r.SObjectType__r.QualifiedApiName` (for the optional scope filter),
+	 * `TriggerSetting__r.PerformanceThresholdMs__c` (the setting's performance threshold) and the two feature-flag
+	 * `DeveloperName`s. See `queriedFieldNames()` for the
 	 * full list of selected fields.
 	 *
 	 * @return A list of active `PostTriggerAction__mdt` rows sorted by `Order__c` ascending, with
@@ -127,6 +157,9 @@ public inherited sharing class SEL_PostTriggerAction
 				UTIL_SObjectDescribe.getCachedFieldName(PostTriggerAction__mdt.EntryCriteriaContextClassName__c),
 				UTIL_SObjectDescribe.getCachedFieldName(PostTriggerAction__mdt.TriggerSetting__c),
 				PATH_TRIGGER_SETTING_SOBJECT_TYPE,
+				PATH_TRIGGER_SETTING_SOBJECT_QUALIFIED_API_NAME,
+				PATH_TRIGGER_SETTING_OBJECT_API_NAME_OVERRIDE,
+				PATH_TRIGGER_SETTING_PERFORMANCE_THRESHOLD,
 				UTIL_SObjectDescribe.getCachedFieldName(PostTriggerAction__mdt.PerformanceThresholdMs__c),
 				UTIL_SObjectDescribe.getCachedFieldName(PostTriggerAction__mdt.ForcePerformanceLogging__c),
 				UTIL_SObjectDescribe.getCachedFieldName(PostTriggerAction__mdt.RequiredFeatureFlag__c),

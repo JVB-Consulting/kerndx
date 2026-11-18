@@ -35,7 +35,7 @@ Registers a single post-trigger action: one Apex class that runs once after all 
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [Description__c](#description__c) | Human-readable explanation of what this post-trigger action does and why it exists. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [EntryCriteriaContextClassName__c](#entrycriteriacontextclassname__c) | Optional. |
 | global [String](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_string.htm) [FailureAction__c](#failureaction__c) | Controls how this post-trigger action handles unhandled Apex exceptions. |
-| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ForcePerformanceLogging__c](#forceperformancelogging__c) | When checked, execution time is always logged for this post-action regardless of whether it exceeds the threshold. |
+| global [Boolean](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_boolean.htm) [ForcePerformanceLogging__c](#forceperformancelogging__c) | When checked, every run of this post-trigger action is logged however long it takes, even when Enable Trigger Performance Logging is off in Log Setting. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [Order__c](#order__c) | Controls the order post-trigger actions run in within the same transaction, lowest first. |
 | global [Decimal](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_decimal.htm) [PerformanceThresholdMs__c](#performancethresholdms__c) | Optional. |
 | global [Id](https://developer.salesforce.com/docs/atlas.en-us.apexref.meta/apexref/apex_methods_system_id.htm) [RequiredFeatureFlag__c](#requiredfeatureflag__c) | Optional. |
@@ -169,7 +169,7 @@ Controls how this post-trigger action handles unhandled Apex exceptions. Log and
 global Boolean ForcePerformanceLogging__c
 ```
 
-When checked, execution time is always logged for this post-action regardless of whether it exceeds the threshold. Overrides the threshold setting. Useful for diagnosing specific slow post-actions during performance investigations.
+When checked, every run of this post-trigger action is logged however long it takes, even when Enable Trigger Performance Logging is off in Log Setting. Useful for diagnosing specific slow post-trigger actions during performance investigations.
 
 **Field Attributes:**
 
@@ -201,7 +201,7 @@ Controls the order post-trigger actions run in within the same transaction, lowe
 global Decimal PerformanceThresholdMs__c
 ```
 
-Optional. Post-action-level performance threshold in milliseconds. When set, the post-action is logged if its execution time exceeds this value. Overrides the global default. Leave blank to inherit from the global Log Setting default. Post-actions can do arbitrary work (aggregate SOQL, computed audit, telemetry roll-ups) so per-row thresholds let admins tune alerting per action.
+Optional. Performance threshold in milliseconds for this post-trigger action. When set, a run that takes that long or longer is logged, even when Enable Trigger Performance Logging is off in Log Setting. Leave blank to use the threshold of the linked trigger setting, or Log Setting when the row has no trigger setting or the setting has no threshold. 0 logs every run. A very high number stops the entries for this action. Post-trigger actions can do any work (summary queries, audit records, usage totals), so a threshold on each row lets admins choose which actions to watch.
 
 **Field Attributes:**
 

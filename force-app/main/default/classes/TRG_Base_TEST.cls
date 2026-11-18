@@ -39,6 +39,18 @@ private class TRG_Base_TEST
 	private static final String OBJECT_NAME = SEL_Foobar.OBJECT_NAME;
 
 	/**
+	 * @description The bare class name of a trigger action the package ships, written as plain text on purpose. It is
+	 * the name a developer would type, without any package prefix. The tests check it reaches the same action as the
+	 * full class name in every org.
+	 */
+	private static final String PACKAGED_ACTION_BARE_CLASS_NAME = 'TRG_AsyncChainRunTransition';
+
+	/**
+	 * @description A trigger action class name that no trigger action record uses.
+	 */
+	private static final String UNREGISTERED_ACTION_CLASS_NAME = 'TRG_NoSuchActionAnywhere';
+
+	/**
 	 * @description Tests that before execution of trigger works as expected
 	 *
 	 * @see IF_Trigger.BeforeInsert
@@ -813,8 +825,9 @@ private class TRG_Base_TEST
 
 	/**
 	 * @description Tests that `TRG_Base.bypassAction(String)` emits a `trigger-action` audit
-	 * entry recording the action class name as the target. Closes the CAP-055 documented edge
-	 * case for the trigger action-class bypass surface.
+	 * entry recording, as the target, the class name of the trigger action the given name stands for (with the
+	 * package prefix where the package has one). Closes the CAP-055 documented edge case for the trigger action-class
+	 * bypass surface.
 	 *
 	 * @see TRG_Base.bypassAction
 	 * @see UTIL_BypassAudit.emit
@@ -829,7 +842,7 @@ private class TRG_Base_TEST
 		TRG_Base.bypassAction('TRG_SetFoobarDefaults');
 		Test.stopTest();
 
-		Map<String, Object> context = findTriggerAuditContext('TRG_SetFoobarDefaults', UTIL_BypassAudit.SURFACE_TRIGGER_ACTION);
+		Map<String, Object> context = findTriggerAuditContext(TRG_SetFoobarDefaults.class.getName(), UTIL_BypassAudit.SURFACE_TRIGGER_ACTION);
 		Assert.isNotNull(context, 'bypassAction should emit a trigger-action audit entry');
 		Assert.areEqual(UTIL_BypassAudit.ACTION_BYPASS, context.get(UTIL_BypassAudit.CONTEXT_ACTION), 'Action should be BYPASS');
 	}
@@ -927,6 +940,122 @@ private class TRG_Base_TEST
 
 		Assert.isFalse(TRG_Base.isActionBypassed('trg_setfoobardefaults'),
 				'clearActionBypass should remove the bypass regardless of casing');
+	}
+
+	/**
+	 * @description Tests that a bypass by the bare class name of an action the package ships reaches the action by its
+	 * full class name, which is also the name the trigger dispatcher checks. It proves the rule only in an org whose
+	 * trigger action records carry the package prefix, as an installed package's do; elsewhere the two names are the same.
+	 *
+	 * @see TRG_Base.bypassAction
+	 * @see TRG_Base.isActionBypassed
+	 * @see TRG_Base.isRegisteredActionBypassed
+	 */
+	@IsTest
+	private static void shouldBypassPackagedActionByBareClassName()
+	{
+		String fullClassName = TRG_AsyncChainRunTransition.class.getName();
+
+		Test.startTest();
+		TRG_Base.bypassAction(PACKAGED_ACTION_BARE_CLASS_NAME);
+		Test.stopTest();
+
+		Assert.isTrue(TRG_Base.isActionBypassed(fullClassName), 'Expected a bypass by the bare class name to reach the action by its full name');
+		Assert.isTrue(TRG_Base.isRegisteredActionBypassed(fullClassName), 'Expected the trigger dispatcher check to see the bypass made by the bare class name');
+	}
+
+	/**
+	 * @description Tests that a bypass by the full class name of an action the package ships is found by its bare class
+	 * name. It proves the rule only in an org whose trigger action records carry the package prefix, as an installed
+	 * package's do; elsewhere the two names are the same.
+	 *
+	 * @see TRG_Base.bypassAction
+	 * @see TRG_Base.isActionBypassed
+	 */
+	@IsTest
+	private static void shouldFindPackagedActionBypassByBareClassName()
+	{
+		TRG_Base.bypassAction(TRG_AsyncChainRunTransition.class.getName());
+
+		Test.startTest();
+		Boolean isBypassed = TRG_Base.isActionBypassed(PACKAGED_ACTION_BARE_CLASS_NAME);
+		Test.stopTest();
+
+		Assert.isTrue(isBypassed, 'Expected the bare class name to find a bypass made by the full class name');
+	}
+
+	/**
+	 * @description Tests that clearing a bypass by the bare class name of an action the package ships removes a bypass
+	 * made by its full class name. It proves the rule only in an org whose trigger action records carry the package
+	 * prefix, as an installed package's do; elsewhere the two names are the same.
+	 *
+	 * @see TRG_Base.clearActionBypass
+	 */
+	@IsTest
+	private static void shouldClearPackagedActionBypassByBareClassName()
+	{
+		String fullClassName = TRG_AsyncChainRunTransition.class.getName();
+		TRG_Base.bypassAction(fullClassName);
+
+		Test.startTest();
+		TRG_Base.clearActionBypass(PACKAGED_ACTION_BARE_CLASS_NAME);
+		Test.stopTest();
+
+		Assert.isFalse(TRG_Base.isActionBypassed(fullClassName), 'Expected clearing by the bare class name to remove the bypass');
+		Assert.isFalse(TRG_Base.isRegisteredActionBypassed(fullClassName), 'Expected the trigger dispatcher check to see the bypass is gone');
+	}
+
+	/**
+	 * @description Tests that a name no trigger action record uses is kept exactly as given, so the trigger dispatcher
+	 * check still finds it by that name.
+	 *
+	 * @see TRG_Base.bypassAction
+	 * @see TRG_Base.isRegisteredActionBypassed
+	 */
+	@IsTest
+	private static void shouldKeepUnregisteredActionClassNameAsGiven()
+	{
+		Test.startTest();
+		TRG_Base.bypassAction(UNREGISTERED_ACTION_CLASS_NAME);
+		Test.stopTest();
+
+		Assert.isTrue(TRG_Base.isRegisteredActionBypassed(UNREGISTERED_ACTION_CLASS_NAME.toLowerCase()),
+				'Expected a name that matches no trigger action to be kept as given');
+	}
+
+	/**
+	 * @description Tests that the trigger dispatcher check and the public check both say no when nothing is bypassed.
+	 *
+	 * @see TRG_Base.isActionBypassed
+	 * @see TRG_Base.isRegisteredActionBypassed
+	 */
+	@IsTest
+	private static void shouldReportNoActionBypassedWhenNoneIsSet()
+	{
+		Test.startTest();
+		Boolean isBypassed = TRG_Base.isActionBypassed(PACKAGED_ACTION_BARE_CLASS_NAME);
+		Boolean isRegisteredBypassed = TRG_Base.isRegisteredActionBypassed(TRG_AsyncChainRunTransition.class.getName());
+		Test.stopTest();
+
+		Assert.isFalse(isBypassed, 'Expected no action to be bypassed when no bypass was set');
+		Assert.isFalse(isRegisteredBypassed, 'Expected the trigger dispatcher check to find no bypass when none was set');
+	}
+
+	/**
+	 * @description Tests that a blank action name is stored and found as it is, without any name lookup.
+	 *
+	 * @see TRG_Base.bypassAction
+	 * @see TRG_Base.isActionBypassed
+	 */
+	@IsTest
+	private static void shouldKeepBlankActionClassNameAsGiven()
+	{
+		Test.startTest();
+		TRG_Base.bypassAction(UTIL_String.EMPTY);
+		Test.stopTest();
+
+		Assert.isTrue(TRG_Base.isActionBypassed(UTIL_String.EMPTY), 'Expected a blank action name to be stored and found as it is');
+		Assert.isFalse(TRG_Base.isActionBypassed(PACKAGED_ACTION_BARE_CLASS_NAME), 'Expected a blank bypass not to cover a real action');
 	}
 
 	/**

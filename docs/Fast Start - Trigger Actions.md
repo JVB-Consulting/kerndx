@@ -6,67 +6,29 @@ navOrder: 10
 
 **Framework:** KernDX | **Total time:** ~20 minutes
 
-**What this is:** A way to put trigger logic into small, focused Apex classes (one per behaviour) and wire them to an object through configuration records, so you can add, reorder, or switch a behaviour off without editing or redeploying the trigger. **Why it exists:** Hand-written triggers tend to grow into one large file that is hard to read, test, or change safely; this keeps each behaviour separate and independently testable. **Who should follow it:** developers and admins adding automation to an object. **When to use it:** any time you'd otherwise write or extend a trigger. If a single Flow or a simple validation rule already covers what you need, use that first; this pattern earns its keep once an object has real Apex logic, several behaviours, or an order you need to control.
+- **What this is:** A way to put trigger logic into small, focused Apex classes (one per behaviour) and wire them to an object through configuration records, so you can add, reorder, or switch a behaviour off without editing or redeploying the trigger.
+- **Why it exists:** Hand-written triggers tend to grow into one large file that is hard to read, test, or change safely; this keeps each behaviour separate and independently testable.
+- **Who should follow it:** developers and admins adding automation to an object.
+- **When to use it:** any time you'd otherwise write or extend a trigger. If a single Flow or a simple validation rule already covers what you need with no Apex, use that; once an object's records run Apex when they change, that Apex goes into trigger actions.
+- **What you'll build:** A trigger action that stamps default field values on new records. You'll create the
+  handler class, wire it up with metadata, and add a test class with 100% coverage.
+- **Success looks like:** You insert an Account, see the default Description populated automatically, and
+  have 2 passing tests with 100% coverage.
+- **In one line:** `new kern.TRG_Dispatcher().run();` is the only line in the trigger; all logic lives in handler
+  classes configured via Custom Metadata.
 
 > **Namespaces in code samples:** `kern.` on a class and `kern__` on an object, field, or metadata type mark the managed package's namespace.
 > On the managed package, framework references need those prefixes even where a sample omits them; repackaged under your own namespace, replace `kern`/`kern__`
 > with your prefix; on an unmanaged deploy, drop them. See [How to read the code samples](Installation.md#how-to-read-the-code-samples).
 
-**What you'll build:** A trigger action that stamps default field values on new records. You'll create the
-handler class, wire it up with metadata, and add a test class with 100% coverage.
-
-**Success looks like:** You insert an Account, see the default Description populated automatically, and
-have 2 passing tests with 100% coverage.
-
-**In one line:** `new kern.TRG_Dispatcher().run();` is the only line in the trigger; all logic lives in handler
-classes configured via Custom Metadata.
-
 ## Before you start
 
-Open your terminal in your project's top folder, the one that holds `sfdx-project.json`; on Windows that terminal is
-Command Prompt. Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready)
-once: it proves your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that
-today? Carry on. Work in a sandbox or a scratch org, never production. Every command below writes `YourOrgAlias`
-where your org's alias goes: the name you gave it when you logged in.
-
----
-
-## Table of Contents
-
-<details>
-<summary>Expand</summary>
-
-1. [Before you start](#before-you-start)
-2. [How It Works](#how-it-works)
-3. [Tier 1: Build It (~5 minutes)](#tier-1-build-it-5-minutes)
-    - [Step 1: Create the trigger action](#step-1-create-the-trigger-action)
-    - [Step 2: Create the physical trigger](#step-2-create-the-physical-trigger)
-    - [Step 3: Register the action](#step-3-register-the-action)
-    - [Step 4: Verify](#step-4-verify)
-4. [Tier 2: Test It (~3 minutes)](#tier-2-test-it-3-minutes)
-    - [Step 5: Write and run the test](#step-5-write-and-run-the-test)
-    - [Testing Flow Actions with TST_InvokeFlowMock](#testing-flow-actions-with-tst_invokeflowmock)
-5. [Tier 3: Production Patterns (~10 minutes)](#tier-3-production-patterns-10-minutes)
-    - [Available Interfaces](#available-interfaces)
-    - [Comparing Old vs New Values (Update Context)](#comparing-old-vs-new-values-update-context)
-    - [Bypass Mechanisms](#bypass-mechanisms)
-    - [Feature Flag Integration](#feature-flag-integration)
-    - [Ordering Multiple Actions](#ordering-multiple-actions)
-6. [Using Flow as a Trigger Action](#using-flow-as-a-trigger-action)
-    - [Variable contract](#variable-contract)
-    - [Configure the TriggerAction__mdt record](#configure-the-triggeraction__mdt-record)
-    - [Clean up](#clean-up)
-7. [Common Issues](#common-issues)
-    - [Step 1: Create the trigger action](#step-1-create-the-trigger-action-1)
-    - [Step 2: Create the physical trigger](#step-2-create-the-physical-trigger-1)
-    - [Step 3: Register the action](#step-3-register-the-action-1)
-    - [Step 4: Verify](#step-4-verify-1)
-    - [Step 5: Write and run the test](#step-5-write-and-run-the-test-1)
-    - [Clean up](#clean-up-1)
-8. [What You Now Know](#what-you-now-know)
-9. [Next Steps](#next-steps)
-
-</details>
+- Open your terminal in your project's top folder, the one that holds `sfdx-project.json`. On Windows that terminal is
+  Command Prompt.
+- Run the four-line check on [Set Up Your Computer](Set%20Up%20Your%20Computer.md#check-you-are-ready) once: it proves
+  your terminal, the CLI, your login and the KernDX package, and answers what goes wrong. Done that today? Carry on.
+- Work in a sandbox or a scratch org, never production.
+- Every command below writes `YourOrgAlias` where your org's alias goes: the name you gave it when you logged in.
 
 ---
 
@@ -81,10 +43,6 @@ To get there, the framework splits the work into four pieces:
 | **Trigger action** (`TRG_AccountSetDefaults`) | One class per behaviour                        | One per action       |
 | **`TriggerSetting__mdt`**                     | Per-object configuration                      | One per object       |
 | **`TriggerAction__mdt`**                      | Wires actions to events and controls their run order | One per action+event |
-
-**Why?** Adding a behaviour, removing one, or changing the order they run becomes a configuration change rather
-than a code change. Each behaviour lives in its own class, so you can test it on its own. And you never end up
-with one large trigger file that everyone is afraid to touch.
 
 ---
 
@@ -307,15 +265,13 @@ Something went wrong? See [Common Issues, Step 4](#step-4-verify-1).
 
 ## Tier 2: Test It (~3 minutes)
 
-> **Testing a trigger action in your own org:** call the handler directly. Build an in-memory record with
-> `kern.TST_Builder` (using `.withoutInsertion()` so no DML runs), call your handler's method, and assert on
-> the record. This needs no framework metadata setup and fully covers your handler's logic. Calling the
-> handler directly is the supported pattern.
-
 ### Step 5: Write and run the test
 
 The test class checks both cases: a blank Description gets the default, and one that is already filled in is left
-alone. You create the empty class with one command, paste the code into it, send it to your org, then run it.
+alone. It calls the handler directly, which is the supported pattern for testing a trigger action in your own org
+(the note after the test run says why).
+
+You create the empty class with one command, paste the code into it, send it to your org, then run it.
 
 **1. In the terminal**, from your project's top folder, create the empty test class:
 
@@ -411,9 +367,10 @@ trigger `TRG_Account` with low or no coverage: the trigger has no test of its ow
 > **Why invoke the handler directly?** `beforeInsert` is a plain method that takes the trigger records, so
 > you can call it straight from the test. You pass it an in-memory `kern.TST_Builder` record, built with
 > `.withoutInsertion()` so no DML runs and no validation rules fire. That exercises your logic directly and
-> gives 100% coverage with no setup, and it's the supported way to test a handler in your own org. (To check
-> the full metadata wiring from end to end, keep the records from Step 3 in your org and assert against an inserted
-> record, either from an integration test or from the Verify step above.)
+> gives 100% coverage with no framework metadata setup.
+>
+> To check the full metadata wiring from end to end, keep the records from Step 3 in your org and assert against an
+> inserted record, either from an integration test or from the Verify step above.
 
 Something went wrong? See [Common Issues, Step 5](#step-5-write-and-run-the-test-1).
 
@@ -541,26 +498,25 @@ all actions for the object) or on a `TriggerAction__mdt` record (turns off a sin
 > **Every bypass is audit-logged.** Whenever a trigger is bypassed, the framework records what happened, so the
 > off-switch can't be used quietly. `bypass()`, `bypassAction()`, and their clear counterparts each write a WARN
 > `LogEntry__c` with category `BypassEvent`, capturing the action, the type, the target, and a reason if one was
-> given. Later you can query `kern__LogEntry__c` to answer "who bypassed which trigger, when, and why?" See the
+> given.
+>
+> Later you can query `kern__LogEntry__c` to answer "who bypassed which trigger, when, and why?" See the
 > [Triggers Guide](Triggers%20-%20Guide.md#bypass-mechanisms) for the full bypass API.
 
 ### Feature Flag Integration
 
-You can make a trigger action depend on a Feature Flag, an on/off switch you control without a deployment.
-When the flag is off or missing, the action is skipped automatically, so you can release the logic but keep it
-dark until you're ready to turn it on. Point an action at a flag with `RequiredFeatureFlag__c` on your
-`TriggerAction__mdt` record.
+You can make a trigger action depend on a Feature Flag, an on/off switch you control without a deployment. Point an
+action at a flag with `RequiredFeatureFlag__c` on your `TriggerAction__mdt` record. When the flag is off or missing,
+the action is skipped automatically, so you can release the logic but keep it dark until you're ready to turn it on.
 
-Create the `AccountDefaults` Feature Flag first (see [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)),
-because the field only accepts a flag that exists; while that flag is off, the framework skips the action.
+Create the `AccountDefaults` Feature Flag first (see [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md)
+for creating `FeatureFlag__mdt` records), because the field only accepts a flag that exists.
 
 **In Salesforce**, add this value to the record, then pull it as in Step 3.2:
 
 | Field                 | API name                       | Value             |
 |-----------------------|--------------------------------|-------------------|
 | Required Feature Flag | `kern__RequiredFeatureFlag__c` | `AccountDefaults` |
-
-See [Fast Start - Feature Flags](Fast%20Start%20-%20Feature%20Flags.md) for creating `FeatureFlag__mdt` records.
 
 ### Ordering Multiple Actions
 
@@ -578,9 +534,10 @@ When several actions run on the same event, you control the sequence with the `O
 ## Using Flow as a Trigger Action
 
 A trigger action doesn't have to be Apex. You can run an auto-launched flow instead, which lets an admin build
-the behaviour with no code. To do this, set `kern__FlowName__c` on a `TriggerAction__mdt` row and leave
-`kern__ApexClassName__c` blank. The framework runs the flow for you, and the flow gets the same ordering,
-bypass, recursion control, and feature-flag gating that an Apex action does.
+the behaviour with no code. The framework runs the flow for you, and the flow gets the same ordering, bypass,
+recursion control, and feature-flag gating that an Apex action does.
+
+To do this, set `kern__FlowName__c` on a `TriggerAction__mdt` row and leave `kern__ApexClassName__c` blank.
 
 ### Variable contract
 
@@ -615,12 +572,14 @@ Full developer reference: [Triggers - Guide → Flow as a Trigger Action](Trigge
 
 ### Clean up
 
-If you built this example only to try the framework, run these two commands when you have finished the guide. Run
-them in this order: the org refuses to delete the trigger setting while a trigger action still points at it. If you
-also created the flow's Trigger Action record above, or the Tier 3 one for `TRG_AccountIndustryChanged`, delete that
-record in Setup before command 2, for the same reason, and delete the file you pulled for it from
-`force-app/main/default/customMetadata` too, or a later deploy would create the record again. Delete the Tier 3 class
-the way you created it. The Verify step's `Test Company` account stays; delete it in the app, or leave it.
+If you built this example only to try the framework, run these two commands when you have finished the guide:
+
+- **Run them in this order:** the org refuses to delete the trigger setting while a trigger action still points at it.
+- **Other Trigger Action records:** if you also created the flow's Trigger Action record above, or the Tier 3 one for
+  `TRG_AccountIndustryChanged`, delete that record in Setup before command 2, for the same reason. Delete the file you
+  pulled for it from `force-app/main/default/customMetadata` too, or a later deploy would create the record again.
+- **The Tier 3 class:** delete it the way you created it.
+- **The Verify step's `Test Company` account** stays; delete it in the app, or leave it.
 
 **1. In the terminal**, delete the two classes, the trigger and the trigger action record:
 
@@ -745,12 +704,12 @@ Still stuck? [Tell us](https://github.com/JVB-Consulting/kerndx/issues/new?templ
 **Key patterns:**
 
 - **One class per action**: each does one thing and can be tested on its own
-- **`inherited sharing`**: the default sharing mode for trigger actions
 - **Configuration-driven ordering**: `Order__c` controls the run sequence
 - **Bypass without code**: the `BypassExecution__c` checkbox, no deployment needed
 - **Audit-logged bypass**: every bypass call writes a WARN `LogEntry__c` with category `BypassEvent`
 - **`global`**: required for classes in your own org (or `public` with a Type Resolver)
-- **Bulk-safe**: always loop over all records, and never put SOQL inside a loop
+- **`inherited sharing` (the default for trigger actions) and bulk-safe loops**: see the key patterns in [Step 4](#step-4-verify); never put SOQL inside
+  a loop
 - **Test setup**: call your handler directly with a `kern.TST_Builder` record (built
   `.withoutInsertion()`); no framework metadata setup needed
 

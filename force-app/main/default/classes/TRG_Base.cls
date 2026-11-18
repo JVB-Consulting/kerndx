@@ -29,7 +29,7 @@
  *
  * @group Triggers
  *
- * @date February 2026, July 2026
+ * @date February 2026, November 2026
  *
  * @since 1.0
  *
@@ -64,6 +64,12 @@ global inherited sharing virtual class TRG_Base
 	 */
 	@TestVisible
 	private static final Set<String> BYPASSED_ACTIONS = new Set<String>();
+
+	/**
+	 * @description Remembers which registered action each name given to a bypass call stands for, so each name is
+	 * looked up only once in a transaction. The key is the given name in lower case; the value is the name to use.
+	 */
+	private static final Map<String, String> RESOLVED_ACTION_CLASS_NAMES = new Map<String, String>();
 
 	/**
 	 * @description Sentinel target recorded when every bypass of a given type is cleared.
@@ -442,32 +448,36 @@ global inherited sharing virtual class TRG_Base
 	}
 
 	/**
-	 * @description Bypasses a specific trigger action class by name. The name is the class name as the trigger action
-	 * record carries it: for one of your own actions, the bare class name; for an action the package ships, the name
-	 * with the package prefix, such as 'kern.TRG_AsyncChainRunTransition'. A bare name for a packaged action matches
-	 * nothing, and the action keeps running.
+	 * @description Bypasses a specific trigger action class by name. Upper and lower case do not matter. For an action
+	 * the package ships, give the bare class name, such as 'TRG_AsyncChainRunTransition': it works in an org where the
+	 * package has a prefix and in one where it does not. The name with the prefix, such as
+	 * 'kern.TRG_AsyncChainRunTransition', works only in an org where the package has that prefix. If one of your own
+	 * actions has exactly the name you give, the bypass is for your action.
 	 *
-	 * @param actionClassName The class name of the trigger action to bypass, with the package prefix for a packaged action.
+	 * @param actionClassName The class name of the trigger action to bypass. The package prefix is not needed.
 	 *
 	 * @since 1.0
 	 *
 	 * @example
 	 * ```apex
+	 * kern.TRG_Base.bypassAction('TRG_AsyncChainRunTransition'); // an action the package ships
+	 * kern.TRG_Base.bypassAction('kern.TRG_AsyncChainRunTransition'); // the same action, where the package prefix is kern
 	 * kern.TRG_Base.bypassAction('TRG_SetFoobarDefaults'); // one of your own actions
-	 * kern.TRG_Base.bypassAction('kern.TRG_AsyncChainRunTransition'); // an action the package ships
 	 * Boolean isBypassed = kern.TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // true
 	 * ```
 	 */
 	global static void bypassAction(String actionClassName)
 	{
-		TRG_Base.BYPASSED_ACTIONS.add(normalizeActionKey(actionClassName));
-		logBypassEvent(BypassAction.BYPASS, BypassType.CLASS_NAME, actionClassName);
+		String resolvedClassName = resolveActionClassName(actionClassName);
+		BYPASSED_ACTIONS.add(normalizeActionKey(resolvedClassName));
+		logBypassEvent(BypassAction.BYPASS, BypassType.CLASS_NAME, resolvedClassName);
 	}
 
 	/**
-	 * @description Checks if a specific trigger action class is bypassed.
+	 * @description Checks if a specific trigger action class is bypassed. The name is matched the same way as in
+	 * bypassAction: the bare class name works for an action the package ships, and case does not matter.
 	 *
-	 * @param actionClassName The class name of the trigger action to check.
+	 * @param actionClassName The class name of the trigger action to check. The package prefix is not needed.
 	 *
 	 * @return Boolean True if the action class is bypassed, false otherwise.
 	 *
@@ -475,33 +485,110 @@ global inherited sharing virtual class TRG_Base
 	 *
 	 * @example
 	 * ```apex
-	 * TRG_Base.bypassAction('TRG_SetFoobarDefaults');
-	 * Boolean isBypassed = TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // true
+	 * kern.TRG_Base.bypassAction('TRG_AsyncChainRunTransition');
+	 * Boolean isBypassed = kern.TRG_Base.isActionBypassed('TRG_AsyncChainRunTransition'); // true
 	 * ```
 	 */
 	global static Boolean isActionBypassed(String actionClassName)
 	{
-		return TRG_Base.BYPASSED_ACTIONS.contains(normalizeActionKey(actionClassName));
+		if(BYPASSED_ACTIONS.isEmpty())
+		{
+			return false;
+		}
+		return BYPASSED_ACTIONS.contains(normalizeActionKey(resolveActionClassName(actionClassName)));
 	}
 
 	/**
-	 * @description Clears the bypass for a specific trigger action class, allowing it to execute.
+	 * @description Checks if a trigger action is bypassed, using the class name exactly as its trigger action record
+	 * gives it. The trigger dispatcher calls this for every action it runs, so it only looks in the bypass list and
+	 * does not look the name up again. Case does not matter.
 	 *
-	 * @param actionClassName The class name of the trigger action to clear from bypass.
+	 * @param registeredClassName The class name as the trigger action record gives it.
+	 *
+	 * @return True if the action is bypassed, false otherwise.
+	 *
+	 * @see TRG_Dispatcher
+	 */
+	public static Boolean isRegisteredActionBypassed(String registeredClassName)
+	{
+		return !BYPASSED_ACTIONS.isEmpty() && BYPASSED_ACTIONS.contains(normalizeActionKey(registeredClassName));
+	}
+
+	/**
+	 * @description Clears the bypass for a specific trigger action class, allowing it to execute. The name is matched
+	 * the same way as in bypassAction: the bare class name works for an action the package ships, and case does not
+	 * matter.
+	 *
+	 * @param actionClassName The class name of the trigger action to clear from bypass. The package prefix is not needed.
 	 *
 	 * @since 1.0
 	 *
 	 * @example
 	 * ```apex
-	 * TRG_Base.bypassAction('TRG_SetFoobarDefaults');
-	 * TRG_Base.clearActionBypass('TRG_SetFoobarDefaults');
-	 * Boolean isBypassed = TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // false
+	 * kern.TRG_Base.bypassAction('TRG_SetFoobarDefaults');
+	 * kern.TRG_Base.clearActionBypass('TRG_SetFoobarDefaults');
+	 * Boolean isBypassed = kern.TRG_Base.isActionBypassed('TRG_SetFoobarDefaults'); // false
 	 * ```
 	 */
 	global static void clearActionBypass(String actionClassName)
 	{
-		TRG_Base.BYPASSED_ACTIONS.remove(normalizeActionKey(actionClassName));
-		logBypassEvent(BypassAction.CLEAR, BypassType.CLASS_NAME, actionClassName);
+		String resolvedClassName = resolveActionClassName(actionClassName);
+		BYPASSED_ACTIONS.remove(normalizeActionKey(resolvedClassName));
+		logBypassEvent(BypassAction.CLEAR, BypassType.CLASS_NAME, resolvedClassName);
+	}
+
+	/**
+	 * @description Works out which trigger action a name given to a bypass call stands for, so that the bare class
+	 * name of an action the package ships works in every org. The result for each name is remembered for the rest of
+	 * the transaction. A null or blank name is returned as it is.
+	 *
+	 * @param actionClassName The class name as the caller gave it.
+	 *
+	 * @return The class name to store and compare.
+	 *
+	 * @see SEL_TriggerAction
+	 */
+	private static String resolveActionClassName(String actionClassName)
+	{
+		if(String.isBlank(actionClassName))
+		{
+			return actionClassName;
+		}
+		String cacheKey = actionClassName.toLowerCase();
+		String resolvedClassName = RESOLVED_ACTION_CLASS_NAMES.get(cacheKey);
+		if(resolvedClassName == null)
+		{
+			resolvedClassName = findRegisteredActionClassName(actionClassName);
+			RESOLVED_ACTION_CLASS_NAMES.put(cacheKey, resolvedClassName);
+		}
+		return resolvedClassName;
+	}
+
+	/**
+	 * @description Finds the registered trigger action a name stands for. These rules are checked in order:
+	 * 1. If a trigger action record has exactly this class name, the name is used as it is. Your own action always
+	 *    matches this way.
+	 * 2. Otherwise, when the package has a namespace and the name does not already start with it, the name with the
+	 *    namespace and a dot in front is used if a trigger action record has that class name.
+	 * 3. Otherwise the name is used as it is.
+	 *
+	 * @param actionClassName The class name as the caller gave it. It is not blank.
+	 *
+	 * @return The class name of the matching trigger action, or the given name when nothing else matches.
+	 *
+	 * @see SEL_TriggerAction
+	 * @see UTIL_System
+	 */
+	private static String findRegisteredActionClassName(String actionClassName)
+	{
+		if(SEL_TriggerAction.isRegisteredActionClassName(actionClassName))
+		{
+			return actionClassName;
+		}
+		String namespacePrefix = UTIL_System.getManagedPackageNamespacePrefix(UTIL_String.DOT);
+		Boolean canAddNamespace = String.isNotBlank(namespacePrefix) && !actionClassName.startsWithIgnoreCase(namespacePrefix);
+		String namespacedClassName = namespacePrefix + actionClassName;
+		return canAddNamespace && SEL_TriggerAction.isRegisteredActionClassName(namespacedClassName) ? namespacedClassName : actionClassName;
 	}
 
 	/**

@@ -5,7 +5,7 @@ pageClass: reference
 description: "Class that can filter list of SObject based on Formula Information provided adapted from:apex-trigger-actions-framework"
 author: "Jason Van Beukering"
 group: "Utilities"
-date: "April 2025, October 2026"
+date: "April 2025, November 2026"
 since: "1.0"
 category: apex
 ---
@@ -26,7 +26,7 @@ Class that can filter list of SObject based on Formula Information provided adap
 
 ```apex
 UTIL_FormulaFilter filter = new UTIL_FormulaFilter(
-    'MyProcess', 'UTIL_FormulaContext.AccountContext', 'newRecord.Industry == "Technology"'
+    'MyProcess', 'UTIL_FormulaContext.AccountContext', 'TEXT(newRecord.Industry) == "Technology"'
 );
 UTIL_FormulaFilter.DTO_FilterResults results = filter.filter(oldRecords, newRecords);
 ```

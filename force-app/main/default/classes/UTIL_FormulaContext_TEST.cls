@@ -3,6 +3,7 @@
  * @description Unit tests for UTIL_FormulaContext inner classes.
  * Tests ONLY that context classes correctly cast and assign old/new records.
  * Formula evaluation is tested separately in UTIL_FormulaFilter_TEST.
+ * One more test checks that the bulk test context's preLoad() writes no bypass entry for its own read.
  *
  * Uses in-memory mocked records - NO DML to avoid subscriber org automation.
  *
@@ -12,7 +13,7 @@
  *
  * @group Utilities
  *
- * @date January 2026, October 2026
+ * @date January 2026, November 2026
  */
 @IsTest(seeAllData=false isParallel=true)
 @SuppressWarnings('PMD.ApexUnitTestClassShouldHaveRunAs,PMD.ApexUnitTestClassShouldHaveAsserts')
@@ -29,6 +30,21 @@ private class UTIL_FormulaContext_TEST
 	 * into JSON and read this key to see whether a new record was stored.
 	 */
 	private static final String NEW_RECORD_KEY = 'newRecord';
+
+	/**
+	 * @description The smallest number of records the preLoad() test gives the bulk context.
+	 */
+	private static final Integer MINIMUM_RECORD_COUNT = 2;
+
+	/**
+	 * @description The largest number of records the preLoad() test gives the bulk context.
+	 */
+	private static final Integer MAXIMUM_RECORD_COUNT = 10;
+
+	/**
+	 * @description The start of the target of a bypass entry for a system-mode read. The object's name follows it.
+	 */
+	private static final String SYSTEM_MODE_TARGET_PREFIX = 'system-mode:';
 
 	/**
 	 * @description Calls setContext and asserts context state matches input.
@@ -222,5 +238,62 @@ private class UTIL_FormulaContext_TEST
 		assertContextClassBehavior(UTIL_FormulaContext.FoobarContext.class, Foobar__c.SObjectType);
 
 		Test.stopTest();
+	}
+
+	/**
+	 * @description Tests ApiCallContext keeps the old and new API call records on update, insert and delete.
+	 *
+	 * @see UTIL_FormulaContext.ApiCallContext
+	 */
+	@IsTest
+	private static void apiCallContextHandlesAllScenarios()
+	{
+		Test.startTest();
+
+		assertContextClassBehavior(UTIL_FormulaContext.ApiCallContext.class, ApiCall__c.SObjectType);
+
+		Test.stopTest();
+	}
+
+	/**
+	 * @description Tests ApiIssueContext keeps the old and new API issue records on update, insert and delete.
+	 *
+	 * @see UTIL_FormulaContext.ApiIssueContext
+	 */
+	@IsTest
+	private static void apiIssueContextHandlesAllScenarios()
+	{
+		Test.startTest();
+
+		assertContextClassBehavior(UTIL_FormulaContext.ApiIssueContext.class, ApiIssue__c.SObjectType);
+
+		Test.stopTest();
+	}
+
+	/**
+	 * @description Tests that the preLoad() method of the bulk test context counts the Foobar__c records with a
+	 * system-mode read. That read is the framework's own, so it writes no bypass entry. The test turns logging on and
+	 * holds the entries in memory instead of saving them, so it can count them.
+	 *
+	 * @see UTIL_FormulaContext.FoobarBulkContext.preLoad
+	 */
+	@IsTest
+	private static void shouldWriteNoBypassEntryWhenTheEntryFormulaContextCountsRecords()
+	{
+		Integer recordCount = UTIL_Random.nextInteger(MINIMUM_RECORD_COUNT, MAXIMUM_RECORD_COUNT);
+		List<SObject> foobars = TST_Builder.of(Foobar__c.SObjectType).withCount(recordCount).withoutInsertion().buildList();
+		UTIL_FormulaContext.FoobarBulkContext context = new UTIL_FormulaContext.FoobarBulkContext();
+		LOG_Builder.ignoreTestMode = true;
+		TST_Factory.setupLoggerForTest();
+		LOG_Builder.suspendSaving();
+
+		Test.startTest();
+		context.preLoad(foobars, null);
+		Test.stopTest();
+
+		Assert.areEqual(1, context.preLoadRunCount, 'Expected preLoad() to run once, got ' + context.preLoadRunCount);
+		Assert.areEqual(recordCount, context.firstListSize, 'Expected preLoad() to keep the size of the list it got, got ' + context.firstListSize);
+		Integer bypassEntries = UTIL_BypassAudit_TEST.countBufferedBypassEntries(UTIL_BypassAudit.SURFACE_QUERY, SYSTEM_MODE_TARGET_PREFIX + String.valueOf(Foobar__c.SObjectType));
+		Assert.areEqual(0, bypassEntries, 'Expected no bypass entry for the framework\'s own count of the records, got ' + bypassEntries);
 	}
 }

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <CustomField xmlns="http://soap.sforce.com/2006/04/metadata">
     <fullName>PerformanceThresholdMs__c</fullName>
-    <description>Action-level performance threshold in milliseconds. When set, the action is logged if its execution time exceeds this value. Overrides both the object-level (Trigger Setting) and global thresholds. Leave blank to inherit from the parent Trigger Setting or global default.</description>
+    <description>Performance threshold in milliseconds for this action. When set, a run that takes that long or longer is logged, even when Enable Trigger Performance Logging is off in Log Setting. It wins over the threshold of the action's trigger setting and over Trigger Performance Threshold (ms) in Log Setting. 0 logs every run. A very high number stops the entries for this action. Leave blank to use the trigger setting's threshold, or Log Setting when the trigger setting has none. Suppress Performance Logging and Force Performance Logging win over this value.</description>
     <externalId>false</externalId>
     <fieldManageability>SubscriberControlled</fieldManageability>
-    <inlineHelpText>Log this action when execution exceeds this duration (ms). Overrides the object-level threshold. Leave blank to inherit from the Trigger Setting or global default.</inlineHelpText>
+    <inlineHelpText>Log a run of this action that takes this many milliseconds or longer, even when Enable Trigger Performance Logging is off in Log Setting. Wins over the trigger setting's threshold. Blank uses the trigger setting's threshold, or Log Setting when that is blank too.</inlineHelpText>
     <label>Performance Threshold (ms)</label>
     <precision>8</precision>
     <required>false</required>
